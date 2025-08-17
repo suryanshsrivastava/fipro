@@ -26,8 +26,8 @@ This Python script processes bank statements to extract and structure transactio
 
 ### 1. Transaction Line Grouping
 - Function: `group_transaction_lines()`
-- Purpose: Groups lines belonging to same transaction
-- Uses Init.Br values as transaction delimiters
+- Purpose: Groups lines belonging to the same transaction
+- Uses the Init. Br values as transaction delimiters
 - Handles multi-line transaction descriptions
 
 ### 2. Transaction Parser
@@ -51,7 +51,7 @@ This Python script processes bank statements to extract and structure transactio
 
 - Number of transactions validation
 - First/Last transaction verification
-- Init.Br code validation (2177, 248, 100)
+- Init. Br code validation (2177, 248, 100)
 - Balance calculation validation
 - Credit/Debit amount validation
 
@@ -69,12 +69,13 @@ Text file with bank statement data in fixed format:
 ```
 Date       Particulars                           Debit        Credit       Balance    Init.Br
 DD-MM-YYYY Description                          Amount        Amount       Balance    Code
+15-01-2024 Salary Credit - January 2024                                   50000.00    50000.00    2177
 ```
 
 ### Output
 CSV file with fields:
 ```
-Tran Date,Chq No,Particulars,Debit,Credit,Balance,Init. Br
+Tran Date,Chq No,Particulars,Debit,Credit,Balance,Init.Br
 ```
 
 ## Technical Details
@@ -88,6 +89,20 @@ Tran Date,Chq No,Particulars,Debit,Credit,Balance,Init. Br
 - Preserves transaction order
 - Maintains 2 decimal place precision
 - Supports three branch codes (2177, 248, 100)
+- **Currency Handling**: All currency and balance calculations must use a Decimal library (or integer cents/fixed-point) to avoid floating-point rounding errors and preserve exact 2-decimal precision
+
+**Decimal Usage Example:**
+```python
+from decimal import Decimal, ROUND_HALF_UP
+
+# Correct way to handle currency
+amount = Decimal('123.45')
+balance = Decimal('1000.00')
+new_balance = balance + amount
+
+# Avoid floating-point arithmetic
+# amount = 123.45  # Don't use float for currency
+```
 
 ## Extension Points
 
@@ -99,21 +114,6 @@ Tran Date,Chq No,Particulars,Debit,Credit,Balance,Init. Br
 
 ---
 
-the notes I have on the project so far dumped here:
-
-# Program
-
-^df25f3
-
-frequency: [[Month]]ly
-
-- Download the transactions history from all the 3 banks till date
-- the flow starts from [[Axis]] which is my salary credit account
-	- [[HDFC]]: this is what we use for granular transactions going forward
-	- [[SBI]]: this is where the allotted more structured transactions go
-- go DFS?
-- annotate pdf for credit card statements
-	- verify and pay
-[[Budgeting]]
+Personal project notes moved to [docs/NOTES.md](docs/NOTES.md).
 
 
