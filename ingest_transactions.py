@@ -20,13 +20,13 @@ def extract_transactions(data_path: str):
     """Main function to extract and write transactions to CSV"""
     
     crawled_files: List[CrawledFile] = []
-    supported_extensions = {'PDF', 'xls', 'csv'}
+    supported_extensions = {'pdf', 'xls', 'csv'}
 
     for root, _, files in os.walk(data_path):
         for file in files:
             file_path = os.path.join(root, file)
-            extension = file.split('.')[-1]
-           
+            extension = file.split('.')[-1].lower()
+
             if extension not in supported_extensions:
                 continue
 
@@ -41,9 +41,13 @@ def extract_transactions(data_path: str):
                 if extension == 'PDF':
                     # PDF processing is currently skipped as in original code
                     pass
-                elif extension == 'xls':
-                    xls = pd.ExcelFile(file_path)
-                    file_info['sheet_names'] = xls.sheet_names
+                elif extension.lower() in ['xls', 'xlsx']:
+                    try:
+                        with pd.ExcelFile(file_path) as xls:
+                            file_info['sheet_names'] = xls.sheet_names
+                    except Exception as e:
+                        print(f"Error reading Excel file {file_path}: {e}")
+                        file_info['sheet_names'] = []
                 elif extension == 'csv':
                     with open(file_path, 'r', encoding='utf-8') as f:
                         file_info['row_count'] = sum(1 for _ in f)
