@@ -1,6 +1,6 @@
 # Design Document: fipro (Financial Project)
 
-**Version:** 1.1
+**Version:** 1.2
 
 ## 1. Overview
 
@@ -18,7 +18,7 @@
 
 ## 2. System Architecture
 
-The system is designed as a multi-stage data processing pipeline. Each stage is a distinct module that performs a specific task, passing its output to the next stage.
+The system is designed as a multi-stage data processing pipeline. Each stage is a distinct module that performs a specific task, passing its output to the next stage. **Note:** The current implementation is Python-based, but the architecture is designed to evolve into a multi-language microservices platform as outlined in the Future Roadmap (Section 7).
 
 ### 2.1. Architectural Diagram
 
@@ -99,7 +99,7 @@ A core, unified data model is crucial for consolidation. All extracted transacti
 
 ## 5. Project Roadmap and Status
 
-### Milestone 1: Core Pipeline (In Progress)
+### Current Implementation Status
 
 *   [x] Basic PDF text extraction scripts.
 *   [x] Parser for SBI statements.
@@ -110,19 +110,21 @@ A core, unified data model is crucial for consolidation. All extracted transacti
 *   [ ] **To-Do:** Set up the SQLite database and `SQLAlchemy` ORM.
 *   [ ] **To-Do:** Implement duplicate detection using hashing.
 
-### Milestone 2: API and Basic Frontend (Not Started)
+### Short-term Goals (Next 3 months)
 
 *   [ ] **To-Do:** Develop a FastAPI server with endpoints to `GET` transactions.
 *   [ ] **To-Do:** Set up a basic React application using `create-react-app`.
 *   [ ] **To-Do:** Create a simple table view to display all transactions.
 *   [ ] **To-Do:** Add filtering and sorting to the transaction table.
 
-### Milestone 3: Advanced Features (Future)
+### Medium-term Goals (3-6 months)
 
 *   [ ] **To-Do:** Implement transaction categorization in the UI.
 *   [ ] **To-Do:** Create a dashboard with summary widgets (e.g., spending by category).
 *   [ ] **To-Do:** Add rule-based auto-categorization (e.g., "all transactions with 'AMAZON' are 'Shopping'").
 *   [ ] **To-Do:** Research and implement simple charting/visualization.
+
+**Note:** For the comprehensive multi-language architecture roadmap, see Section 7: Future Roadmap: Multi-Language Architecture.
 
 ## 6. Future Ideas (Post-MVP)
 
@@ -130,3 +132,172 @@ A core, unified data model is crucial for consolidation. All extracted transacti
 *   **Investment Tracking:** Connect to brokerage APIs or parse investment statements.
 *   **ML-based Categorization:** Use machine learning to automatically suggest categories for new transactions.
 *   **Cloud Deployment:** Package the application in Docker containers and deploy it to a cloud service.
+
+**Note:** For detailed technology recommendations and the multi-language architecture roadmap, see the companion document: `docs/TECH_STACK.md`.
+
+## 7. Future Roadmap: Multi-Language Architecture
+
+### 7.1. Vision Statement
+
+Transform `fipro` from a Python-centric application into a **polyglot microservices architecture** where each component is built in the language best suited for its specific function. This approach leverages the strengths of different programming languages to achieve optimal performance, maintainability, and developer productivity.
+
+### 7.2. Language-Specific Component Mapping
+
+#### **Go (Golang) - I/O and Concurrency Layer**
+*   **Primary Responsibilities:**
+    *   File system monitoring and orchestration
+    *   High-throughput PDF ingestion pipeline
+    *   Concurrent processing of multiple bank statements
+    *   Real-time file change detection (using `fsnotify`)
+    *   HTTP API gateway and load balancing
+*   **Why Go:**
+    *   **Goroutines:** Handle thousands of concurrent PDF processing tasks
+    *   **Channels:** Implement backpressure and work distribution
+    *   **Zero-copy I/O:** Efficient file handling for large PDFs
+    *   **Static binaries:** Easy deployment without runtime dependencies
+*   **Target Components:**
+    *   File orchestrator service
+    *   PDF ingestion service
+    *   API gateway
+    *   Task queue manager
+
+#### **Julia - Data Processing and Analytics Engine**
+*   **Primary Responsibilities:**
+    *   Large-scale transaction data consolidation
+    *   Statistical analysis and pattern recognition
+    *   Financial data cleaning and transformation
+    *   Machine learning model training for categorization
+    *   Complex financial calculations and aggregations
+*   **Why Julia:**
+    *   **Performance:** Near-C speed for numerical computations
+    *   **DataFrames.jl:** Superior to pandas for large datasets
+    *   **Multiple dispatch:** Elegant handling of different data types
+    *   **Parallel computing:** Built-in support for distributed processing
+    *   **Financial packages:** Rich ecosystem for financial analysis
+*   **Target Components:**
+    *   Data processing service
+    *   Analytics engine
+    *   ML categorization service
+    *   Financial reporting service
+
+#### **Rust - Performance-Critical Components**
+*   **Primary Responsibilities:**
+    *   PDF parsing core (replacing Python libraries)
+    *   High-frequency database operations
+    *   Memory-intensive data structures
+    *   Cryptographic operations (hashing, encryption)
+*   **Why Rust:**
+    *   **Memory safety:** Zero-cost abstractions with guaranteed safety
+    *   **Performance:** C/C++ level performance without GC overhead
+    *   **Concurrency:** Fearless concurrency with ownership system
+    *   **WASM support:** Potential for browser-based processing
+*   **Target Components:**
+    *   PDF parsing engine
+    *   Database connector
+    *   Security service
+
+#### **Python - Orchestration and Integration Layer**
+*   **Primary Responsibilities:**
+    *   Service coordination and workflow management
+    *   API development and business logic
+    *   Integration with external services
+    *   Configuration management and deployment
+*   **Why Python (Retained):**
+    *   **Ecosystem:** Rich libraries for web frameworks, ML, and data science
+    *   **Developer productivity:** Rapid prototyping and iteration
+    *   **Integration:** Excellent support for various APIs and protocols
+    *   **Team expertise:** Existing knowledge and experience
+
+### 7.3. Architecture Evolution Phases
+
+#### **Phase 1: Foundation (Months 1-3)**
+*   Implement Go-based file orchestrator
+*   Create service communication layer (gRPC/HTTP)
+*   Establish containerized deployment pipeline
+*   **Success Metrics:** 10x improvement in concurrent file processing
+
+#### **Phase 2: Data Processing (Months 4-6)**
+*   Migrate data processing to Julia service
+*   Implement distributed data processing pipeline
+*   Add real-time analytics capabilities
+*   **Success Metrics:** 5x improvement in large dataset processing
+
+#### **Phase 3: Performance Optimization (Months 7-9)**
+*   Integrate Rust-based PDF parser
+*   Optimize database operations
+*   Implement caching and memoization layers
+*   **Success Metrics:** 3x improvement in PDF processing speed
+
+#### **Phase 4: Advanced Features (Months 10-12)**
+*   ML-powered categorization service
+*   Real-time financial insights dashboard
+*   Advanced reporting and visualization
+*   **Success Metrics:** 90%+ accuracy in auto-categorization
+
+### 7.4. Technical Implementation Strategy
+
+#### **Service Communication**
+*   **Primary:** gRPC for inter-service communication (type-safe, high-performance)
+*   **Fallback:** HTTP REST APIs for external integrations
+*   **Message Queue:** Redis Streams or Apache Kafka for async processing
+
+#### **Data Flow Architecture**
+```
+PDF Files → Go Orchestrator → Rust Parser → Julia Processor → Python API → Frontend
+    ↓              ↓              ↓            ↓           ↓
+  File System   Task Queue   Raw Data    Clean Data   Business Logic
+```
+
+#### **Deployment Strategy**
+*   **Containerization:** Docker containers for each service
+*   **Orchestration:** Kubernetes for production, Docker Compose for development
+*   **Service Mesh:** Istio for advanced traffic management and observability
+*   **Monitoring:** Prometheus + Grafana for metrics, Jaeger for tracing
+
+### 7.5. Migration and Compatibility
+
+#### **Backward Compatibility**
+*   Maintain Python API compatibility during transition
+*   Implement feature flags for gradual rollout
+*   Provide migration scripts for existing data
+
+#### **Data Migration Strategy**
+*   **Phase 1:** Dual-write to both old and new systems
+*   **Phase 2:** Read from new system, validate against old
+*   **Phase 3:** Complete cutover with rollback capability
+
+#### **Testing Strategy**
+*   **Contract testing:** Ensure service interfaces remain stable
+*   **Performance testing:** Validate improvements at each phase
+*   **Chaos engineering:** Test system resilience and failure modes
+
+### 7.6. Risk Mitigation
+
+#### **Technical Risks**
+*   **Complexity:** Mitigate with comprehensive documentation and training
+*   **Integration challenges:** Use well-established protocols (gRPC, REST)
+*   **Performance regressions:** Implement continuous performance monitoring
+
+#### **Operational Risks**
+*   **Team expertise:** Invest in training and knowledge sharing
+*   **Deployment complexity:** Use infrastructure as code and automated testing
+*   **Monitoring gaps:** Implement comprehensive observability from day one
+
+### 7.7. Success Criteria and KPIs
+
+#### **Performance Metrics**
+*   **Throughput:** Process 1000+ PDFs concurrently
+*   **Latency:** Sub-second response time for API calls
+*   **Scalability:** Linear scaling with additional resources
+
+#### **Business Metrics**
+*   **Accuracy:** 99%+ transaction extraction accuracy
+*   **Reliability:** 99.9% uptime for critical services
+*   **Developer Velocity:** 2x faster feature development
+
+#### **Operational Metrics**
+*   **Deployment Frequency:** Multiple deployments per day
+*   **Lead Time:** < 1 hour from commit to production
+*   **MTTR:** < 15 minutes for critical incidents
+
+This multi-language architecture represents a significant evolution of the `fipro` system, transforming it from a monolithic Python application into a high-performance, scalable, and maintainable microservices platform that leverages the best capabilities of each programming language.
