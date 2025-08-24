@@ -1,8 +1,22 @@
 import os
 import pandas as pd
+import tomllib
+from pathlib import Path
 from typing import List, Tuple, Optional
 from dataclasses import dataclass, field
 from datetime import datetime
+
+def load_config() -> dict:
+    """Load configuration from config.toml file"""
+    config_path = Path('config.toml')
+    if not config_path.exists():
+        print("config.toml not found. Please create a configuration file.")
+        raise FileNotFoundError("config.toml not found")
+    
+    with open(config_path, 'rb') as f:
+        config = tomllib.load(f)
+    
+    return config
 
 @dataclass
 class CrawledFile:
@@ -256,8 +270,9 @@ def tag_transactions(df: pd.DataFrame) -> pd.DataFrame:
 
 if __name__ == "__main__":
     # Configuration
-    data_path = 'data/input'
-    output_dir = 'data/output'
+    config = load_config()
+    data_path = config['paths']['input_data']
+    output_dir = config['paths']['output_data']
     os.makedirs(output_dir, exist_ok=True)
 
     # Step 1: Crawl files and identify bank statements

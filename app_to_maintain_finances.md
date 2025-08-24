@@ -1,5 +1,3 @@
-
-
 - Starting point
 	- I need to be able to parse a pdf and load that info into an excel or csv format
 	- need to look for an [[Artificial Intelligence|ai]] editor?

@@ -1,0 +1,17 @@
+# Configuration file for transaction extraction script
+
+[paths]
+# Input file path
+input_file = "/mnt/c/Users/Suryansh Srivastava/Downloads/data/*.pdf"
+
+# Output file path  
+output_file = "output.csv"
+
+# Input data directory for bank statements processing
+input_data = "data/input"
+
+# Output data directory for bank statements processing
+output_data = "data/output"
+
+# Optional: Working directory (leave empty to use current directory)
+# working_dir = ""

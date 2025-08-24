@@ -22,3 +22,12 @@
 
 - This document contains personal project notes and development considerations
 - For product documentation, see the main README.md
+
+edited in obsidian
+
+edited in cursor
+
+## Timeline
+Phase 1: I will try to go from ingesting bank statements and credit card transaction details into a csv file digestable by the goodbudget
+- prototyping in python started with my old favourite [[jupyter]] notebooks
+	- 

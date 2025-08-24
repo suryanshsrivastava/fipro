@@ -1,9 +1,23 @@
 import re, os
 import csv
+import tomllib
+from pathlib import Path
 from typing import List, Tuple, Optional
 from dataclasses import dataclass, field
 from datetime import datetime
 import pandas as pd
+
+def load_config() -> dict:
+    """Load configuration from config.toml file"""
+    config_path = Path('config.toml')
+    if not config_path.exists():
+        print("config.toml not found. Please create a configuration file.")
+        raise FileNotFoundError("config.toml not found")
+    
+    with open(config_path, 'rb') as f:
+        config = tomllib.load(f)
+    
+    return config
 
 @dataclass
 class CrawledFile:
@@ -16,7 +30,7 @@ class CrawledFile:
     row_count: Optional[int] = None          # for CSV
     metadata: dict = field(default_factory=dict) # for custom info
 
-def extract_transactions(data_path: str):
+def extract_transactions(data_path: str, config: dict):
     """Main function to extract and write transactions to CSV"""
     
     crawled_files: List[CrawledFile] = []
@@ -93,8 +107,11 @@ def consolidate_files_by_bank(files: List[CrawledFile]) -> dict:
 # Validation 1: Check number of transactions
 # print(f"Number of transactions found: {len(transactions)}")
 
-# Write to CSV with proper number formatting
-    with open('output.csv', 'w', newline='') as csvfile:
+    # Get transactions from the input file
+    transactions = group_transaction_lines(config)
+    
+    # Write to CSV with proper number formatting
+    with open(config['paths']['output_file'], 'w', newline='') as csvfile:
         writer = csv.writer(csvfile)
         # Write header
         writer.writerow(['Tran Date', 'Chq No', 'Particulars', 'Debit', 'Credit', 'Balance', 'Init. Br'])
@@ -115,7 +132,7 @@ def consolidate_files_by_bank(files: List[CrawledFile]) -> dict:
             writer.writerow(row)
     
     # Validation 2: Print first and last transactions
-    with open('output.csv', 'r') as csvfile:
+    with open(config['paths']['output_file'], 'r') as csvfile:
         reader = list(csv.reader(csvfile))
         # print("\nFirst transaction:")
         # print(reader[1])
@@ -126,12 +143,12 @@ def consolidate_files_by_bank(files: List[CrawledFile]) -> dict:
 
     # count_transactions()
 
-def group_transaction_lines() -> List[List[str]]:
+def group_transaction_lines(config: dict) -> List[List[str]]:
     """Group lines belonging to the same transaction based on Init.Br values"""
     transactions = []
     current_group = []
     
-    with open('extracted_transations.txt', 'r') as file:
+    with open(config['paths']['input_file'], 'r') as file:
         in_transactions = False
         for line in file:
             line = line.strip()
@@ -211,10 +228,10 @@ def parse_transaction(lines: List[str]) -> Tuple[str, str, str, float, float, fl
 
     return (date, '', particulars, debit, credit, balance, init_br)
 
-def classify_transactions():
+def classify_transactions(config: dict):
     """Classify transactions as debit or credit based on balance changes"""
     # Open the CSV file
-    with open('output.csv', 'r') as file:
+    with open(config['paths']['output_file'], 'r') as file:
         reader = csv.reader(file)
         header = next(reader)  # Read the header row
 
@@ -252,15 +269,15 @@ def classify_transactions():
                 # logging.error(f"Invalid balance value in row: {row}")
 
     # Write the updated rows back to the CSV file
-    with open('output.csv', 'w', newline='') as file:
+    with open(config['paths']['output_file'], 'w', newline='') as file:
         writer = csv.writer(file)
         writer.writerow(header)  # Write the header row
         writer.writerows(rows)  # Write the updated rows
 
-def count_transactions():
+def count_transactions(config: dict):
     """Count transactions, debits, and credits, and print first and last rows"""
     # Open the CSV file
-    with open('output.csv', 'r') as file:
+    with open(config['paths']['output_file'], 'r') as file:
         reader = csv.reader(file)
         header = next(reader)  # Read the header row
 
@@ -284,9 +301,9 @@ def count_transactions():
         # print(f"Number of debits: {num_debits}")
         # print(f"Number of credits: {num_credits}")
 
-def validate_transactions():
+def validate_transactions(config: dict):
     """Validate transactions by checking for missing values and inconsistencies"""
-    with open('output.csv', 'r') as file:
+    with open(config['paths']['output_file'], 'r') as file:
         reader = csv.reader(file)
         header = next(reader)  # Read the header row
 
@@ -303,9 +320,9 @@ def validate_transactions():
             # if row[3] and row[4]:
             #     logging.warning(f"Both debit and credit columns have values in row: {row}")
 
-def clean_particulars():
+def clean_particulars(config: dict):
     """Clean the 'Particulars' column in the output CSV file"""
-    with open('output.csv', 'r') as file:
+    with open(config['paths']['output_file'], 'r') as file:
         reader = csv.reader(file)
         header = next(reader)  # Read the header row
         rows = list(reader)
@@ -318,14 +335,14 @@ def clean_particulars():
         particulars = re.sub(r'\s+Br$', '', particulars, flags=re.IGNORECASE)
         row[2] = particulars
 
-    with open('output.csv', 'w', newline='') as file:
+    with open(config['paths']['output_file'], 'w', newline='') as file:
         writer = csv.writer(file)
         writer.writerow(header)
         writer.writerows(rows)
 
-def remove_br_prefix():
+def remove_br_prefix(config: dict):
     """Remove 'Br' prefix from the 'Particulars' column in the output CSV file"""
-    with open('output.csv', 'r') as file:
+    with open(config['paths']['output_file'], 'r') as file:
         reader = csv.reader(file)
         header = next(reader)  # Read the header row
         rows = list(reader)
@@ -336,14 +353,14 @@ def remove_br_prefix():
         particulars = re.sub(r'^Br\s+', '', particulars, flags=re.IGNORECASE)
         row[2] = particulars
 
-    with open('output.csv', 'w', newline='') as file:
+    with open(config['paths']['output_file'], 'w', newline='') as file:
         writer = csv.writer(file)
         writer.writerow(header)
         writer.writerows(rows)
 
-def log_summary():
+def log_summary(config: dict):
     """Log the summary of the transactions"""
-    with open('output.csv', 'r') as file:
+    with open(config['paths']['output_file'], 'r') as file:
         reader = csv.reader(file)
         header = next(reader)  # Read the header row
         rows = list(reader)
@@ -357,8 +374,16 @@ def log_summary():
         # logging.info(f"Number of credit transactions: {num_credits}")
 
 if __name__ == "__main__":
-    extract_transactions('.data')
-    # validate_transactions()
-    # clean_particulars()
-    # remove_br_prefix()
-    # log_summary()
+    try:
+        config = load_config()
+        extract_transactions('.data', config)
+        # validate_transactions(config)
+        # clean_particulars(config)
+        # remove_br_prefix(config)
+        # log_summary(config)
+    except FileNotFoundError:
+        print("Configuration file not found. Please ensure config.toml exists.")
+        exit(1)
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        exit(1)
