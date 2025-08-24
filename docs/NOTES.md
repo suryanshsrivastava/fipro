@@ -28,10 +28,16 @@ edited in obsidian
 edited in cursor
 
 # Timeline
-
+Devlogs
 ## Phase 1: 
 I will try to go from ingesting bank statements and credit card transaction details into a csv file digestable by the goodbudget
 - prototyping in python started with my old favourite [[jupyter]] notebooks
 	- what is ipykernel? why do other scripting languages not have  such a simple notebook type development setup. [[Mathematica]] also has this
 	- similarly even the ipykernel installation took a long time
+-  using dataclass for file objects
+
+
+tech debt
+- file io can be made faster with Go
+	- https://www.perplexity.ai/search/going-through-the-uplodaded-do-vHK5Ff65TXi93uGBdFPSDw#4
 - 

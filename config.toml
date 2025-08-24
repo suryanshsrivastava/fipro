@@ -1,11 +1,13 @@
 # Configuration file for transaction extraction script
 
+supported_extensions = ['pdf', 'xls', 'xlsx', 'csv']
+
 [paths]
 # Input file path
-input_file = "/mnt/c/Users/Suryansh Srivastava/Downloads/data/*.pdf"
+input = "/mnt/c/Users/Suryansh Srivastava/Downloads/data"
 
 # Output file path  
-output_file = "output.csv"
+output_file = "./output.csv"
 
 # Input data directory for bank statements processing
 input_data = "data/input"

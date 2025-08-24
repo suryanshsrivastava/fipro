@@ -1,40 +1,39 @@
 import re, os
 import csv
-import tomllib
-from pathlib import Path
-from typing import List, Tuple, Optional
+from utils import load_config
+from typing import List, Tuple, Optional, Dict
 from dataclasses import dataclass, field
 from datetime import datetime
 import pandas as pd
 
-def load_config() -> dict:
-    """Load configuration from config.toml file"""
-    config_path = Path('config.toml')
-    if not config_path.exists():
-        print("config.toml not found. Please  create a configuration file.")
-        raise FileNotFoundError("config.toml not found")
-    
-    with open(config_path, 'rb') as f:
-        config = tomllib.load(f)
-    
-    return config
-
 @dataclass
 class CrawledFile:
-    filename: str
-    extension: str      # 'pdf', 'xlsx', 'csv'
-    size: int           # in bytes
-    crawl_date: str     # ISO format
-    page_count: Optional[int] = None         # for PDF
-    sheet_names: Optional[List[str]] = None  # for XLSX
-    row_count: Optional[int] = None          # for CSV
-    metadata: dict = field(default_factory=dict) # for custom info
+    filepath: str
+    extension: str
+    size: int
+    crawl_date: str
+    # Unified metadata approach
+    metadata: dict = field(default_factory=dict)
+    
+    # Computed properties
+    @property
+    def filename(self) -> str:
+        return self.filepath.split('/')[-1]
 
-def extract_transactions(data_path: str, config: dict):
-    """Main function to extract and write transactions to CSV"""
+    @property
+    def is_readable(self) -> bool:
+        return os.access(self.filepath, os.R_OK)
+    
+    @property
+    def file_type(self) -> str:
+        return self.extension.lower()
+
+def discover_files(config: dict) -> List[CrawledFile]:
+    """Discover files in the input directory and check permissions without loading content"""
+    data_path = config['paths']['input']
     
     crawled_files: List[CrawledFile] = []
-    supported_extensions = {'pdf', 'xls', 'csv'}
+    supported_extensions = set(config['supported_extensions'])
 
     for root, _, files in os.walk(data_path):
         for file in files:
@@ -42,49 +41,152 @@ def extract_transactions(data_path: str, config: dict):
             extension = file.split('.')[-1].lower()
 
             if extension not in supported_extensions:
+                print(f"Warning: Unsupported file extension: {extension}. Do you want to manually add {file} to the config?")
                 continue
-
             try:
+                # Check if file is readable
+                if not os.access(file_path, os.R_OK):
+                    print(f"Warning: No read permission for {file_path}")
+                    continue
+                
+                # Get basic file info without loading content
                 file_info = {
-                    'filename': file_path,
+                    'filepath': file_path,
                     'extension': extension,
                     'size': os.path.getsize(file_path),
                     'crawl_date': datetime.now().isoformat(),
                 }
-
-                if extension == 'PDF':
-                    # PDF processing is currently skipped as in original code
-                    pass
-                elif extension.lower() in ['xls', 'xlsx']:
-                    try:
-                        with pd.ExcelFile(file_path) as xls:
-                            file_info['sheet_names'] = xls.sheet_names
-                    except Exception as e:
-                        print(f"Error reading Excel file {file_path}: {e}")
-                        file_info['sheet_names'] = []
-                elif extension == 'csv':
-                    with open(file_path, 'r', encoding='utf-8') as f:
-                        file_info['row_count'] = sum(1 for _ in f)
-                
                 crawled_files.append(CrawledFile(**file_info))
             except Exception as e:
                 print(f"Error processing file {file_path}: {e}")
 
-    for f in crawled_files:
-        print(f"File: {f.filename}, Extension: {f.extension}")
-        if f.sheet_names: print(f"  Sheets: {f.sheet_names}")
-        if f.row_count: print(f"  Rows: {f.row_count}")
+    return crawled_files
 
-    print(crawled_files)
+def load_files_to_dataframes(files: List[CrawledFile]) -> Dict[str, pd.DataFrame]:
+    """Load discovered files into pandas dataframes"""
+    dataframes = {}
     
-    # Consolidate these into a single list of transactions for each bank based on keywords: SBI, AXIS, HDFC etc
-    bank_files = consolidate_files_by_bank(crawled_files)
+    for file in files:
+        try:
+            if file.extension == 'csv':
+                df = pd.read_csv(file.filename)
+                dataframes[file.filename] = df
+                print(f"Loaded CSV: {file.filename} with {len(df)} rows")
+                
+            elif file.extension.lower() in ['xls', 'xlsx']:
+                # Load all sheets from Excel file
+                excel_file = pd.ExcelFile(file.filename)
+                for sheet_name in excel_file.sheet_names:
+                    df = pd.read_excel(file.filename, sheet_name=sheet_name)
+                    key = f"{file.filename}:{sheet_name}"
+                    dataframes[key] = df
+                    print(f"Loaded Excel sheet: {key} with {len(df)} rows")
+                    
+            elif file.extension == 'pdf':
+                # PDF processing is currently skipped
+                print(f"PDF file skipped: {file.filename}")
+                continue
+                
+        except Exception as e:
+            print(f"Error loading file {file.filename}: {e}")
     
-    for bank, files in bank_files.items():
-        if files:
-            print(f"\nBank: {bank}")
-            for f in files:
-                print(f"  - {f.filename}")    
+    return dataframes
+
+def analyze_discovered_files(files: List[CrawledFile]) -> dict:
+    """Analyze discovered files and provide summary statistics"""
+    analysis = {
+        'total_files': len(files),
+        'by_extension': {},
+        'by_bank': {},
+        'total_size': 0,
+        'readable_files': 0
+    }
+    
+    for file in files:
+        # Count by extension
+        ext = file.extension.lower()
+        analysis['by_extension'][ext] = analysis['by_extension'].get(ext, 0) + 1
+        
+        # Count by bank
+        bank = get_bank_from_filename(file.filename)
+        analysis['by_bank'][bank] = analysis['by_bank'].get(bank, 0) + 1
+        
+        # Total size
+        analysis['total_size'] += file.size
+        
+        # Count readable files
+        if os.access(file.filename, os.R_OK):
+            analysis['readable_files'] += 1
+    
+    return analysis
+
+def get_bank_from_filename(filename: str) -> str:
+    """Extract bank name from filename"""
+    filename_upper = filename.upper()
+    if 'HDFC' in filename_upper:
+        return 'HDFC'
+    elif 'SBI' in filename_upper:
+        return 'SBI'
+    elif 'AXIS' in filename_upper:
+        return 'AXIS'
+    else:
+        return 'UNKNOWN'
+
+def print_file_summary(files: List[CrawledFile]):
+    """Print a summary of discovered files"""
+    if not files:
+        print("No files discovered.")
+        return
+    
+    analysis = analyze_discovered_files(files)
+    
+    print(f"\n=== File Discovery Summary ===")
+    print(f"Total files: {analysis['total_files']}")
+    print(f"Readable files: {analysis['readable_files']}")
+    print(f"Total size: {analysis['total_size'] / (1024*1024):.2f} MB")
+    
+    print(f"\nBy extension:")
+    for ext, count in analysis['by_extension'].items():
+        print(f"  {ext.upper()}: {count}")
+    
+    print(f"\nBy bank:")
+    for bank, count in analysis['by_bank'].items():
+        print(f"  {bank}: {count}")
+
+def analyze_dataframes(dataframes: Dict[str, pd.DataFrame]):
+    """Analyze loaded dataframes and provide insights"""
+    if not dataframes:
+        print("No dataframes to analyze.")
+        return
+    
+    print(f"\n=== Dataframe Analysis ===")
+    print(f"Total dataframes: {len(dataframes)}")
+    
+    for key, df in dataframes.items():
+        print(f"\nDataframe: {key}")
+        print(f"  Shape: {df.shape}")
+        print(f"  Columns: {list(df.columns)}")
+        print(f"  Data types:")
+        for col, dtype in df.dtypes.items():
+            print(f"    {col}: {dtype}")
+        
+        # Show first few rows
+        if len(df) > 0:
+            print(f"  First 3 rows:")
+            print(df.head(3).to_string())
+        else:
+            print(f"  Empty dataframe")
+
+def get_dataframe_by_bank(dataframes: Dict[str, pd.DataFrame], bank: str) -> Dict[str, pd.DataFrame]:
+    """Filter dataframes by bank name"""
+    bank_dataframes = {}
+    bank_upper = bank.upper()
+    
+    for key, df in dataframes.items():
+        if bank_upper in key.upper():
+            bank_dataframes[key] = df
+    
+    return bank_dataframes
 
 def consolidate_files_by_bank(files: List[CrawledFile]) -> dict:
     """Consolidates a list of crawled files into a dictionary grouped by bank."""
@@ -374,9 +476,43 @@ def log_summary(config: dict):
         # logging.info(f"Number of credit transactions: {num_credits}")
 
 if __name__ == "__main__":
+    config = load_config()
+    
+    # Discover files without loading content
+    print("Discovering files...")
+    discovered_files = discover_files(config)
+    
+    # Print summary of discovered files
+    print_file_summary(discovered_files)
+
+    #  ------------------------------------------------------------------------------------
+    #  Step 2: Load files into dataframes (only when needed)
+    #  ------------------------------------------------------------------------------------
     try:
-        config = load_config()
-        extract_transactions('.data', config)
+        # Group files by bank
+        bank_files = consolidate_files_by_bank(discovered_files)
+        for bank, files in bank_files.items():
+            if files:
+                print(f"\nBank: {bank}")
+                for f in files:
+                    print(f"  - {f.filename}")
+        
+        # Load files into dataframes (optional - only if needed)
+        print("\nLoading files into dataframes...")
+        dataframes = load_files_to_dataframes(discovered_files)
+        print(f"Loaded {len(dataframes)} dataframes")
+        
+        # Analyze loaded dataframes
+        if dataframes:
+            analyze_dataframes(dataframes)
+            
+            # Example: Get dataframes for a specific bank
+            hdfc_dataframes = get_dataframe_by_bank(dataframes, 'HDFC')
+            if hdfc_dataframes:
+                print(f"\nHDFC dataframes: {len(hdfc_dataframes)}")
+                for key in hdfc_dataframes.keys():
+                    print(f"  - {key}")
+        
         # validate_transactions(config)
         # clean_particulars(config)
         # remove_br_prefix(config)
@@ -387,3 +523,6 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"An error occurred: {e}")
         exit(1)
+
+    # extract_transactions(config) # This line is remove
+    # d as per the edit hint

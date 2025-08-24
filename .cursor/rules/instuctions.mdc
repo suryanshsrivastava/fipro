@@ -1,0 +1,5 @@
+---
+alwaysApply: true
+---
+
+try to reuse the same code as much as possible. We love to see code reuse, but we also want to make sure that we don't duplicate code. So, if you see a piece of code that you think could be reused, please add it to the `utils.py` file. This will help us keep our codebase clean and maintainable.
