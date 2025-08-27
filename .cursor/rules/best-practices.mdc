@@ -1,0 +1,7 @@
+
+---
+alwaysApply: false
+---
+
+- between attrs, dataclasses, and pydantic, use whichever you prefer. I prefer dataclasses because it's more explicit and easier to read.
+    - whenebver you use dataclasses, set the `slots=True` option to make it more efficient

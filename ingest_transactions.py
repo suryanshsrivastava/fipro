@@ -1,32 +1,11 @@
 import re, os
 import csv
+from models import CrawledFile
 from utils import load_config
-from typing import List, Tuple, Optional, Dict
-from dataclasses import dataclass, field
+from typing import List, Tuple, Dict
+
 from datetime import datetime
 import pandas as pd
-
-@dataclass
-class CrawledFile:
-    filepath: str
-    extension: str
-    size: int
-    crawl_date: str
-    # Unified metadata approach
-    metadata: dict = field(default_factory=dict)
-    
-    # Computed properties
-    @property
-    def filename(self) -> str:
-        return self.filepath.split('/')[-1]
-
-    @property
-    def is_readable(self) -> bool:
-        return os.access(self.filepath, os.R_OK)
-    
-    @property
-    def file_type(self) -> str:
-        return self.extension.lower()
 
 def discover_files(config: dict) -> List[CrawledFile]:
     """Discover files in the input directory and check permissions without loading content"""
@@ -46,8 +25,10 @@ def discover_files(config: dict) -> List[CrawledFile]:
             try:
                 # Check if file is readable
                 if not os.access(file_path, os.R_OK):
-                    print(f"Warning: No read permission for {file_path}")
-                    continue
+                    print(f"Warning: No read permission for {file_path}.")
+                    # TODO add to excluded files list
+                    # Stop processing if we encounter a non-readable file
+                    break
                 
                 # Get basic file info without loading content
                 file_info = {
@@ -60,6 +41,7 @@ def discover_files(config: dict) -> List[CrawledFile]:
             except Exception as e:
                 print(f"Error processing file {file_path}: {e}")
 
+    print(f"Discovered {len(crawled_files)} files.")
     return crawled_files
 
 def load_files_to_dataframes(files: List[CrawledFile]) -> Dict[str, pd.DataFrame]:
@@ -152,98 +134,6 @@ def print_file_summary(files: List[CrawledFile]):
     print(f"\nBy bank:")
     for bank, count in analysis['by_bank'].items():
         print(f"  {bank}: {count}")
-
-def analyze_dataframes(dataframes: Dict[str, pd.DataFrame]):
-    """Analyze loaded dataframes and provide insights"""
-    if not dataframes:
-        print("No dataframes to analyze.")
-        return
-    
-    print(f"\n=== Dataframe Analysis ===")
-    print(f"Total dataframes: {len(dataframes)}")
-    
-    for key, df in dataframes.items():
-        print(f"\nDataframe: {key}")
-        print(f"  Shape: {df.shape}")
-        print(f"  Columns: {list(df.columns)}")
-        print(f"  Data types:")
-        for col, dtype in df.dtypes.items():
-            print(f"    {col}: {dtype}")
-        
-        # Show first few rows
-        if len(df) > 0:
-            print(f"  First 3 rows:")
-            print(df.head(3).to_string())
-        else:
-            print(f"  Empty dataframe")
-
-def get_dataframe_by_bank(dataframes: Dict[str, pd.DataFrame], bank: str) -> Dict[str, pd.DataFrame]:
-    """Filter dataframes by bank name"""
-    bank_dataframes = {}
-    bank_upper = bank.upper()
-    
-    for key, df in dataframes.items():
-        if bank_upper in key.upper():
-            bank_dataframes[key] = df
-    
-    return bank_dataframes
-
-def consolidate_files_by_bank(files: List[CrawledFile]) -> dict:
-    """Consolidates a list of crawled files into a dictionary grouped by bank."""
-    bank_files = {'HDFC': [], 'SBI': [], 'AXIS': [], 'UNKNOWN': []}
-    
-    for file in files:
-        filename_upper = file.filename.upper()
-        if 'HDFC' in filename_upper:
-            bank_files['HDFC'].append(file)
-        elif 'SBI' in filename_upper:
-            bank_files['SBI'].append(file)
-        elif 'AXIS' in filename_upper:
-            bank_files['AXIS'].append(file)
-        else:
-            bank_files['UNKNOWN'].append(file)
-            
-    return bank_files
-
-# ------------------------------------------------------------------------------
-# Validation 1: Check number of transactions
-# print(f"Number of transactions found: {len(transactions)}")
-
-    # Get transactions from the input file
-    transactions = group_transaction_lines(config)
-    
-    # Write to CSV with proper number formatting
-    with open(config['paths']['output_file'], 'w', newline='') as csvfile:
-        writer = csv.writer(csvfile)
-        # Write header
-        writer.writerow(['Tran Date', 'Chq No', 'Particulars', 'Debit', 'Credit', 'Balance', 'Init. Br'])
-        
-        # Write transactions
-        for transaction_lines in transactions:
-            date, chq_no, particulars, debit, credit, balance, init_br = parse_transaction(transaction_lines)
-            # Format numbers with exactly 2 decimal places
-            row = [
-                date,
-                chq_no,
-                particulars, 
-                f"{debit:.2f}" if debit else "",
-                f"{credit:.2f}" if credit else "",
-                f"{balance:.2f}",
-                init_br
-            ]
-            writer.writerow(row)
-    
-    # Validation 2: Print first and last transactions
-    with open(config['paths']['output_file'], 'r') as csvfile:
-        reader = list(csv.reader(csvfile))
-        # print("\nFirst transaction:")
-        # print(reader[1])
-        # print("\nLast transaction:")
-        # print(reader[-1])
-
-    # classify_transactions()
-
-    # count_transactions()
 
 def group_transaction_lines(config: dict) -> List[List[str]]:
     """Group lines belonging to the same transaction based on Init.Br values"""
@@ -347,9 +237,6 @@ def classify_transactions(config: dict):
                 # Get the current balance
                 current_balance = float(row[5])  # Assuming balance is in the 6th column
 
-                # Log the balances for debugging
-                # logging.debug(f"Previous Balance: {prev_balance}, Current Balance: {current_balance}")
-
                 # Classify as debit or credit based on balance change
                 if current_balance > prev_balance:
                     row[4] = f"{current_balance - prev_balance:.2f}"  # Update Credit column
@@ -396,32 +283,11 @@ def count_transactions(config: dict):
         num_debits = sum(1 for row in rows if row[3])  # Debit column
         num_credits = sum(1 for row in rows if row[4])  # Credit column
 
-        # Print the results
-        # print(f"Number of transactions processed: {num_transactions}")
-        # print(f"First transaction: {first_row}")
-        # print(f"Last transaction: {last_row}")
-        # print(f"Number of debits: {num_debits}")
-        # print(f"Number of credits: {num_credits}")
-
 def validate_transactions(config: dict):
     """Validate transactions by checking for missing values and inconsistencies"""
     with open(config['paths']['output_file'], 'r') as file:
         reader = csv.reader(file)
         header = next(reader)  # Read the header row
-
-        # for row in reader:
-            # Check for missing values in critical columns
-            # if not row[0]:  # Tran Date
-            #     logging.warning(f"Missing transaction date in row: {row}")
-            # if not row[2]:  # Particulars
-            #     logging.warning(f"Missing particulars in row: {row}")
-            # if not row[5]:  # Balance
-            #     logging.warning(f"Missing balance in row: {row}")
-
-            # Check for inconsistencies in debit/credit columns
-            # if row[3] and row[4]:
-            #     logging.warning(f"Both debit and credit columns have values in row: {row}")
-
 def clean_particulars(config: dict):
     """Clean the 'Particulars' column in the output CSV file"""
     with open(config['paths']['output_file'], 'r') as file:
@@ -471,10 +337,6 @@ def log_summary(config: dict):
         num_debits = sum(1 for row in rows if row[3])
         num_credits = sum(1 for row in rows if row[4])
 
-        # logging.info(f"Total transactions processed: {num_transactions}")
-        # logging.info(f"Number of debit transactions: {num_debits}")
-        # logging.info(f"Number of credit transactions: {num_credits}")
-
 if __name__ == "__main__":
     config = load_config()
     
@@ -488,41 +350,33 @@ if __name__ == "__main__":
     #  ------------------------------------------------------------------------------------
     #  Step 2: Load files into dataframes (only when needed)
     #  ------------------------------------------------------------------------------------
-    try:
-        # Group files by bank
-        bank_files = consolidate_files_by_bank(discovered_files)
-        for bank, files in bank_files.items():
-            if files:
-                print(f"\nBank: {bank}")
-                for f in files:
-                    print(f"  - {f.filename}")
+    # try:
+    #     # Group files by bank
+    #     bank_files = consolidate_files_by_bank(discovered_files)
+    #     for bank, files in bank_files.items():
+    #         if files:
+    #             print(f"\nBank: {bank}")
+    #             for f in files:
+    #                 print(f"  - {f.filename}")
         
-        # Load files into dataframes (optional - only if needed)
-        print("\nLoading files into dataframes...")
-        dataframes = load_files_to_dataframes(discovered_files)
-        print(f"Loaded {len(dataframes)} dataframes")
+    #     # Load files into dataframes (optional - only if needed)
+    #     print("\nLoading files into dataframes...")
+    #     dataframes = load_files_to_dataframes(discovered_files)
+    #     print(f"Loaded {len(dataframes)} dataframes")
         
-        # Analyze loaded dataframes
-        if dataframes:
-            analyze_dataframes(dataframes)
+    #     # Analyze loaded dataframes
+    #     if dataframes:
+    #         analyze_dataframes(dataframes)
             
-            # Example: Get dataframes for a specific bank
-            hdfc_dataframes = get_dataframe_by_bank(dataframes, 'HDFC')
-            if hdfc_dataframes:
-                print(f"\nHDFC dataframes: {len(hdfc_dataframes)}")
-                for key in hdfc_dataframes.keys():
-                    print(f"  - {key}")
-        
-        # validate_transactions(config)
-        # clean_particulars(config)
-        # remove_br_prefix(config)
-        # log_summary(config)
-    except FileNotFoundError:
-        print("Configuration file not found. Please ensure config.toml exists.")
-        exit(1)
-    except Exception as e:
-        print(f"An error occurred: {e}")
-        exit(1)
-
-    # extract_transactions(config) # This line is remove
-    # d as per the edit hint
+    #         # Example: Get dataframes for a specific bank
+    #         hdfc_dataframes = get_dataframe_by_bank(dataframes, 'HDFC')
+    #         if hdfc_dataframes:
+    #             print(f"\nHDFC dataframes: {len(hdfc_dataframes)}")
+    #             for key in hdfc_dataframes.keys():
+    #                 print(f"  - {key}")
+    # except FileNotFoundError:
+    #     print("Configuration file not found. Please ensure config.toml exists.")
+    #     exit(1)
+    # except Exception as e:
+    #     print(f"An error occurred: {e}")
+    #     exit(1)

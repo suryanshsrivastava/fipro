@@ -1,6 +1,6 @@
 import os
 import pandas as pd
-from typing import List, Tuple, Optional
+from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass, field
 from datetime import datetime
 
@@ -56,6 +56,41 @@ def crawl_files(data_path: str) -> List[CrawledFile]:
     
     return crawled_files
 
+def analyze_dataframes(dataframes: Dict[str, pd.DataFrame]):
+    """Analyze loaded dataframes and provide insights"""
+    if not dataframes:
+        print("No dataframes to analyze.")
+        return
+    
+    print(f"\n=== Dataframe Analysis ===")
+    print(f"Total dataframes: {len(dataframes)}")
+    
+    for key, df in dataframes.items():
+        print(f"\nDataframe: {key}")
+        print(f"  Shape: {df.shape}")
+        print(f"  Columns: {list(df.columns)}")
+        print(f"  Data types:")
+        for col, dtype in df.dtypes.items():
+            print(f"    {col}: {dtype}")
+        
+        # Show first few rows
+        if len(df) > 0:
+            print(f"  First 3 rows:")
+            print(df.head(3).to_string())
+        else:
+            print(f"  Empty dataframe")
+
+def get_dataframe_by_bank(dataframes: Dict[str, pd.DataFrame], bank: str) -> Dict[str, pd.DataFrame]:
+    """Filter dataframes by bank name"""
+    bank_dataframes = {}
+    bank_upper = bank.upper()
+    
+    for key, df in dataframes.items():
+        if bank_upper in key.upper():
+            bank_dataframes[key] = df
+    
+    return bank_dataframes
+    
 def find_header_row(df: pd.DataFrame, expected_headers: set) -> Optional[int]:
     """
     Scans the first 20 rows of a DataFrame to find the header row.
