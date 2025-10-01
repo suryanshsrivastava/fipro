@@ -1,78 +1,78 @@
-import re, os
-import csv
-from models import CrawledFile
-from utils import load_config
-from typing import List, Tuple, Dict
+# import re, os
+# import csv
+# from models import CrawledFile
+# from utils import load_config
+# from typing import List, Tuple, Dict
 
-from datetime import datetime
-import pandas as pd
+# from datetime import datetime
+# import pandas as pd
 
-def discover_files(config: dict) -> List[CrawledFile]:
-    """Discover files in the input directory and check permissions without loading content"""
-    data_path = config['paths']['input']
+# def discover_files(config: dict) -> List[CrawledFile]:
+#     """Discover files in the input directory and check permissions without loading content"""
+#     data_path = config['paths']['input']
     
-    crawled_files: List[CrawledFile] = []
-    supported_extensions = set(config['supported_extensions'])
+#     crawled_files: List[CrawledFile] = []
+#     supported_extensions = set(config['supported_extensions'])
 
-    for root, _, files in os.walk(data_path):
-        for file in files:
-            file_path = os.path.join(root, file)
-            extension = file.split('.')[-1].lower()
+#     for root, _, files in os.walk(data_path):
+#         for file in files:
+#             file_path = os.path.join(root, file)
+#             extension = file.split('.')[-1].lower()
 
-            if extension not in supported_extensions:
-                print(f"Warning: Unsupported file extension: {extension}. Do you want to manually add {file} to the config?")
-                continue
-            try:
-                # Check if file is readable
-                if not os.access(file_path, os.R_OK):
-                    print(f"Warning: No read permission for {file_path}.")
-                    # TODO add to excluded files list
-                    # Stop processing if we encounter a non-readable file
-                    break
+#             if extension not in supported_extensions:
+#                 print(f"Warning: Unsupported file extension: {extension}. Do you want to manually add {file} to the config?")
+#                 continue
+#             try:
+#                 # Check if file is readable
+#                 if not os.access(file_path, os.R_OK):
+#                     print(f"Warning: No read permission for {file_path}.")
+#                     # TODO add to excluded files list
+#                     # Stop processing if we encounter a non-readable file
+#                     break
                 
-                # Get basic file info without loading content
-                file_info = {
-                    'filepath': file_path,
-                    'extension': extension,
-                    'size': os.path.getsize(file_path),
-                    'crawl_date': datetime.now().isoformat(),
-                }
-                crawled_files.append(CrawledFile(**file_info))
-            except Exception as e:
-                print(f"Error processing file {file_path}: {e}")
+#                 # Get basic file info without loading content
+#                 file_info = {
+#                     'filepath': file_path,
+#                     'extension': extension,
+#                     'size': os.path.getsize(file_path),
+#                     'crawl_date': datetime.now().isoformat(),
+#                 }
+#                 crawled_files.append(CrawledFile(**file_info))
+#             except Exception as e:
+#                 print(f"Error processing file {file_path}: {e}")
 
-    print(f"Discovered {len(crawled_files)} files.")
-    return crawled_files
+#     print(f"Discovered {len(crawled_files)} files.")
+#     return crawled_files
 
-def load_files_to_dataframes(files: List[CrawledFile]) -> Dict[str, pd.DataFrame]:
-    """Load discovered files into pandas dataframes"""
-    dataframes = {}
+# def load_files_to_dataframes(files: List[CrawledFile]) -> Dict[str, pd.DataFrame]:
+#     """Load discovered files into pandas dataframes"""
+    # dataframes = {}
     
-    for file in files:
-        try:
-            if file.extension == 'csv':
-                df = pd.read_csv(file.filename)
-                dataframes[file.filename] = df
-                print(f"Loaded CSV: {file.filename} with {len(df)} rows")
+    # for file in files:
+    #     try:
+    #         if file.extension == 'csv':
+    #             df = pd.read_csv(file.filename)
+    #             dataframes[file.filename] = df
+    #             print(f"Loaded CSV: {file.filename} with {len(df)} rows")
                 
-            elif file.extension.lower() in ['xls', 'xlsx']:
-                # Load all sheets from Excel file
-                excel_file = pd.ExcelFile(file.filename)
-                for sheet_name in excel_file.sheet_names:
-                    df = pd.read_excel(file.filename, sheet_name=sheet_name)
-                    key = f"{file.filename}:{sheet_name}"
-                    dataframes[key] = df
-                    print(f"Loaded Excel sheet: {key} with {len(df)} rows")
+    #         elif file.extension.lower() in ['xls', 'xlsx']:
+    #             # Load all sheets from Excel file
+    #             excel_file = pd.ExcelFile(file.filename)
+    #             for sheet_name in excel_file.sheet_names:
+    #                 df = pd.read_excel(file.filename, sheet_name=sheet_name)
+    #                 key = f"{file.filename}:{sheet_name}"
+    #                 dataframes[key] = df
+    #                 print(f"Loaded Excel sheet: {key} with {len(df)} rows")
                     
-            elif file.extension == 'pdf':
-                # PDF processing is currently skipped
-                print(f"PDF file skipped: {file.filename}")
-                continue
+    #         elif file.extension == 'pdf':
+    #             # PDF processing is currently skipped
+    #             print(f"PDF file skipped: {file.filename}")
+    #             continue
                 
-        except Exception as e:
-            print(f"Error loading file {file.filename}: {e}")
+    #     except Exception as e:
+    #         print(f"Error loading file {file.filename}: {e}")
     
-    return dataframes
+    # return dataframes
 
 def analyze_discovered_files(files: List[CrawledFile]) -> dict:
     """Analyze discovered files and provide summary statistics"""
@@ -359,21 +359,21 @@ if __name__ == "__main__":
     #             for f in files:
     #                 print(f"  - {f.filename}")
         
-    #     # Load files into dataframes (optional - only if needed)
-    #     print("\nLoading files into dataframes...")
-    #     dataframes = load_files_to_dataframes(discovered_files)
-    #     print(f"Loaded {len(dataframes)} dataframes")
+        # Load files into dataframes (optional - only if needed)
+        # print("\nLoading files into dataframes...")
+        # dataframes = load_files_to_dataframes(discovered_files)
+        # print(f"Loaded {len(dataframes)} dataframes")
         
-    #     # Analyze loaded dataframes
-    #     if dataframes:
-    #         analyze_dataframes(dataframes)
+        # Analyze loaded dataframes
+        # if dataframes:
+        #     analyze_dataframes(dataframes)
             
-    #         # Example: Get dataframes for a specific bank
-    #         hdfc_dataframes = get_dataframe_by_bank(dataframes, 'HDFC')
-    #         if hdfc_dataframes:
-    #             print(f"\nHDFC dataframes: {len(hdfc_dataframes)}")
-    #             for key in hdfc_dataframes.keys():
-    #                 print(f"  - {key}")
+        #     # Example: Get dataframes for a specific bank
+        #     hdfc_dataframes = get_dataframe_by_bank(dataframes, 'HDFC')
+        #     if hdfc_dataframes:
+        #         print(f"\nHDFC dataframes: {len(hdfc_dataframes)}")
+        #         for key in hdfc_dataframes.keys():
+        #             print(f"  - {key}")
     # except FileNotFoundError:
     #     print("Configuration file not found. Please ensure config.toml exists.")
     #     exit(1)

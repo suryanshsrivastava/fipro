@@ -15,7 +15,11 @@ Learn
 
 Perplexity Deep Research Prompt:
 Analyze my credit card statements from past few months and create a detailed report detailing expenses, their purpose and date etc. in the format of a bank statement attached to keep the consistency.
+
+<idea>
 Can a collection of prompts for different purposes be treated like an app. is that what an [[Model Context Protocol|MCP]] does?
+</idea>
+
 - One  place where android has an edge is sms based expense trackign that is alllowed in the ecosystem for ease. maybe I can make a similar app with the dump of messages I recieve
 	- Do I need daily tracking of each expense? or can I just make do with the weekly updates to the csv by appending
 	- Keep revising the IIIT curriculum

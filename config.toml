@@ -4,7 +4,7 @@ supported_extensions = ['pdf', 'xls', 'xlsx', 'csv']
 
 [paths]
 # Input file path
-input = "/mnt/c/Users/Suryansh Srivastava/Downloads/data"
+input = "/home/suryanshsrivastava/Work/fipro/data"
 
 # Output file path  
 output_file = "./output.csv"

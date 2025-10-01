@@ -1,84 +1,84 @@
-import os
-import pandas as pd
-from typing import Dict, List, Tuple, Optional
-from dataclasses import dataclass, field
-from datetime import datetime
+# import os
+# import pandas as pd
+# from typing import Dict, List, Tuple, Optional
+# from dataclasses import dataclass, field
+# from datetime import datetime
 
-@dataclass
-class CrawledFile:
-    filename: str
-    extension: str      # 'pdf', 'xlsx', 'csv'
-    size: int           # in bytes
-    crawl_date: str     # ISO format
-    page_count: Optional[int] = None         # for PDF
-    sheet_names: Optional[List[str]] = None  # for XLSX
-    row_count: Optional[int] = None          # for CSV
-    metadata: dict = field(default_factory=dict) # for custom info
+# @dataclass
+# class CrawledFile:
+#     filename: str
+#     extension: str      # 'pdf', 'xlsx', 'csv'
+#     size: int           # in bytes
+#     crawl_date: str     # ISO format
+#     page_count: Optional[int] = None         # for PDF
+#     sheet_names: Optional[List[str]] = None  # for XLSX
+#     row_count: Optional[int] = None          # for CSV
+#     metadata: dict = field(default_factory=dict) # for custom info
 
-def crawl_files(data_path: str) -> List[CrawledFile]:
-    """Crawls a directory for transaction files and returns a list of CrawledFile objects."""
-    crawled_files: List[CrawledFile] = []
-    supported_extensions = {'pdf', 'xls', 'xlsx', 'csv'}
+# def crawl_files(data_path: str) -> List[CrawledFile]:
+#     """Crawls a directory for transaction files and returns a list of CrawledFile objects."""
+#     crawled_files: List[CrawledFile] = []
+#     supported_extensions = {'pdf', 'xls', 'xlsx', 'csv'}
 
-    for root, _, files in os.walk(data_path):
-        for file in files:
-            file_path = os.path.join(root, file)
-            extension = file.split('.')[-1].lower()
+#     for root, _, files in os.walk(data_path):
+#         for file in files:
+#             file_path = os.path.join(root, file)
+#             extension = file.split('.')[-1].lower()
 
-            if extension not in supported_extensions:
-                continue
+#             if extension not in supported_extensions:
+#                 continue
 
-            try:
-                file_info = {
-                    'filename': file_path,
-                    'extension': extension,
-                    'size': os.path.getsize(file_path),
-                    'crawl_date': datetime.now().isoformat(),
-                }
+#             try:
+#                 file_info = {
+#                     'filename': file_path,
+#                     'extension': extension,
+#                     'size': os.path.getsize(file_path),
+#                     'crawl_date': datetime.now().isoformat(),
+#                 }
 
-                if extension == 'pdf':
-                    # PDF processing can be added here if needed in the future
-                    pass
-                elif extension in ['xls', 'xlsx']:
-                    try:
-                        with pd.ExcelFile(file_path) as xls:
-                            file_info['sheet_names'] = xls.sheet_names
-                    except Exception as e:
-                        print(f"Error reading Excel file {file_path}: {e}")
-                        file_info['sheet_names'] = []
-                elif extension == 'csv':
-                    with open(file_path, 'r', encoding='utf-8') as f:
-                        file_info['row_count'] = sum(1 for _ in f)
+#                 if extension == 'pdf':
+#                     # PDF processing can be added here if needed in the future
+#                     pass
+#                 elif extension in ['xls', 'xlsx']:
+#                     try:
+#                         with pd.ExcelFile(file_path) as xls:
+#                             file_info['sheet_names'] = xls.sheet_names
+#                     except Exception as e:
+#                         print(f"Error reading Excel file {file_path}: {e}")
+#                         file_info['sheet_names'] = []
+#                 elif extension == 'csv':
+#                     with open(file_path, 'r', encoding='utf-8') as f:
+#                         file_info['row_count'] = sum(1 for _ in f)
                 
-                crawled_files.append(CrawledFile(**file_info))
-            except Exception as e:
-                print(f"Error processing file {file_path}: {e}")
+#                 crawled_files.append(CrawledFile(**file_info))
+#             except Exception as e:
+#                 print(f"Error processing file {file_path}: {e}")
     
-    return crawled_files
+#     return crawled_files
 
-def analyze_dataframes(dataframes: Dict[str, pd.DataFrame]):
-    """Analyze loaded dataframes and provide insights"""
-    if not dataframes:
-        print("No dataframes to analyze.")
-        return
+# def analyze_dataframes(dataframes: Dict[str, pd.DataFrame]):
+    # """Analyze loaded dataframes and provide insights"""
+    # if not dataframes:
+    #     print("No dataframes to analyze.")
+    #     return
     
-    print(f"\n=== Dataframe Analysis ===")
-    print(f"Total dataframes: {len(dataframes)}")
+    # print(f"\n=== Dataframe Analysis ===")
+    # print(f"Total dataframes: {len(dataframes)}")
     
-    for key, df in dataframes.items():
-        print(f"\nDataframe: {key}")
-        print(f"  Shape: {df.shape}")
-        print(f"  Columns: {list(df.columns)}")
-        print(f"  Data types:")
-        for col, dtype in df.dtypes.items():
-            print(f"    {col}: {dtype}")
+    # for key, df in dataframes.items():
+    #     print(f"\nDataframe: {key}")
+    #     print(f"  Shape: {df.shape}")
+    #     print(f"  Columns: {list(df.columns)}")
+    #     print(f"  Data types:")
+    #     for col, dtype in df.dtypes.items():
+    #         print(f"    {col}: {dtype}")
         
-        # Show first few rows
-        if len(df) > 0:
-            print(f"  First 3 rows:")
-            print(df.head(3).to_string())
-        else:
-            print(f"  Empty dataframe")
+    #     # Show first few rows
+    #     if len(df) > 0:
+    #         print(f"  First 3 rows:")
+    #         print(df.head(3).to_string())
+    #     else:
+    #         print(f"  Empty dataframe")
 
 def get_dataframe_by_bank(dataframes: Dict[str, pd.DataFrame], bank: str) -> Dict[str, pd.DataFrame]:
     """Filter dataframes by bank name"""
@@ -199,22 +199,22 @@ def process_bank_transactions(bank_name: str, files: List[CrawledFile]) -> Optio
         return pd.concat(all_transactions, ignore_index=True)
     return None
 
-def consolidate_files_by_bank(files: List[CrawledFile]) -> dict:
-    """Consolidates a list of crawled files into a dictionary grouped by bank."""
-    bank_files = {'HDFC': [], 'SBI': [], 'AXIS': [], 'UNKNOWN': []}
+# def consolidate_files_by_bank(files: List[CrawledFile]) -> dict:
+#     """Consolidates a list of crawled files into a dictionary grouped by bank."""
+#     bank_files = {'HDFC': [], 'SBI': [], 'AXIS': [], 'UNKNOWN': []}
     
-    for file in files:
-        filename_lower = file.filename.lower()
-        if 'hdfc' in filename_lower:
-            bank_files['HDFC'].append(file)
-        elif 'sbi' in filename_lower:
-            bank_files['SBI'].append(file)
-        elif 'axis' in filename_lower:
-            bank_files['AXIS'].append(file)
-        else:
-            bank_files['UNKNOWN'].append(file)
+#     for file in files:
+#         filename_lower = file.filename.lower()
+#         if 'hdfc' in filename_lower:
+#             bank_files['HDFC'].append(file)
+#         elif 'sbi' in filename_lower:
+#             bank_files['SBI'].append(file)
+#         elif 'axis' in filename_lower:
+#             bank_files['AXIS'].append(file)
+#         else:
+#             bank_files['UNKNOWN'].append(file)
             
-    return bank_files
+#     return bank_files
 
 def post_process_transactions(df: pd.DataFrame) -> pd.DataFrame:
     """Applies deduplication, internal transfer identification, and tagging to the consolidated DataFrame."""
