@@ -1,0 +1,19 @@
+# Configuration file for transaction extraction script
+
+supported_extensions = ['pdf', 'xls', 'xlsx', 'csv']
+
+[paths]
+# Input file path
+input = "/home/suryanshsrivastava/Work/fipro/data"
+
+# Output file path  
+output_file = "./output.csv"
+
+# Input data directory for bank statements processing
+input_data = "data/input"
+
+# Output data directory for bank statements processing
+output_data = "data/output"
+
+# Optional: Working directory (leave empty to use current directory)
+# working_dir = ""
