@@ -27,9 +27,9 @@ class CrawledFile:
     def is_readable(self) -> bool:
         return os.access(self.filepath, os.R_OK)
 
-    page_count: Optional[int] = None         # for PDF
-    sheet_names: Optional[List[str]] = None  # for XLSX
-    row_count: Optional[int] = None          # for CSV
+    # page_count: Optional[int] = None         # for PDF
+    # sheet_names: Optional[List[str]] = None  # for XLSX
+    # row_count: Optional[int] = None          # for CSV
 
 # @dataclass
 # class CrawledFile:
