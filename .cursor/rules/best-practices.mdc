@@ -2,5 +2,6 @@
 globs: *.py
 alwaysApply: false
 ---
+- Use `uv` as much as possible. Always check for existing virtual environments in the project root directory before trying to create a new one. 
 - between attrs, dataclasses, and pydantic, use whichever you prefer. I prefer dataclasses because it's more explicit and easier to read.
     - whenebver you use dataclasses, set the `slots=True` option to make it more efficient
