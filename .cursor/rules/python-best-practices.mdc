@@ -1,5 +1,5 @@
 ---
-globs: *.py
+globs: src/*py
 alwaysApply: false
 ---
 - Use `uv` as much as possible. Always check for existing virtual environments in the project root directory before trying to create a new one. 
