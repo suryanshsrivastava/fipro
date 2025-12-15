@@ -4,17 +4,17 @@ from typing import List
 
 from ingest_transactions import CrawledFile
 
-def load_config() -> dict:
-    """Load configuration from config.toml file"""
-    config_path = Path('config.toml')
-    if not config_path.exists():
-        print("config.toml not found. Please  create a configuration file.")
-        raise FileNotFoundError("config.toml not found")
+# def load_config() -> dict:
+#     """Load configuration from config.toml file"""
+#     config_path = Path('config.toml')
+#     if not config_path.exists():
+#         print("config.toml not found. Please  create a configuration file.")
+#         raise FileNotFoundError("config.toml not found")
     
-    with open(config_path, 'rb') as f:
-        config = tomllib.load(f)
+#     with open(config_path, 'rb') as f:
+#         config = tomllib.load(f)
     
-    return config
+#     return config
 
 
 def consolidate_files_by_bank(files: List[CrawledFile]) -> dict:

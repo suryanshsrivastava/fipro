@@ -1,43 +1,58 @@
+"""
+Account and file metadata models for Fipro.
+
+This module defines data structures for representing bank accounts and discovered
+files during the ingestion phase.
+"""
+
 from typing import List, Optional
 from dataclasses import dataclass, field
+import os
 
-# TODO tag the crawled files with respective accounts it belongs to
-@dataclass
+
+@dataclass(slots=True)
 class Account:
+    """
+    Represents a bank account.
+    
+    Attributes:
+        bank: Bank name (HDFC, SBI, AXIS)
+        account_number: Account number (last 4 digits only for security)
+        nickname: Account nickname (e.g., "Salary Account", "Daily Expenses")
+        account_type: Type of account (savings, current)
+        is_active: Whether the account is currently active
+    """
     bank: str
     account_number: str
-    name: str
-    cards: List[str]
+    nickname: str
+    account_type: str
+    is_active: bool = True
+
 
 @dataclass(slots=True)
 class CrawledFile:
+    """
+    Metadata for a discovered file during ingestion.
+    
+    Attributes:
+        filepath: Full path to the file
+        extension: File extension (xls, xlsx, csv, pdf)
+        size: File size in bytes
+        crawl_date: ISO format timestamp when file was discovered
+        metadata: Additional metadata dictionary for custom info
+    """
     filepath: str
     extension: str
     size: int
     crawl_date: str
-    # Unified metadata approach
     metadata: dict = field(default_factory=dict)
     
-    # Computed properties
     @property
     def filename(self) -> str:
+        """Extract filename from filepath."""
         return self.filepath.split('/')[-1]
 
     @property
     def is_readable(self) -> bool:
+        """Check if file is readable."""
         return os.access(self.filepath, os.R_OK)
-
-    # page_count: Optional[int] = None         # for PDF
-    # sheet_names: Optional[List[str]] = None  # for XLSX
-    # row_count: Optional[int] = None          # for CSV
-
-# @dataclass
-# class CrawledFile:
-#     # filename: str
-#     # extension: str      # 'pdf', 'xlsx', 'csv'
-#     # size: int           # in bytes
-#     # crawl_date: str     # ISO format
-#     page_count: Optional[int] = None         # for PDF
-#     sheet_names: Optional[List[str]] = None  # for XLSX
-#     row_count: Optional[int] = None          # for CSV
-#     # metadata: dict = field(default_factory=dict) # for custom info

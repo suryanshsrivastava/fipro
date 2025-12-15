@@ -5,17 +5,18 @@ requires-python = ">=3.14"
 
 # Runtime/application dependencies (PEP 621)
 dependencies = [
-  "ipykernel==6.30.1",
+  "ipykernel>=6.30.1",
   "pandas>=2.3.3",
   "xlrd>=2.0.2",
+  "openpyxl>=3.0.9",
+  "numpy>=1.24.2",
+  "tomli>=2.0.1",
 ]
 
 [build-system]
-requires = ["hatchling>=1.24.2"]
-build-backend = "hatchling.build"
+requires = ["uv_build >= 0.9.11, <0.10.0"]
+build-backend = "uv_build"
 
-[tool.hatch.build]
-dev-mode-exact = true
-
-[tool.hatch.build.targets.wheel]
-bypass-selection	= true
+[tool.uv.build-backend]
+module-root = ""
+module-name = "src"
