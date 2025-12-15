@@ -23,9 +23,9 @@ class TransactionType(Enum):
 class TransactionStatus(Enum):
     """Transaction status enumeration."""
     PENDING = "pending"
-    VERIFIED = "verified"
+    UNCLEARED = "uncleared"
+    CLEARED = "cleared"
     TRANSFER = "internal_transfer"
-    EXCLUDED = "excluded"
 
 
 @dataclass(slots=True)
