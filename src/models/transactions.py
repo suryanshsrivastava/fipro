@@ -26,6 +26,7 @@ class TransactionStatus(Enum):
     UNCLEARED = "uncleared"
     CLEARED = "cleared"
     TRANSFER = "internal_transfer"
+    SPLIT = "split"
 
 
 @dataclass(slots=True)

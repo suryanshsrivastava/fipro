@@ -36,32 +36,38 @@ class AxisParser(BankParser):
         """
         Check if file is an Axis statement.
         
-        Suggested implementation:
-        - Check filename contains 'axis' (case-insensitive)
-        - Check for Axis-specific column names in first 20 rows
+        Checks filename and looks for Axis-specific column names.
+        Axis uses abbreviated column names: DR, CR, BAL, PARTICULARS
         """
         if "axis" not in filename.lower():
             return False
 
         head = df.head(20).fillna("")
         tokens = {str(v).strip().lower() for v in head.values.flatten()}
-        expected = {"tran date", "particulars", "debit", "credit"}
-        return len(expected.intersection(tokens)) >= 3
+        # Axis uses abbreviated column names
+        expected_full = {"tran date", "particulars", "debit", "credit"}
+        expected_abbrev = {"tran date", "particulars", "dr", "cr"}
+        
+        match_full = len(expected_full.intersection(tokens))
+        match_abbrev = len(expected_abbrev.intersection(tokens))
+        
+        return match_full >= 3 or match_abbrev >= 3
     
     def find_header_row(self, df: pd.DataFrame) -> int:
         """
         Find header row in Axis statement.
         
-        Suggested implementation:
-        - Scan first 20 rows for expected column names
-        - Look for: "Tran Date", "Particulars", "Debit", "Credit"
-        - Return row index where at least 3 expected columns are found
+        Scans first 20 rows for expected column names.
+        Handles both full names (Debit, Credit) and abbreviations (DR, CR).
         """
-        expected = {"tran date", "particulars", "debit", "credit"}
+        expected_full = {"tran date", "particulars", "debit", "credit"}
+        expected_abbrev = {"tran date", "particulars", "dr", "cr"}
+        
         for idx in range(min(20, len(df))):
             row_values = [str(v).strip().lower() for v in df.iloc[idx].tolist()]
-            match_count = len(expected.intersection(row_values))
-            if match_count >= 3:
+            match_full = len(expected_full.intersection(row_values))
+            match_abbrev = len(expected_abbrev.intersection(row_values))
+            if match_full >= 3 or match_abbrev >= 3:
                 return idx
         raise ValueError("Header row not found for Axis statement")
     
@@ -142,23 +148,15 @@ class AxisParser(BankParser):
         """
         Return Axis column name mappings.
         
-        Suggested return value:
-        {
-            "transaction_date": ["Tran Date", "Transaction Date"],
-            "description": ["Particulars"],
-            "debit": ["Debit"],
-            "credit": ["Credit"],
-            "balance": ["Balance"],
-            "reference": ["Chq No", "Cheque No."]
-        }
+        Includes both full names and abbreviations used by Axis.
         """
         return {
             "transaction_date": ["Tran Date", "Transaction Date"],
-            "description": ["Particulars"],
-            "debit": ["Debit"],
-            "credit": ["Credit"],
-            "balance": ["Balance"],
-            "reference": ["Chq No", "Cheque No."],
+            "description": ["Particulars", "PARTICULARS"],
+            "debit": ["Debit", "DR"],
+            "credit": ["Credit", "CR"],
+            "balance": ["Balance", "BAL"],
+            "reference": ["Chq No", "Cheque No.", "CHQNO"],
         }
 
     def _resolve_columns(self, df: pd.DataFrame, mapping: dict) -> dict:

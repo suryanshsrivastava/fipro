@@ -140,16 +140,6 @@ class HDFCParser(BankParser):
     def get_column_mapping(self) -> dict:
         """
         Return HDFC column name mappings.
-        
-        Suggested return value:
-        {
-            "transaction_date": ["Date", "Value Dt"],
-            "description": ["Narration"],
-            "debit": ["Withdrawal Amt.", "Withdrawal"],
-            "credit": ["Deposit Amt.", "Deposit"],
-            "balance": ["Closing Balance"],
-            "reference": ["Chq./Ref.No."]
-        }
         """
         return {
             "transaction_date": ["Date", "Value Dt"],

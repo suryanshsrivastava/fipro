@@ -2,14 +2,15 @@
 SBI Bank statement parser.
 
 This module implements the SBIParser class for extracting transactions from
-SBI bank Excel statements. SBI statements typically have:
-- Variable header row position (scan first 20 rows)
+SBI bank statements. SBI statements can be:
+- Tab-separated text files (often with .xls extension)
+- Variable header row position (scan first 25 rows)
 - Date format: DD MMM YYYY (e.g., "15 Nov 2025")
 - Separate Debit and Credit columns
-- Description or Particulars column
+- Description column for transaction details
 """
 
-from typing import List
+from typing import List, Optional
 import pandas as pd
 from src.parsers.base import BankParser
 from src.models.transactions import Transaction, TransactionType
@@ -19,11 +20,12 @@ from src.utils.amount_parser import parse_amount
 
 class SBIParser(BankParser):
     """
-    Parser for SBI Bank Excel statements.
+    Parser for SBI Bank statements.
     
     Expected format:
     - File pattern: *sbi*.xls, *sbi*.xlsx
-    - Header row: Variable (scan first 20 rows)
+    - Format: Often tab-separated text despite .xls extension
+    - Header row: Variable (scan first 25 rows)
     - Columns: Txn Date, Value Date, Description, Ref No./Cheque No., Debit, Credit, Balance
     """
     
@@ -32,33 +34,84 @@ class SBIParser(BankParser):
         """Return SBI bank identifier."""
         return "SBI"
     
+    @staticmethod
+    def load_sbi_file(filepath: str) -> Optional[pd.DataFrame]:
+        """
+        Load SBI statement file, handling both Excel and tab-separated formats.
+        
+        SBI often exports .xls files that are actually tab-separated text with
+        metadata rows at the top. This method finds and loads from the header row.
+        """
+        # Try reading as tab-separated text first (common SBI format)
+        try:
+            # First, find the header row by scanning for "Txn Date"
+            with open(filepath, 'r', encoding='utf-8') as f:
+                lines = f.readlines()
+            
+            header_line_idx = None
+            for idx, line in enumerate(lines):
+                if 'Txn Date' in line and 'Debit' in line:
+                    header_line_idx = idx
+                    break
+            
+            if header_line_idx is not None:
+                # Read from header row onwards
+                df = pd.read_csv(
+                    filepath, 
+                    sep='\t', 
+                    encoding='utf-8', 
+                    skiprows=header_line_idx,
+                    on_bad_lines='skip'
+                )
+                if len(df.columns) > 3:
+                    return df
+        except Exception:
+            pass
+        
+        # Try Excel formats
+        for engine in ['xlrd', 'openpyxl']:
+            try:
+                df = pd.read_excel(filepath, engine=engine)
+                return df
+            except Exception:
+                continue
+        
+        return None
+    
     def can_parse(self, filename: str, df: pd.DataFrame) -> bool:
         """
         Check if file is an SBI statement.
         
-        Suggested implementation:
-        - Check filename contains 'sbi' (case-insensitive)
-        - Check for SBI-specific column names in first 20 rows
+        Checks filename and looks for SBI-specific column names.
         """
         if "sbi" not in filename.lower():
             return False
 
-        head = df.head(20).fillna("")
+        head = df.head(25).fillna("")
         tokens = {str(v).strip().lower() for v in head.values.flatten()}
-        expected = {"txn date", "debit", "credit"}
-        return len(expected.intersection(tokens)) >= 3
+        # Also check column names
+        col_tokens = {str(c).strip().lower() for c in df.columns}
+        all_tokens = tokens.union(col_tokens)
+        
+        expected = {"txn date", "debit", "credit", "description"}
+        return len(expected.intersection(all_tokens)) >= 3
     
     def find_header_row(self, df: pd.DataFrame) -> int:
         """
         Find header row in SBI statement.
         
-        Suggested implementation:
-        - Scan first 20 rows for expected column names
-        - Look for: "Txn Date", "Description", "Debit", "Credit"
-        - Return row index where at least 3 expected columns are found
+        For tab-separated SBI files, the header is typically the first row
+        with column names. Scans first 25 rows for expected column names.
         """
         expected = {"txn date", "description", "debit", "credit"}
-        for idx in range(min(20, len(df))):
+        
+        # First check if columns already contain expected headers
+        col_values = [str(c).strip().lower() for c in df.columns]
+        if len(expected.intersection(col_values)) >= 3:
+            return -1  # Headers are already in columns, no header row in data
+        
+        # Scan rows for header
+        for idx in range(min(25, len(df))):
             row_values = [str(v).strip().lower() for v in df.iloc[idx].tolist()]
             match_count = len(expected.intersection(row_values))
             if match_count >= 3:
@@ -69,17 +122,21 @@ class SBIParser(BankParser):
         """
         Extract transactions from SBI statement.
         
-        Suggested implementation:
-        - Use find_header_row to locate data start
-        - Map columns: Txn Date -> transaction_date, Description -> description
-        - Handle Debit and Credit columns
-        - Parse dates in DD MMM YYYY format (e.g., "15 Nov 2025")
-        - Create Transaction objects with TransactionType.DEBIT or TransactionType.CREDIT
+        Handles both:
+        - Tab-separated files where headers are already column names
+        - Excel files where headers are in a data row
         """
         header_idx = self.find_header_row(df)
-        headers = df.iloc[header_idx].fillna("").astype(str).str.strip()
-        data = df.iloc[header_idx + 1 :].copy()
-        data.columns = headers
+        
+        if header_idx == -1:
+            # Headers are already in df.columns (tab-separated format)
+            data = df.copy()
+        else:
+            # Headers are in a data row (Excel format)
+            headers = df.iloc[header_idx].fillna("").astype(str).str.strip()
+            data = df.iloc[header_idx + 1:].copy()
+            data.columns = headers
+        
         data = data.dropna(how="all")
 
         cols = self.get_column_mapping()
