@@ -87,7 +87,7 @@ class HDFCParser(BankParser):
         transactions: List[Transaction] = []
 
         for _, row in data.iterrows():
-            raw_date = str(row.get(cols["transaction_date"], "")).strip()
+            raw_date = _cell_to_string(row.get(cols["transaction_date"], ""))
             if not raw_date:
                 continue
             try:
@@ -95,12 +95,12 @@ class HDFCParser(BankParser):
             except ValueError:
                 continue
 
-            description = str(row.get(cols["description"], "")).strip()
+            description = _cell_to_string(row.get(cols["description"], ""))
             if not description:
                 continue
 
-            debit_val = str(row.get(cols["debit"], "")).strip() if cols["debit"] else ""
-            credit_val = str(row.get(cols["credit"], "")).strip() if cols["credit"] else ""
+            debit_val = _cell_to_string(row.get(cols["debit"], "")) if cols["debit"] else ""
+            credit_val = _cell_to_string(row.get(cols["credit"], "")) if cols["credit"] else ""
 
             amount_str = debit_val or credit_val
             if not amount_str:
@@ -115,7 +115,7 @@ class HDFCParser(BankParser):
 
             balance = None
             if cols["balance"]:
-                balance_raw = str(row.get(cols["balance"], "")).strip()
+                balance_raw = _cell_to_string(row.get(cols["balance"], ""))
                 if balance_raw:
                     try:
                         balance = parse_amount(balance_raw)
@@ -163,3 +163,9 @@ class HDFCParser(BankParser):
                     break
         return resolved
 
+
+def _cell_to_string(value: object) -> str:
+    if pd.isna(value):
+        return ""
+    text = str(value).strip()
+    return "" if text.lower() == "nan" else text

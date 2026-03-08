@@ -1,64 +1,87 @@
-"""
-Main entry point for Fipro CLI.
-
-This module provides the command-line interface for running the Fipro
-processing pipeline. Supports commands for processing files, checking
-status, and viewing help.
-"""
+"""CLI entry point for Fipro."""
 
 import argparse
 import sys
-from pathlib import Path
+from collections import defaultdict
+
 from src.config import load_config
+from src.core.ingestion import discover_files
 from src.core.orchestrator import process_pipeline
 from src.utils.logger import setup_logging
 
 
 def main():
-    """
-    Main CLI entry point.
-    
-    Parses command-line arguments and executes the appropriate command.
-    
-    Commands:
-    - process: Run the full processing pipeline
-    - status: Show pending files in input directory
-    - help: Show help message
-    
-    Suggested implementation:
-    - Set up argument parser with subcommands
-    - Load config
-    - Set up logging
-    - Route to appropriate command handler
-    - Handle errors gracefully
-    """
-    pass
+    """Parse CLI arguments and dispatch commands."""
+    parser = argparse.ArgumentParser(prog="fipro")
+    subparsers = parser.add_subparsers(dest="command")
+
+    process_parser = subparsers.add_parser("process", help="Process statement files")
+    process_parser.add_argument(
+        "--config",
+        "-c",
+        default="config/config.toml",
+        help="Path to TOML config",
+    )
+
+    status_parser = subparsers.add_parser("status", help="Show pending input files")
+    status_parser.add_argument(
+        "--config",
+        "-c",
+        default="config/config.toml",
+        help="Path to TOML config",
+    )
+
+    args = parser.parse_args()
+    if args.command is None:
+        parser.print_help()
+        return 1
+
+    config = load_config(args.config)
+    setup_logging(
+        config["fipro"].get("log_level", "INFO"),
+        config["paths"].get("log_file"),
+    )
+
+    if args.command == "process":
+        return cmd_process(args, config)
+    if args.command == "status":
+        return cmd_status(args, config)
+    return 1
 
 
-def cmd_process(args):
-    """
-    Handle 'process' command.
-    
-    Runs the full processing pipeline on files in the input directory.
-    
-    Args:
-        args: Parsed command-line arguments
-    """
-    pass
+def cmd_process(args, config: dict):
+    """Run the full processing pipeline."""
+    try:
+        results = process_pipeline(config)
+    except Exception as exc:
+        print(f"Processing failed: {exc}", file=sys.stderr)
+        return 1
+
+    transaction_count = sum(len(result.transactions) for result in results)
+    print(
+        f"Processed {len(results)} file(s) and exported {transaction_count} transaction(s)."
+    )
+    return 0
 
 
-def cmd_status(args):
-    """
-    Handle 'status' command.
-    
-    Shows summary of files in input directory and processing status.
-    
-    Args:
-        args: Parsed command-line arguments
-    """
-    pass
+def cmd_status(args, config: dict):
+    """Show the list of pending files in the input directory."""
+    files = discover_files(config)
+    print(f"Input directory: {config['paths']['input']}")
+    print(f"Pending files: {len(files)}")
+
+    grouped_files: dict[str, list[str]] = defaultdict(list)
+    for crawled_file in files:
+        grouped_files[crawled_file.metadata.get("bank", "UNKNOWN")].append(
+            crawled_file.filename
+        )
+
+    for bank in sorted(grouped_files):
+        print(f"{bank}:")
+        for filename in sorted(grouped_files[bank]):
+            print(f"- {filename}")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
-
+    sys.exit(main())

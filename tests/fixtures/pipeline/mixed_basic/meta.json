@@ -1,0 +1,12 @@
+{
+  "title": "Mixed-bank happy path",
+  "purpose": "Validates parser routing, merge, deduplication, transfer tagging, external account note tagging, and export formatting",
+  "covers": [
+    "multi-file processing",
+    "deduplication",
+    "transfer detection",
+    "external account note tagging",
+    "goodbudget export"
+  ],
+  "fixture_version": 1
+}
