@@ -94,7 +94,7 @@ class AxisParser(BankParser):
         transactions: List[Transaction] = []
 
         for _, row in data.iterrows():
-            raw_date = str(row.get(resolved["transaction_date"], "")).strip()
+            raw_date = _cell_to_string(row.get(resolved["transaction_date"], ""))
             if not raw_date:
                 continue
             try:
@@ -102,12 +102,12 @@ class AxisParser(BankParser):
             except ValueError:
                 continue
 
-            description = str(row.get(resolved["description"], "")).strip()
+            description = _cell_to_string(row.get(resolved["description"], ""))
             if not description:
                 continue
 
-            debit_val = str(row.get(resolved["debit"], "")).strip() if resolved["debit"] else ""
-            credit_val = str(row.get(resolved["credit"], "")).strip() if resolved["credit"] else ""
+            debit_val = _cell_to_string(row.get(resolved["debit"], "")) if resolved["debit"] else ""
+            credit_val = _cell_to_string(row.get(resolved["credit"], "")) if resolved["credit"] else ""
 
             amount_str = debit_val or credit_val
             if not amount_str:
@@ -122,7 +122,7 @@ class AxisParser(BankParser):
 
             balance = None
             if resolved["balance"]:
-                balance_raw = str(row.get(resolved["balance"], "")).strip()
+                balance_raw = _cell_to_string(row.get(resolved["balance"], ""))
                 if balance_raw:
                     try:
                         balance = parse_amount(balance_raw)
@@ -171,3 +171,9 @@ class AxisParser(BankParser):
                     break
         return resolved
 
+
+def _cell_to_string(value: object) -> str:
+    if pd.isna(value):
+        return ""
+    text = str(value).strip()
+    return "" if text.lower() == "nan" else text

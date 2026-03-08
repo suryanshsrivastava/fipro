@@ -1,0 +1,11 @@
+{
+  "title": "HDFC basic debit and credit rows",
+  "purpose": "Validates standard HDFC header detection and withdrawal/deposit mapping",
+  "covers": [
+    "header row detection",
+    "debit mapping",
+    "credit mapping",
+    "balance extraction"
+  ],
+  "fixture_version": 1
+}

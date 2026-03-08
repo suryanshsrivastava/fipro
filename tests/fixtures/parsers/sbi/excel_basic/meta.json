@@ -1,0 +1,11 @@
+{
+  "title": "SBI standard Excel layout",
+  "purpose": "Validates SBI parser handling when the statement is a normal Excel workbook",
+  "covers": [
+    "header detection",
+    "credit mapping",
+    "debit mapping",
+    "balance extraction"
+  ],
+  "fixture_version": 1
+}

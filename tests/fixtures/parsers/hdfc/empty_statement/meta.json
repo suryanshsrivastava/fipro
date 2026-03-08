@@ -1,0 +1,8 @@
+{
+  "title": "HDFC empty statement",
+  "purpose": "Validates that a valid HDFC statement with headers but no rows returns no transactions",
+  "covers": [
+    "empty statement handling"
+  ],
+  "fixture_version": 1
+}

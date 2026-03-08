@@ -1,0 +1,30 @@
+{
+  "bank": "AXIS",
+  "case": "abbrev_headers",
+  "transactions": [
+    {
+      "transaction_date": "2025-11-01",
+      "description": "SALARY CREDIT NOV25",
+      "amount": "65000.00",
+      "transaction_type": "credit",
+      "source_bank": "AXIS",
+      "balance": "132900.00"
+    },
+    {
+      "transaction_date": "2025-11-06",
+      "description": "BILL PAY-BROADBAND",
+      "amount": "1499.00",
+      "transaction_type": "debit",
+      "source_bank": "AXIS",
+      "balance": "131401.00"
+    },
+    {
+      "transaction_date": "2025-11-08",
+      "description": "UPI/Pay/Restaurant",
+      "amount": "1875.00",
+      "transaction_type": "debit",
+      "source_bank": "AXIS",
+      "balance": "129526.00"
+    }
+  ]
+}

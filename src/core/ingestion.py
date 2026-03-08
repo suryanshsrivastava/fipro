@@ -7,7 +7,7 @@ file contents, only discovers and validates files.
 """
 
 from typing import List
-from datetime import datetime
+from datetime import datetime, timezone
 import os
 from src.models.account import CrawledFile
 
@@ -65,7 +65,7 @@ def discover_files(config: dict) -> List[CrawledFile]:
                     filepath=full_path,
                     extension=ext,
                     size=size,
-                    crawl_date=datetime.utcnow().isoformat(),
+                    crawl_date=datetime.now(timezone.utc).isoformat(),
                     metadata=metadata,
                 )
             )

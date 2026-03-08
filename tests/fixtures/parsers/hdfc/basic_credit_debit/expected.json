@@ -1,0 +1,38 @@
+{
+  "bank": "HDFC",
+  "case": "basic_credit_debit",
+  "transactions": [
+    {
+      "transaction_date": "2025-11-01",
+      "description": "UPI-GROCERY MART-PAY",
+      "amount": "1250.00",
+      "transaction_type": "debit",
+      "source_bank": "HDFC",
+      "balance": "48750.00"
+    },
+    {
+      "transaction_date": "2025-11-03",
+      "description": "TRANSFER TO SBI",
+      "amount": "10000.00",
+      "transaction_type": "debit",
+      "source_bank": "HDFC",
+      "balance": "38750.00"
+    },
+    {
+      "transaction_date": "2025-11-05",
+      "description": "CREDIT CARD PAYMENT HDFC CARD",
+      "amount": "5000.00",
+      "transaction_type": "debit",
+      "source_bank": "HDFC",
+      "balance": "33750.00"
+    },
+    {
+      "transaction_date": "2025-11-06",
+      "description": "NEFT-FREELANCE PAYMENT",
+      "amount": "25000.00",
+      "transaction_type": "credit",
+      "source_bank": "HDFC",
+      "balance": "58750.00"
+    }
+  ]
+}
