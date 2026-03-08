@@ -1,0 +1,30 @@
+{
+  "bank": "SBI",
+  "case": "excel_basic",
+  "transactions": [
+    {
+      "transaction_date": "2025-11-03",
+      "description": "TRANSFER FROM HDFC",
+      "amount": "10000.00",
+      "transaction_type": "credit",
+      "source_bank": "SBI",
+      "balance": "55000.00"
+    },
+    {
+      "transaction_date": "2025-11-04",
+      "description": "Electricity Bill BESCOM",
+      "amount": "1850.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "balance": "53150.00"
+    },
+    {
+      "transaction_date": "2025-11-07",
+      "description": "FD Interest Credit",
+      "amount": "520.00",
+      "transaction_type": "credit",
+      "source_bank": "SBI",
+      "balance": "53670.00"
+    }
+  ]
+}

@@ -80,7 +80,10 @@ class Transaction:
     
     def __post_init__(self):
         """Generate unique hash for deduplication."""
-        unique_str = f"{self.transaction_date}{self.amount}{self.description}"
+        unique_str = (
+            f"{self.transaction_date}{self.amount}{self.description}"
+            f"{self.transaction_type.value}{self.source_bank}"
+        )
         if self.balance:
             unique_str += str(self.balance)
         self.hash = hashlib.sha256(unique_str.encode()).hexdigest()[:16]
@@ -103,4 +106,3 @@ class Transaction:
             "Amount": str(self.signed_amount),
             "Status": "cleared"
         }
-
