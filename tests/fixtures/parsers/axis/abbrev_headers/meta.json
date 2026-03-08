@@ -1,0 +1,10 @@
+{
+  "title": "Axis abbreviated headers",
+  "purpose": "Validates Axis parser handling for DR/CR/BAL abbreviated exports",
+  "covers": [
+    "abbreviated header mapping",
+    "credit mapping",
+    "debit mapping"
+  ],
+  "fixture_version": 1
+}

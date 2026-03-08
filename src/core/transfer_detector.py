@@ -36,7 +36,32 @@ def detect_transfers(transactions: List[Transaction]) -> List[Transaction]:
     Functions that could be kept from existing code:
     - identify_internal_transfers() - identifies transfers in DataFrame
     """
-    pass
+    ordered_indices = sorted(
+        range(len(transactions)),
+        key=lambda idx: (
+            transactions[idx].transaction_date,
+            transactions[idx].amount,
+            transactions[idx].source_bank,
+        ),
+    )
+    matched: set[int] = set()
+
+    for offset, idx in enumerate(ordered_indices):
+        if idx in matched:
+            continue
+
+        for candidate_idx in ordered_indices[offset + 1 :]:
+            if candidate_idx in matched:
+                continue
+
+            if is_transfer_pair(transactions[idx], transactions[candidate_idx]):
+                transactions[idx].status = TransactionStatus.TRANSFER
+                transactions[candidate_idx].status = TransactionStatus.TRANSFER
+                matched.add(idx)
+                matched.add(candidate_idx)
+                break
+
+    return transactions
 
 
 def is_transfer_pair(txn1: Transaction, txn2: Transaction) -> bool:
@@ -56,5 +81,9 @@ def is_transfer_pair(txn1: Transaction, txn2: Transaction) -> bool:
     - Check opposite transaction types
     - Return True if all conditions met
     """
-    pass
-
+    return (
+        txn1.transaction_date == txn2.transaction_date
+        and txn1.amount == txn2.amount
+        and txn1.transaction_type != txn2.transaction_type
+        and txn1.source_bank != txn2.source_bank
+    )
