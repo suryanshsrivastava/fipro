@@ -1,4 +1,4 @@
-# Tonight Implementation Plan: Usable Bank-Statement MVP for Fipro
+# Usable Bank-Statement MVP Implementation Plan
 
 ## Summary
 Build a working local CLI that processes HDFC, SBI, and Axis Excel statements from `data/input/`, consolidates them into one Goodbudget CSV, flags likely internal transfers, adds lightweight note tagging for configured external account payments (credit-card placeholder only), and emits a JSON processing report.
