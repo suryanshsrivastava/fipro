@@ -35,20 +35,7 @@ def deduplicate(transactions: List[Transaction], seen_hashes: Set[str] = None) -
     Functions that could be kept from existing code:
     - deduplicate_transactions() - removes duplicates from DataFrame
     """
-    if seen_hashes is None:
-        seen_hashes = set()
-
-    deduplicated: List[Transaction] = []
-    duplicates_skipped = 0
-
-    for transaction in transactions:
-        if transaction.hash in seen_hashes:
-            duplicates_skipped += 1
-            continue
-        seen_hashes.add(transaction.hash)
-        deduplicated.append(transaction)
-
-    return deduplicated, duplicates_skipped
+    pass
 
 
 def get_seen_hashes_from_file(filepath: str) -> Set[str]:
@@ -64,7 +51,7 @@ def get_seen_hashes_from_file(filepath: str) -> Set[str]:
     Returns:
         Set of transaction hashes
     """
-    return set()
+    pass
 
 
 def save_seen_hashes_to_file(hashes: Set[str], filepath: str) -> None:
@@ -78,4 +65,4 @@ def save_seen_hashes_to_file(hashes: Set[str], filepath: str) -> None:
         hashes: Set of transaction hashes to save
         filepath: Path to hash storage file
     """
-    return None
+    pass

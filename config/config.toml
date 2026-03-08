@@ -1,28 +1,19 @@
-[fipro]
-version = "0.1.0"
-log_level = "INFO"
+# Configuration file for transaction extraction script
+
+supported_extensions = ['pdf', 'xls', 'xlsx', 'csv']
 
 [paths]
-input = "data/input"
-output = "data/output"
-processed = "data/processed"
-failed = "data/failed"
-log_file = "logs/fipro.log"
+# Input file path
+input = "/home/suryanshsrivastava/Work/Projects/fipro/data"
 
-[processing]
-supported_extensions = ["xls", "xlsx"]
-include_internal_transfers = true
-fail_on_file_error = true
+# Output file path  
+output_file = "./output.csv"
 
-[banks.hdfc]
-patterns = ["*hdfc*", "*HDFC*"]
+# Input data directory for bank statements processing
+input_data = "data/input"
 
-[banks.sbi]
-patterns = ["*sbi*", "*SBI*"]
+# Output data directory for bank statements processing
+output_data = "data/output"
 
-[banks.axis]
-patterns = ["*axis*", "*Axis*"]
-
-[external_accounts]
-names = ["CREDIT_CARD"]
-payment_keywords = ["CREDIT CARD", "CC PAYMENT", "CARD PAYMENT", "CRED"]
+# Optional: Working directory (leave empty to use current directory)
+# working_dir = ""
