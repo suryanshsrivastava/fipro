@@ -9,7 +9,11 @@ from src.models.result import ProcessingResult
 from src.models.transactions import Transaction, TransactionType, TransactionStatus
 
 
-def generate_report(results: List[ProcessingResult], output_path: str) -> dict:
+def generate_report(
+    results: List[ProcessingResult],
+    output_path: str,
+    exported_transactions: int | None = None,
+) -> dict:
     """Generate and write a JSON processing report."""
     transactions = [
         transaction for result in results for transaction in result.transactions
@@ -31,7 +35,11 @@ def generate_report(results: List[ProcessingResult], output_path: str) -> dict:
         "summary": {
             "total_files": len(results),
             "total_transactions": sum(result.total_transactions for result in results),
-            "exported_transactions": len(transactions),
+            "exported_transactions": (
+                len(transactions)
+                if exported_transactions is None
+                else exported_transactions
+            ),
             "duplicates_skipped": sum(
                 result.duplicates_skipped for result in results
             ),

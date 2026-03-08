@@ -172,7 +172,7 @@ class TestTransaction:
         assert txn.raw_data == {"col1": "val1"}
         assert txn.created_at == "2025-01-15T10:00:00"
 
-    def test_hash_deterministic(self):
+    def test_hash_distinguishes_bank_and_transaction_type(self):
         txn1 = Transaction(
             transaction_date=date(2025, 1, 15),
             description="Test",
@@ -189,4 +189,4 @@ class TestTransaction:
             source_bank="SBI",
             source_file="other.xls",
         )
-        assert txn1.hash == txn2.hash
+        assert txn1.hash != txn2.hash

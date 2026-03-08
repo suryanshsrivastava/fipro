@@ -19,16 +19,16 @@ def main():
     process_parser.add_argument(
         "--config",
         "-c",
-        default="config/config.toml",
-        help="Path to TOML config",
+        default=None,
+        help="Path to TOML config (defaults to the project config)",
     )
 
     status_parser = subparsers.add_parser("status", help="Show pending input files")
     status_parser.add_argument(
         "--config",
         "-c",
-        default="config/config.toml",
-        help="Path to TOML config",
+        default=None,
+        help="Path to TOML config (defaults to the project config)",
     )
 
     args = parser.parse_args()

@@ -37,3 +37,27 @@ def test_deduplicate_respects_existing_seen_hashes():
 
     assert deduplicated == []
     assert duplicates_skipped == 1
+
+
+def test_deduplicate_keeps_same_hash_shape_across_banks_and_types():
+    debit = Transaction(
+        transaction_date=date(2025, 1, 1),
+        description="Shared fingerprint",
+        amount=Decimal("100.00"),
+        transaction_type=TransactionType.DEBIT,
+        source_bank="HDFC",
+        source_file="hdfc.xls",
+    )
+    credit = Transaction(
+        transaction_date=date(2025, 1, 1),
+        description="Shared fingerprint",
+        amount=Decimal("100.00"),
+        transaction_type=TransactionType.CREDIT,
+        source_bank="SBI",
+        source_file="sbi.xls",
+    )
+
+    deduplicated, duplicates_skipped = deduplicate([debit, credit])
+
+    assert deduplicated == [debit, credit]
+    assert duplicates_skipped == 0

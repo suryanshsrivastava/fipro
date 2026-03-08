@@ -12,6 +12,7 @@ from src.core.ingestion import discover_files, get_bank_from_filename
 from src.core.transfer_detector import detect_transfers
 from src.exporters.goodbudget import export_to_goodbudget
 from src.exporters.report import generate_report
+from src.models.account import CrawledFile
 from src.models.result import ProcessingResult
 from src.models.transactions import Transaction
 from src.parsers.axis import AxisParser
@@ -31,10 +32,13 @@ def process_pipeline(config: dict) -> List[ProcessingResult]:
     fail_on_file_error = config.get("processing", {}).get("fail_on_file_error", True)
     results: List[ProcessingResult] = []
     all_transactions: List[Transaction] = []
-    failures: list[tuple[object, str]] = []
+    failures: list[tuple[CrawledFile, str]] = []
+    successful_files: list[CrawledFile] = []
 
     for crawled_file in files:
-        bank_hint = crawled_file.metadata.get("bank", get_bank_from_filename(crawled_file.filename))
+        bank_hint = crawled_file.metadata.get(
+            "bank", get_bank_from_filename(crawled_file.filename)
+        )
         result = ProcessingResult(
             source_file=crawled_file.filepath,
             bank=bank_hint,
@@ -54,16 +58,18 @@ def process_pipeline(config: dict) -> List[ProcessingResult]:
             result.successful = len(transactions)
             result.transactions = transactions
             all_transactions.extend(transactions)
+            successful_files.append(crawled_file)
         except Exception as exc:
             result.errors.append(str(exc))
             result.failed = 1
             failures.append((crawled_file, str(exc)))
         results.append(result)
 
+    failed_dir = config["paths"]["failed"]
+    for crawled_file, error in failures:
+        move_file_to_failed(crawled_file.filepath, failed_dir, error)
+
     if failures and fail_on_file_error:
-        failed_dir = config["paths"]["failed"]
-        for crawled_file, error in failures:
-            move_file_to_failed(crawled_file.filepath, failed_dir, error)
         raise RuntimeError(
             f"Processing aborted because {len(failures)} file(s) failed to parse"
         )
@@ -86,11 +92,13 @@ def process_pipeline(config: dict) -> List[ProcessingResult]:
     csv_path = output_dir / f"goodbudget_{timestamp}.csv"
     report_path = output_dir / f"processing_report_{timestamp}.json"
 
-    export_to_goodbudget(deduplicated_transactions, str(csv_path), config)
-    generate_report(results, str(report_path))
+    exported_count = export_to_goodbudget(
+        deduplicated_transactions, str(csv_path), config
+    )
+    generate_report(results, str(report_path), exported_transactions=exported_count)
 
     processed_dir = config["paths"]["processed"]
-    for crawled_file in files:
+    for crawled_file in successful_files:
         move_file_to_processed(crawled_file.filepath, processed_dir)
 
     return results

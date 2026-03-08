@@ -14,15 +14,37 @@ def test_load_config_uses_repo_default_path():
 
 
 def test_validate_config_rejects_missing_sections():
-    with pytest.raises(ValueError, match="Required section 'external_accounts'"):
+    with pytest.raises(ValueError, match="Required section 'banks'"):
         validate_config(
             {
                 "fipro": {},
                 "paths": {},
                 "processing": {"supported_extensions": ["xls"]},
-                "banks": {},
             }
         )
+
+
+def test_validate_config_accepts_missing_external_accounts():
+    assert (
+        validate_config(
+            {
+                "fipro": {"version": "0.1.0"},
+                "paths": {
+                    "input": "data/input",
+                    "output": "data/output",
+                    "processed": "data/processed",
+                    "failed": "data/failed",
+                },
+                "processing": {"supported_extensions": ["xls", "xlsx"]},
+                "banks": {
+                    "hdfc": {"patterns": ["*hdfc*"]},
+                    "sbi": {"patterns": ["*sbi*"]},
+                    "axis": {"patterns": ["*axis*"]},
+                },
+            }
+        )
+        is True
+    )
 
 
 def test_load_config_accepts_relative_path(tmp_path, monkeypatch):

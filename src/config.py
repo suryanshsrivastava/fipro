@@ -26,7 +26,7 @@ def load_config(config_path: str | None = None) -> Dict:
 
 def validate_config(config: Dict) -> bool:
     """Validate the runtime config structure."""
-    required_sections = ["fipro", "paths", "processing", "banks", "external_accounts"]
+    required_sections = ["fipro", "paths", "processing", "banks"]
     for section in required_sections:
         if section not in config:
             raise ValueError(f"Required section '{section}' not found in config")
@@ -42,8 +42,5 @@ def validate_config(config: Dict) -> bool:
     for bank_key in ["hdfc", "sbi", "axis"]:
         if bank_key not in config["banks"]:
             raise ValueError(f"Required bank config 'banks.{bank_key}' not found")
-
-    if "names" not in config["external_accounts"]:
-        raise ValueError("Required key 'external_accounts.names' not found")
 
     return True
