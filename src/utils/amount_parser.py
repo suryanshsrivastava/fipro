@@ -7,7 +7,6 @@ for precise financial calculations.
 """
 
 from decimal import Decimal, InvalidOperation
-from typing import Optional
 import re
 
 

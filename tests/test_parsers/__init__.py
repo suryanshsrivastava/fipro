@@ -1,1 +1,0 @@
-"""Parser regression tests."""

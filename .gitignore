@@ -175,4 +175,5 @@ cython_debug/
 .pypirc
 
 data/
-/fipro-worktrees/
+.envrc
+config/google_credentials.json

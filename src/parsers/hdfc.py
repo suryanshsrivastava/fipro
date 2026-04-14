@@ -43,8 +43,8 @@ class HDFCParser(BankParser):
         if "hdfc" not in filename.lower():
             return False
 
-        head = df.head(20).fillna("")
-        tokens = {str(v).strip().lower() for v in head.values.flatten()}
+        head = df.head(25)
+        tokens = {self.cell_text(v).lower() for v in head.values.flatten() if self.cell_text(v)}
         expected = {"narration", "withdrawal amt.", "deposit amt."}
         # Require majority of expected columns to reduce false positives
         return len(expected.intersection(tokens)) >= 3
@@ -59,8 +59,8 @@ class HDFCParser(BankParser):
         - Return row index where at least 3 expected columns are found
         """
         expected = {"date", "narration", "withdrawal amt.", "deposit amt."}
-        for idx in range(min(20, len(df))):
-            row_values = [str(v).strip().lower() for v in df.iloc[idx].tolist()]
+        for idx in range(min(25, len(df))):
+            row_values = [self.cell_text(v).lower() for v in df.iloc[idx].tolist() if self.cell_text(v)]
             match_count = len(expected.intersection(row_values))
             if match_count >= 3:
                 return idx
@@ -78,7 +78,7 @@ class HDFCParser(BankParser):
         - Create Transaction objects with TransactionType.DEBIT or TransactionType.CREDIT
         """
         header_idx = self.find_header_row(df)
-        headers = df.iloc[header_idx].fillna("").astype(str).str.strip()
+        headers = df.iloc[header_idx].map(self.cell_text)
         data = df.iloc[header_idx + 1 :].copy()
         data.columns = headers
         data = data.dropna(how="all")
@@ -87,7 +87,7 @@ class HDFCParser(BankParser):
         transactions: List[Transaction] = []
 
         for _, row in data.iterrows():
-            raw_date = _cell_to_string(row.get(cols["transaction_date"], ""))
+            raw_date = self.cell_text(row.get(cols["transaction_date"], ""))
             if not raw_date:
                 continue
             try:
@@ -95,12 +95,12 @@ class HDFCParser(BankParser):
             except ValueError:
                 continue
 
-            description = _cell_to_string(row.get(cols["description"], ""))
+            description = self.cell_text(row.get(cols["description"], ""))
             if not description:
                 continue
 
-            debit_val = _cell_to_string(row.get(cols["debit"], "")) if cols["debit"] else ""
-            credit_val = _cell_to_string(row.get(cols["credit"], "")) if cols["credit"] else ""
+            debit_val = self.cell_text(row.get(cols["debit"], "")) if cols["debit"] else ""
+            credit_val = self.cell_text(row.get(cols["credit"], "")) if cols["credit"] else ""
 
             amount_str = debit_val or credit_val
             if not amount_str:
@@ -115,7 +115,7 @@ class HDFCParser(BankParser):
 
             balance = None
             if cols["balance"]:
-                balance_raw = _cell_to_string(row.get(cols["balance"], ""))
+                balance_raw = self.cell_text(row.get(cols["balance"], ""))
                 if balance_raw:
                     try:
                         balance = parse_amount(balance_raw)
@@ -153,7 +153,11 @@ class HDFCParser(BankParser):
     def _resolve_columns(self, df: pd.DataFrame) -> dict:
         mapping = self.get_column_mapping()
         resolved = {}
-        lower_cols = {str(c).strip().lower(): c for c in df.columns}
+        lower_cols = {
+            self.cell_text(c).lower(): c
+            for c in df.columns
+            if self.cell_text(c)
+        }
         for key, candidates in mapping.items():
             resolved[key] = None
             for candidate in candidates:
@@ -162,10 +166,3 @@ class HDFCParser(BankParser):
                     resolved[key] = lower_cols[cand_lower]
                     break
         return resolved
-
-
-def _cell_to_string(value: object) -> str:
-    if pd.isna(value):
-        return ""
-    text = str(value).strip()
-    return "" if text.lower() == "nan" else text

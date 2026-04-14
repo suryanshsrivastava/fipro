@@ -94,3 +94,9 @@ class BankParser(ABC):
         """
         pass
 
+    @staticmethod
+    def cell_text(value: object) -> str:
+        """Return a stripped string value while treating pandas nulls as empty."""
+        if pd.isna(value):
+            return ""
+        return str(value).strip()

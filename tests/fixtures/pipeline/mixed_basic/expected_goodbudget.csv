@@ -1,8 +1,0 @@
-Date,Envelope,Account,Name,Notes,Amount,Status
-2025-11-01,Unallocated,AXIS,SALARY CREDIT NOV25,,65000.00,cleared
-2025-11-01,Unallocated,HDFC,UPI-GROCERY MART-PAY,,-1250.00,cleared
-2025-11-03,Unallocated,HDFC,TRANSFER TO SBI,Internal transfer detected,-10000.00,cleared
-2025-11-03,Unallocated,SBI,TRANSFER FROM HDFC,Internal transfer detected,10000.00,cleared
-2025-11-04,Unallocated,SBI,Electricity Bill BESCOM,,-1850.00,cleared
-2025-11-05,Unallocated,HDFC,CREDIT CARD PAYMENT HDFC CARD,External account payment: CREDIT_CARD,-5000.00,cleared
-2025-11-06,Unallocated,AXIS,BILL PAY-BROADBAND,,-1499.00,cleared
