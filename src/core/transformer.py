@@ -1,112 +1,49 @@
-"""
-Data transformation and cleaning module for Fipro.
-
-This module handles standardization of dates, amounts, and descriptions after
-extraction from bank statements. Converts bank-specific formats to unified
-Transaction objects.
-"""
-
 from typing import List
 from datetime import date
 from decimal import Decimal
 from src.models.transactions import Transaction, TransactionType
+from src.utils.date_parser import parse_date_multiple_formats
+from src.utils.amount_parser import parse_amount
+
+BANK_DATE_FORMATS = {
+    'HDFC': ['%d/%m/%y', '%d-%m-%Y'],
+    'SBI': ['%d %b %Y'],
+    'AXIS': ['%d-%m-%Y'],
+}
 
 
 def clean_transactions(raw_transactions: List[dict], bank: str, source_file: str) -> List[Transaction]:
-    """
-    Transform raw transaction dictionaries to Transaction objects.
-    
-    Standardizes dates, amounts, and descriptions from bank-specific formats
-    to unified Transaction schema.
-    
-    Args:
-        raw_transactions: List of raw transaction dictionaries from parser
-        bank: Bank name (HDFC, SBI, AXIS)
-        source_file: Source file path
-        
-    Returns:
-        List of Transaction objects
-        
-    Suggested implementation:
-    - For each raw transaction:
-      - Parse date using date_parser.parse_date() with bank-specific format
-      - Parse amount using amount_parser.parse_amount()
-      - Determine transaction_type from debit/credit columns
-      - Clean description using clean_description()
-      - Create Transaction object
-    - Return list of Transaction objects
-    
-    Functions that could be kept from existing code:
-    - process_bank_transactions() - processes and consolidates transactions
-    - post_process_transactions() - applies deduplication and tagging
-    """
-    pass
+    result = []
+    for raw in raw_transactions:
+        try:
+            txn_date = standardize_date(raw.get('transaction_date', ''), bank, {})
+            description = clean_description(str(raw.get('description', '')))
+            amount = standardize_amount(raw.get('amount', '0'))
+            txn_type = TransactionType(raw.get('transaction_type', 'debit'))
+            result.append(Transaction(
+                transaction_date=txn_date,
+                description=description,
+                amount=amount,
+                transaction_type=txn_type,
+                source_bank=bank,
+                source_file=source_file,
+            ))
+        except Exception:
+            continue
+    return result
 
 
 def clean_description(description: str) -> str:
-    """
-    Clean and normalize transaction description.
-    
-    Removes extra whitespace, special characters, and normalizes case.
-    
-    Args:
-        description: Raw description string
-        
-    Returns:
-        Cleaned description string
-        
-    Suggested implementation:
-    - Remove leading/trailing whitespace
-    - Normalize multiple spaces to single space
-    - Remove 'Br' prefix if present
-    - Return cleaned string
-    """
-    pass
+    return ' '.join(description.split()).strip()
 
 
 def standardize_date(date_str: str, bank: str, config: dict) -> date:
-    """
-    Parse and standardize date string to date object.
-    
-    Args:
-        date_str: Date string in bank-specific format
-        bank: Bank name to determine format
-        config: Configuration with date formats
-        
-    Returns:
-        date object
-        
-    Raises:
-        ValueError: If date cannot be parsed
-        
-    Suggested implementation:
-    - Get date format from config['banks'][bank.lower()]['date_format']
-    - Try parsing with that format
-    - Fall back to common formats if needed
-    - Return date object
-    """
-    pass
+    formats = BANK_DATE_FORMATS.get(bank, ['%d-%m-%Y', '%d/%m/%y'])
+    parsed = parse_date_multiple_formats(date_str, formats)
+    if parsed is None:
+        raise ValueError(f'Unable to parse date: {date_str}')
+    return parsed
 
 
 def standardize_amount(amount_str: str) -> Decimal:
-    """
-    Parse and standardize amount string to Decimal.
-    
-    Handles commas, currency symbols, and various number formats.
-    
-    Args:
-        amount_str: Amount string (may contain commas, currency symbols)
-        
-    Returns:
-        Decimal amount
-        
-    Raises:
-        ValueError: If amount cannot be parsed
-        
-    Suggested implementation:
-    - Remove currency symbols (₹, Rs, etc.)
-    - Remove commas
-    - Convert to Decimal
-    - Return Decimal object
-    """
-    pass
+    return parse_amount(amount_str)

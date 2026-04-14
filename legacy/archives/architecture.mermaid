@@ -1,0 +1,18 @@
+graph TD
+    A[Bank Statements<br>PDF · Excel · CSV] --> B[Config Ingestion<br>ingest_transactions.py]
+    B --> C[File Discovery & Loading<br>discover_files / load_files_to_dataframes]
+    C --> D[Processing Pipeline<br>process_bank_statements.py]
+    D --> E[Unified Transaction Model<br>dedup · hashing]
+    E --> F[Storage Layer<br>SQLite → PostgreSQL · Alembic]
+    F --> G[APIs & Frontend<br>FastAPI · React/MUI · Auth]
+    D --> H[Validation Loop<br>329-row checks · particulars stitching]
+    H --> B
+    G --> I[User-Facing Goals<br>voice budgeting · manual CSV · SMS ingestion]
+    subgraph Future Enhancements
+        J[Rule-based categorization]
+        K[ML classification]
+        L[Go-based file orchestrator]
+    end
+    G --> J
+    G --> K
+    B --> L

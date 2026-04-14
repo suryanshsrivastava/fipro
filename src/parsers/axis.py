@@ -42,8 +42,8 @@ class AxisParser(BankParser):
         if "axis" not in filename.lower():
             return False
 
-        head = df.head(20).fillna("")
-        tokens = {str(v).strip().lower() for v in head.values.flatten()}
+        head = df.head(25)
+        tokens = {self.cell_text(v).lower() for v in head.values.flatten() if self.cell_text(v)}
         # Axis uses abbreviated column names
         expected_full = {"tran date", "particulars", "debit", "credit"}
         expected_abbrev = {"tran date", "particulars", "dr", "cr"}
@@ -63,8 +63,8 @@ class AxisParser(BankParser):
         expected_full = {"tran date", "particulars", "debit", "credit"}
         expected_abbrev = {"tran date", "particulars", "dr", "cr"}
         
-        for idx in range(min(20, len(df))):
-            row_values = [str(v).strip().lower() for v in df.iloc[idx].tolist()]
+        for idx in range(min(25, len(df))):
+            row_values = [self.cell_text(v).lower() for v in df.iloc[idx].tolist() if self.cell_text(v)]
             match_full = len(expected_full.intersection(row_values))
             match_abbrev = len(expected_abbrev.intersection(row_values))
             if match_full >= 3 or match_abbrev >= 3:
@@ -83,7 +83,7 @@ class AxisParser(BankParser):
         - Create Transaction objects with TransactionType.DEBIT or TransactionType.CREDIT
         """
         header_idx = self.find_header_row(df)
-        headers = df.iloc[header_idx].fillna("").astype(str).str.strip()
+        headers = df.iloc[header_idx].map(self.cell_text)
         data = df.iloc[header_idx + 1 :].copy()
         data.columns = headers
         data = data.dropna(how="all")
@@ -94,7 +94,7 @@ class AxisParser(BankParser):
         transactions: List[Transaction] = []
 
         for _, row in data.iterrows():
-            raw_date = _cell_to_string(row.get(resolved["transaction_date"], ""))
+            raw_date = self.cell_text(row.get(resolved["transaction_date"], ""))
             if not raw_date:
                 continue
             try:
@@ -102,12 +102,12 @@ class AxisParser(BankParser):
             except ValueError:
                 continue
 
-            description = _cell_to_string(row.get(resolved["description"], ""))
+            description = self.cell_text(row.get(resolved["description"], ""))
             if not description:
                 continue
 
-            debit_val = _cell_to_string(row.get(resolved["debit"], "")) if resolved["debit"] else ""
-            credit_val = _cell_to_string(row.get(resolved["credit"], "")) if resolved["credit"] else ""
+            debit_val = self.cell_text(row.get(resolved["debit"], "")) if resolved["debit"] else ""
+            credit_val = self.cell_text(row.get(resolved["credit"], "")) if resolved["credit"] else ""
 
             amount_str = debit_val or credit_val
             if not amount_str:
@@ -122,7 +122,7 @@ class AxisParser(BankParser):
 
             balance = None
             if resolved["balance"]:
-                balance_raw = _cell_to_string(row.get(resolved["balance"], ""))
+                balance_raw = self.cell_text(row.get(resolved["balance"], ""))
                 if balance_raw:
                     try:
                         balance = parse_amount(balance_raw)
@@ -161,7 +161,11 @@ class AxisParser(BankParser):
 
     def _resolve_columns(self, df: pd.DataFrame, mapping: dict) -> dict:
         resolved = {}
-        lower_cols = {str(c).strip().lower(): c for c in df.columns}
+        lower_cols = {
+            self.cell_text(c).lower(): c
+            for c in df.columns
+            if self.cell_text(c)
+        }
         for key, candidates in mapping.items():
             resolved[key] = None
             for candidate in candidates:
@@ -170,10 +174,3 @@ class AxisParser(BankParser):
                     resolved[key] = lower_cols[cand_lower]
                     break
         return resolved
-
-
-def _cell_to_string(value: object) -> str:
-    if pd.isna(value):
-        return ""
-    text = str(value).strip()
-    return "" if text.lower() == "nan" else text
