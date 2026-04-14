@@ -33,3 +33,6 @@ date_format = "%d-%m-%Y"
 default_envelope = "Unallocated"
 default_status = "cleared"
 max_description_length = 50
+
+[summary]
+top_n = 5
