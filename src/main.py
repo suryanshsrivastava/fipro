@@ -52,15 +52,31 @@ def main():
 def cmd_process(args, config: dict):
     """Run the full processing pipeline."""
     try:
-        results = process_pipeline(config)
+        run = process_pipeline(config)
     except Exception as exc:
         print(f"Processing failed: {exc}", file=sys.stderr)
         return 1
 
-    transaction_count = sum(len(result.transactions) for result in results)
+    if not run.results:
+        print("No input files found.")
+        return 0
+
+    transaction_count = sum(len(result.transactions) for result in run.results)
     print(
-        f"Processed {len(results)} file(s) and exported {transaction_count} transaction(s)."
+        f"Processed {len(run.results)} file(s) and exported {transaction_count} transaction(s)."
     )
+    dr = run.hub_summary.get("date_range") or {}
+    earliest, latest = dr.get("earliest"), dr.get("latest")
+    if earliest and latest:
+        print(f"Statement window: {earliest} to {latest}")
+    cf = run.hub_summary.get("cash_flow") or {}
+    if cf.get("net_cash_flow") is not None:
+        print(f"Net cash flow (export scope): {cf['net_cash_flow']}")
+    nw = (run.hub_summary.get("net_worth_proxy") or {}).get(
+        "total_across_statements"
+    )
+    if nw is not None:
+        print(f"Balances sum (statements with closing balance): {nw}")
     return 0
 
 

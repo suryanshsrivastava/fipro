@@ -46,9 +46,9 @@ def test_mixed_basic_pipeline_fixture(tmp_path):
         },
     }
 
-    results = process_pipeline(config)
+    run = process_pipeline(config)
 
-    assert len(results) == 3
+    assert len(run.results) == 3
     assert sorted(path.name for path in processed_dir.iterdir()) == [
         "axis.xlsx",
         "hdfc.xlsx",
@@ -58,6 +58,8 @@ def test_mixed_basic_pipeline_fixture(tmp_path):
 
     csv_path = next(output_dir.glob("goodbudget_*.csv"))
     report_path = next(output_dir.glob("processing_report_*.json"))
+    hub_path = next(output_dir.glob("hub_summary_*.csv"))
+    assert hub_path.exists()
 
     expected_csv = (case_dir / "expected_goodbudget.csv").read_text(encoding="utf-8")
     actual_csv = csv_path.read_text(encoding="utf-8")
@@ -78,6 +80,9 @@ def _stable_report(report: dict) -> dict:
     return {
         "summary": report["summary"],
         "by_bank": report["by_bank"],
+        "cash_flow": report["cash_flow"],
+        "net_worth_proxy": report["net_worth_proxy"],
+        "top_descriptions": report["top_descriptions"],
         "files": [
             {
                 "source_file": item["source_file"],

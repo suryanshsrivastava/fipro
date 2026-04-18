@@ -97,9 +97,9 @@ def test_process_pipeline_continues_and_moves_bad_file_to_failed(tmp_path):
         },
     }
 
-    results = process_pipeline(config)
+    run = process_pipeline(config)
 
-    assert len(results) == 2
+    assert len(run.results) == 2
     assert sorted(path.name for path in processed_dir.iterdir()) == ["hdfc.xlsx"]
     assert (failed_dir / "bad_axis.xlsx").exists()
     assert (failed_dir / "bad_axis.xlsx.error.txt").exists()
