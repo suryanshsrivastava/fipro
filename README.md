@@ -43,7 +43,10 @@ uv run fipro sheets --creds <path>     # upload to Google Sheets
 ## Further Reading
 
 - [AGENTS.md](AGENTS.md) — working conventions for AI agents and humans
-- [fipro-docs/PRD.md](fipro-docs/PRD.md) — product requirements
+- [docs/PRD.md](docs/PRD.md) — product requirements and scope
+- [docs/architecture.md](docs/architecture.md) — canonical architecture reference
+- [RUNBOOK.md](RUNBOOK.md) — operations and release procedures
+- [CONTRIBUTING.md](CONTRIBUTING.md) — contributor workflow and quality gates
 - [docs/plans/](docs/plans/) — implementation plans, chronological
 
 ## Requirements

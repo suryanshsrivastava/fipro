@@ -85,7 +85,7 @@ The script:
 
 - [ ] All 4 quality gates green: `uv run ruff check`, `uv run ruff format --check`, `uv run mypy src/`, `uv run pytest`.
 - [ ] Coverage does not regress below the `fail_under` threshold in `pyproject.toml`.
-- [ ] PRD table in `fipro-docs/PRD.md` section 12.3 is updated with any new plan docs.
+- [ ] PRD table in `docs/PRD.md` section 12.3 is updated with any new plan docs.
 - [ ] `AGENTS.md` commands still work end-to-end.
 - [ ] `.changeset/` contains at least one entry for this release (otherwise release is a no-op).
 - [ ] `CHANGELOG.md` Unreleased section has been reviewed for accuracy.

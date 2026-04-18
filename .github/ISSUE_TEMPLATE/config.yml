@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Fipro runbook
+    url: https://github.com/suryanshsrivastava/fipro/blob/main/RUNBOOK.md
+    about: Operational troubleshooting and release procedures.
+  - name: Project requirements
+    url: https://github.com/suryanshsrivastava/fipro/blob/main/docs/PRD.md
+    about: Product scope and acceptance criteria.
