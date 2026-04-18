@@ -10,78 +10,72 @@ SBI bank statements. SBI statements can be:
 - Description column for transaction details
 """
 
-from typing import List, Optional
 import pandas as pd
-from src.parsers.base import BankParser
+
 from src.models.transactions import Transaction, TransactionType
-from src.utils.date_parser import parse_sbi_date
+from src.parsers.base import BankParser
 from src.utils.amount_parser import parse_amount
+from src.utils.date_parser import parse_sbi_date
 
 
 class SBIParser(BankParser):
     """
     Parser for SBI Bank statements.
-    
+
     Expected format:
     - File pattern: *sbi*.xls, *sbi*.xlsx
     - Format: Often tab-separated text despite .xls extension
     - Header row: Variable (scan first 25 rows)
     - Columns: Txn Date, Value Date, Description, Ref No./Cheque No., Debit, Credit, Balance
     """
-    
+
     @property
     def bank_name(self) -> str:
         """Return SBI bank identifier."""
         return "SBI"
-    
+
     @staticmethod
-    def load_sbi_file(filepath: str) -> Optional[pd.DataFrame]:
+    def load_sbi_file(filepath: str) -> pd.DataFrame | None:
         """
         Load SBI statement file, handling both Excel and tab-separated formats.
-        
+
         SBI often exports .xls files that are actually tab-separated text with
         metadata rows at the top. This method finds and loads from the header row.
         """
         # Try reading as tab-separated text first (common SBI format)
         try:
             # First, find the header row by scanning for "Txn Date"
-            with open(filepath, 'r', encoding='utf-8') as f:
+            with open(filepath, encoding="utf-8") as f:
                 lines = f.readlines()
-            
+
             header_line_idx = None
             for idx, line in enumerate(lines):
-                if 'Txn Date' in line and 'Debit' in line:
+                if "Txn Date" in line and "Debit" in line:
                     header_line_idx = idx
                     break
-            
+
             if header_line_idx is not None:
                 # Read from header row onwards
-                df = pd.read_csv(
-                    filepath, 
-                    sep='\t', 
-                    encoding='utf-8', 
-                    skiprows=header_line_idx,
-                    on_bad_lines='skip'
-                )
+                df = pd.read_csv(filepath, sep="\t", encoding="utf-8", skiprows=header_line_idx, on_bad_lines="skip")
                 if len(df.columns) > 3:
                     return df
         except Exception:
             pass
-        
+
         # Try Excel formats
-        for engine in ['xlrd', 'openpyxl']:
+        for engine in ["xlrd", "openpyxl"]:
             try:
                 df = pd.read_excel(filepath, engine=engine)
                 return df
             except Exception:
                 continue
-        
+
         return None
-    
+
     def can_parse(self, filename: str, df: pd.DataFrame) -> bool:
         """
         Check if file is an SBI statement.
-        
+
         Checks filename and looks for SBI-specific column names.
         """
         if "sbi" not in filename.lower():
@@ -92,19 +86,19 @@ class SBIParser(BankParser):
         # Also check column names
         col_tokens = {self.cell_text(c).lower() for c in df.columns if self.cell_text(c)}
         all_tokens = tokens.union(col_tokens)
-        
+
         expected = {"txn date", "debit", "credit", "description"}
         return len(expected.intersection(all_tokens)) >= 3
-    
+
     def find_header_row(self, df: pd.DataFrame) -> int:
         """
         Find header row in SBI statement.
-        
+
         For tab-separated SBI files, the header is typically the first row
         with column names. Scans first 25 rows for expected column names.
         """
         expected = {"txn date", "description", "debit", "credit"}
-        
+
         # First check if columns already contain expected headers
         col_values = [self.cell_text(c).lower() for c in df.columns if self.cell_text(c)]
         if len(expected.intersection(col_values)) >= 3:
@@ -117,32 +111,32 @@ class SBIParser(BankParser):
             if match_count >= 3:
                 return idx
         raise ValueError("Header row not found for SBI statement")
-    
-    def extract_transactions(self, df: pd.DataFrame, source_file: str) -> List[Transaction]:
+
+    def extract_transactions(self, df: pd.DataFrame, source_file: str) -> list[Transaction]:
         """
         Extract transactions from SBI statement.
-        
+
         Handles both:
         - Tab-separated files where headers are already column names
         - Excel files where headers are in a data row
         """
         header_idx = self.find_header_row(df)
-        
+
         if header_idx == -1:
             # Headers are already in df.columns (tab-separated format)
             data = df.copy()
         else:
             # Headers are in a data row (Excel format)
             headers = df.iloc[header_idx].map(self.cell_text)
-            data = df.iloc[header_idx + 1:].copy()
+            data = df.iloc[header_idx + 1 :].copy()
             data.columns = headers
-        
+
         data = data.dropna(how="all")
 
         cols = self.get_column_mapping()
         resolved = self._resolve_columns(data, cols)
 
-        transactions: List[Transaction] = []
+        transactions: list[Transaction] = []
 
         for _, row in data.iterrows():
             raw_date = self.cell_text(row.get(resolved["transaction_date"], ""))
@@ -194,11 +188,11 @@ class SBIParser(BankParser):
             )
 
         return transactions
-    
+
     def get_column_mapping(self) -> dict:
         """
         Return SBI column name mappings.
-        
+
         Suggested return value:
         {
             "transaction_date": ["Txn Date", "Transaction Date", "Value Date"],
@@ -219,12 +213,8 @@ class SBIParser(BankParser):
         }
 
     def _resolve_columns(self, df: pd.DataFrame, mapping: dict) -> dict:
-        resolved = {}
-        lower_cols = {
-            self.cell_text(c).lower(): c
-            for c in df.columns
-            if self.cell_text(c)
-        }
+        resolved: dict[str, str | None] = {}
+        lower_cols = {self.cell_text(c).lower(): c for c in df.columns if self.cell_text(c)}
         for key, candidates in mapping.items():
             resolved[key] = None
             for candidate in candidates:

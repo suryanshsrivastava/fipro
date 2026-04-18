@@ -9,33 +9,33 @@ Axis bank Excel statements. Axis statements typically have:
 - Particulars column for description
 """
 
-from typing import List
 import pandas as pd
-from src.parsers.base import BankParser
+
 from src.models.transactions import Transaction, TransactionType
-from src.utils.date_parser import parse_axis_date
+from src.parsers.base import BankParser
 from src.utils.amount_parser import parse_amount
+from src.utils.date_parser import parse_axis_date
 
 
 class AxisParser(BankParser):
     """
     Parser for Axis Bank Excel statements.
-    
+
     Expected format:
     - File pattern: *axis*.xls, *axis*.xlsx
     - Header row: Usually row 10-15
     - Columns: Tran Date, Particulars, Chq No, Debit, Credit, Balance
     """
-    
+
     @property
     def bank_name(self) -> str:
         """Return AXIS bank identifier."""
         return "AXIS"
-    
+
     def can_parse(self, filename: str, df: pd.DataFrame) -> bool:
         """
         Check if file is an Axis statement.
-        
+
         Checks filename and looks for Axis-specific column names.
         Axis uses abbreviated column names: DR, CR, BAL, PARTICULARS
         """
@@ -47,22 +47,22 @@ class AxisParser(BankParser):
         # Axis uses abbreviated column names
         expected_full = {"tran date", "particulars", "debit", "credit"}
         expected_abbrev = {"tran date", "particulars", "dr", "cr"}
-        
+
         match_full = len(expected_full.intersection(tokens))
         match_abbrev = len(expected_abbrev.intersection(tokens))
-        
+
         return match_full >= 3 or match_abbrev >= 3
-    
+
     def find_header_row(self, df: pd.DataFrame) -> int:
         """
         Find header row in Axis statement.
-        
+
         Scans first 20 rows for expected column names.
         Handles both full names (Debit, Credit) and abbreviations (DR, CR).
         """
         expected_full = {"tran date", "particulars", "debit", "credit"}
         expected_abbrev = {"tran date", "particulars", "dr", "cr"}
-        
+
         for idx in range(min(25, len(df))):
             row_values = [self.cell_text(v).lower() for v in df.iloc[idx].tolist() if self.cell_text(v)]
             match_full = len(expected_full.intersection(row_values))
@@ -70,11 +70,11 @@ class AxisParser(BankParser):
             if match_full >= 3 or match_abbrev >= 3:
                 return idx
         raise ValueError("Header row not found for Axis statement")
-    
-    def extract_transactions(self, df: pd.DataFrame, source_file: str) -> List[Transaction]:
+
+    def extract_transactions(self, df: pd.DataFrame, source_file: str) -> list[Transaction]:
         """
         Extract transactions from Axis statement.
-        
+
         Suggested implementation:
         - Use find_header_row to locate data start
         - Map columns: Tran Date -> transaction_date, Particulars -> description
@@ -91,7 +91,7 @@ class AxisParser(BankParser):
         cols = self.get_column_mapping()
         resolved = self._resolve_columns(data, cols)
 
-        transactions: List[Transaction] = []
+        transactions: list[Transaction] = []
 
         for _, row in data.iterrows():
             raw_date = self.cell_text(row.get(resolved["transaction_date"], ""))
@@ -143,11 +143,11 @@ class AxisParser(BankParser):
             )
 
         return transactions
-    
+
     def get_column_mapping(self) -> dict:
         """
         Return Axis column name mappings.
-        
+
         Includes both full names and abbreviations used by Axis.
         """
         return {
@@ -160,12 +160,8 @@ class AxisParser(BankParser):
         }
 
     def _resolve_columns(self, df: pd.DataFrame, mapping: dict) -> dict:
-        resolved = {}
-        lower_cols = {
-            self.cell_text(c).lower(): c
-            for c in df.columns
-            if self.cell_text(c)
-        }
+        resolved: dict[str, str | None] = {}
+        lower_cols = {self.cell_text(c).lower(): c for c in df.columns if self.cell_text(c)}
         for key, candidates in mapping.items():
             resolved[key] = None
             for candidate in candidates:

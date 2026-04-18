@@ -2,12 +2,10 @@ import csv
 import json
 import threading
 import webbrowser
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
-from typing import List
 
-
-HTML_TEMPLATE = '''
+HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang=en>
 <head>
@@ -147,28 +145,29 @@ init();
 </script>
 </body>
 </html>
-'''
+"""
 
-def load_csv_data(csv_path: str) -> List[dict]:
-    with open(csv_path, newline='') as f:
+
+def load_csv_data(csv_path: str) -> list[dict]:
+    with open(csv_path, newline="") as f:
         return list(csv.DictReader(f))
 
 
-def serve_dashboard(csv_path: str = 'data/output/goodbudget_export.csv', port: int = 8080):
+def serve_dashboard(csv_path: str = "data/output/goodbudget_export.csv", port: int = 8080):
     Path(csv_path).parent.mkdir(parents=True, exist_ok=True)
     rows = load_csv_data(csv_path)
 
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
-            if self.path == '/' or self.path == '/index.html':
-                html = HTML_TEMPLATE.replace('{{DATA}}', json.dumps(rows, default=str))
+            if self.path == "/" or self.path == "/index.html":
+                html = HTML_TEMPLATE.replace("{{DATA}}", json.dumps(rows, default=str))
                 self.send_response(200)
-                self.send_header('Content-Type', 'text/html; charset=utf-8')
+                self.send_header("Content-Type", "text/html; charset=utf-8")
                 self.end_headers()
                 self.wfile.write(html.encode())
-            elif self.path == '/data':
+            elif self.path == "/data":
                 self.send_response(200)
-                self.send_header('Content-Type', 'application/json')
+                self.send_header("Content-Type", "application/json")
                 self.end_headers()
                 self.wfile.write(json.dumps(rows, default=str).encode())
             else:
@@ -178,14 +177,14 @@ def serve_dashboard(csv_path: str = 'data/output/goodbudget_export.csv', port: i
         def log_message(self, fmt, *args):
             pass  # silence request logs
 
-    server = HTTPServer(('127.0.0.1', port), Handler)
-    url = f'http://localhost:{port}'
-    print(f'Dashboard: {url}')
+    server = HTTPServer(("127.0.0.1", port), Handler)
+    url = f"http://localhost:{port}"
+    print(f"Dashboard: {url}")
     webbrowser.open(url)
     server.serve_forever()
 
 
-def start_dashboard_thread(csv_path: str = 'data/output/goodbudget_export.csv', port: int = 8080):
+def start_dashboard_thread(csv_path: str = "data/output/goodbudget_export.csv", port: int = 8080):
     t = threading.Thread(target=serve_dashboard, args=(csv_path, port), daemon=True)
     t.start()
     return t

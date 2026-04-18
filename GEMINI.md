@@ -72,17 +72,17 @@ class Transaction(Base):
     description = Column(String, nullable=False)
     amount = Column(Numeric(12, 2), nullable=False)
     transaction_type = Column(String(10))  # 'debit' or 'credit'
-    
+
     # Foreign Key to Categories
     category_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
-    
+
     # Source metadata
     source_bank = Column(String(50), nullable=False, index=True)
     source_file = Column(String(255), nullable=False)
-    
+
     # For debugging parsing logic later
     raw_data = Column(JSON, nullable=True)
-    
+
     # Deduplication
     hash = Column(String(64), unique=True, nullable=False, index=True)
     balance = Column(Numeric(12, 2), nullable=True)
@@ -119,7 +119,7 @@ class BankParserStrategy(ABC):
     @abstractmethod
     def can_parse(self, file_path: str) -> bool:
         """
-        Check if this parser supports the given file 
+        Check if this parser supports the given file
         (e.g., by checking filename pattern or reading first line).
         """
         pass
@@ -144,14 +144,14 @@ from datetime import datetime
 from app.services.parsers.base import BankParserStrategy, ExtractedTransaction
 
 class HDFCParser(BankParserStrategy):
-    
+
     def can_parse(self, file_path: str) -> bool:
         # Simple check: filename contains 'HDFC' or read PDF header
         return "HDFC" in file_path.upper()
 
     def parse(self, file_path: str, password: str = None) -> list[ExtractedTransaction]:
         transactions = []
-        
+
         with pdfplumber.open(file_path, password=password) as pdf:
             for page in pdf.pages:
                 text = page.extract_text()
@@ -159,12 +159,12 @@ class HDFCParser(BankParserStrategy):
                     # Regex logic specific to HDFC standard format
                     # Example: 24/08/2025 UPI-AMAZON-PAY 500.00 Dr
                     match = re.match(r'(\d{2}/\d{2}/\d{4})\s+(.+?)\s+(\d+\.\d{2})\s+(Cr|Dr)', line)
-                    
+
                     if match:
                         date_str, desc, amt, dr_cr = match.groups()
-                        
+
                         t_type = 'debit' if 'Dr' in dr_cr else 'credit'
-                        
+
                         trans = ExtractedTransaction(
                             transaction_date=datetime.strptime(date_str, "%d/%m/%Y").date(),
                             description=desc.strip(),
@@ -173,7 +173,7 @@ class HDFCParser(BankParserStrategy):
                             raw_line=line
                         )
                         transactions.append(trans)
-        
+
         return transactions
 5. File Orchestrator Logic (app/services/orchestrator.py)
 Python
@@ -201,7 +201,7 @@ class FileOrchestrator:
         for filename in os.listdir(self.input_dir):
             if not filename.endswith('.pdf'):
                 continue
-                
+
             file_path = os.path.join(self.input_dir, filename)
             parser = next((p for p in self.parsers if p.can_parse(file_path)), None)
 
@@ -213,16 +213,16 @@ class FileOrchestrator:
             try:
                 # 1. Parse
                 raw_transactions = parser.parse(file_path)
-                
+
                 # 2. Clean & Save to DB (Pseudo-code)
                 # for t in raw_transactions:
                 #     t_hash = self.generate_hash(t)
                 #     if not db.exists(t_hash):
                 #         db.save(t)
-                
+
                 # 3. Move to Success
                 shutil.move(file_path, os.path.join(self.processed_dir, filename))
-                
+
             except Exception as e:
                 print(f"Failed to process {filename}: {e}")
                 shutil.move(file_path, os.path.join(self.failed_dir, filename))

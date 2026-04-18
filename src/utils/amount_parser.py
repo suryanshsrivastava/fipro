@@ -6,29 +6,29 @@ formats, handling commas, currency symbols, and converting to Decimal
 for precise financial calculations.
 """
 
-from decimal import Decimal, InvalidOperation
 import re
+from decimal import Decimal, InvalidOperation
 
 
 def parse_amount(amount_str: str) -> Decimal:
     """
     Parse amount string to Decimal.
-    
+
     Handles:
     - Currency symbols (₹, Rs, Rs., etc.)
     - Thousand separators (commas)
     - Decimal points
     - Negative signs
-    
+
     Args:
         amount_str: Amount string (e.g., "₹1,234.56", "Rs 5000.00")
-        
+
     Returns:
         Decimal amount
-        
+
     Raises:
         ValueError: If amount cannot be parsed
-        
+
     Suggested implementation:
     - Remove currency symbols using regex
     - Remove commas
@@ -48,10 +48,10 @@ def parse_amount(amount_str: str) -> Decimal:
 def clean_amount_string(amount_str: str) -> str:
     """
     Clean amount string by removing currency symbols and formatting.
-    
+
     Args:
         amount_str: Raw amount string
-        
+
     Returns:
         Cleaned numeric string
     """
@@ -91,10 +91,10 @@ def clean_amount_string(amount_str: str) -> str:
 def is_negative(amount_str: str) -> bool:
     """
     Check if amount string represents a negative value.
-    
+
     Args:
         amount_str: Amount string
-        
+
     Returns:
         True if negative, False otherwise
     """
@@ -109,4 +109,3 @@ def is_negative(amount_str: str) -> bool:
 
     cleaned = clean_amount_string(s)
     return cleaned.startswith("-")
-

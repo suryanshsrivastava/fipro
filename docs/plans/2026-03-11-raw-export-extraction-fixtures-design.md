@@ -71,7 +71,7 @@ brittle snapshots.
 
 ### Phase 1: Fixture sourcing and sanitization
 
-Owner: Intern  
+Owner: Intern
 Reviewer: Maintainer
 
 Tasks:
@@ -88,7 +88,7 @@ Exit criteria:
 
 ### Phase 2: Expected-output authoring
 
-Owner: Intern  
+Owner: Intern
 Reviewer: Maintainer
 
 Tasks:
@@ -105,7 +105,7 @@ Exit criteria:
 
 ### Phase 3: Parser compatibility fixes
 
-Owner: Intern  
+Owner: Intern
 Reviewer: Maintainer
 
 Tasks:
@@ -123,7 +123,7 @@ Exit criteria:
 
 ### Phase 4: Regression test implementation
 
-Owner: Intern  
+Owner: Intern
 Reviewer: Maintainer
 
 Tasks:
@@ -140,7 +140,7 @@ Exit criteria:
 
 ### Phase 5: Handoff closeout
 
-Owner: Intern  
+Owner: Intern
 Reviewer: Maintainer
 
 Tasks:

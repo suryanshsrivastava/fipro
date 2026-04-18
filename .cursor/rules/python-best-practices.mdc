@@ -1,7 +1,12 @@
 ---
-globs: src/*py
+globs: src/**/*.py,tests/**/*.py
 alwaysApply: false
 ---
-- Use `uv` as much as possible. Always check for existing virtual environments in the project root directory before trying to create a new one. 
-- between attrs, dataclasses, and pydantic, use whichever you prefer. I prefer dataclasses because it's more explicit and easier to read.
-    - whenebver you use dataclasses, set the `slots=True` option to make it more efficient
+
+- Use `uv` for all dependency operations. Check for the existing `.fipro-env` virtualenv before creating a new one.
+- Dataclasses over attrs or pydantic. Always set `slots=True` on dataclasses (see [src/models/transactions.py](src/models/transactions.py)).
+- Use `Decimal` for money. Never `float`.
+- Use `Enum` for fixed choice sets (see `TransactionType`, `TransactionStatus`).
+- Tests live under `tests/` and use pytest. Fixtures go under `tests/fixtures/`.
+- Test fixtures must be anonymized. Never commit fixtures containing real names, UPI IDs, phone numbers, account numbers, or other PII. This rule exists because PR #8 accidentally committed real data.
+- When adding a dependency, run `uv lock` and stage the resulting `uv.lock` alongside the code change.

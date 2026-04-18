@@ -13,7 +13,6 @@ from src.parsers.axis import AxisParser
 from src.parsers.hdfc import HDFCParser
 from src.parsers.sbi import SBIParser
 
-
 FIXTURES_ROOT = Path(__file__).resolve().parents[1] / "fixtures"
 
 

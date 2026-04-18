@@ -9,33 +9,33 @@ HDFC bank Excel statements. HDFC statements typically have:
 - Narration column for description
 """
 
-from typing import List
 import pandas as pd
-from src.parsers.base import BankParser
+
 from src.models.transactions import Transaction, TransactionType
-from src.utils.date_parser import parse_hdfc_date
+from src.parsers.base import BankParser
 from src.utils.amount_parser import parse_amount
+from src.utils.date_parser import parse_hdfc_date
 
 
 class HDFCParser(BankParser):
     """
     Parser for HDFC Bank Excel statements.
-    
+
     Expected format:
     - File pattern: *hdfc*.xls, *hdfc*.xlsx
     - Header row: Usually row 15-20
     - Columns: Date, Narration, Chq./Ref.No., Value Dt, Withdrawal Amt., Deposit Amt., Closing Balance
     """
-    
+
     @property
     def bank_name(self) -> str:
         """Return HDFC bank identifier."""
         return "HDFC"
-    
+
     def can_parse(self, filename: str, df: pd.DataFrame) -> bool:
         """
         Check if file is an HDFC statement.
-        
+
         Suggested implementation:
         - Check filename contains 'hdfc' (case-insensitive)
         - Check for HDFC-specific column names in first 20 rows
@@ -48,11 +48,11 @@ class HDFCParser(BankParser):
         expected = {"narration", "withdrawal amt.", "deposit amt."}
         # Require majority of expected columns to reduce false positives
         return len(expected.intersection(tokens)) >= 3
-    
+
     def find_header_row(self, df: pd.DataFrame) -> int:
         """
         Find header row in HDFC statement.
-        
+
         Suggested implementation:
         - Scan first 20 rows for expected column names
         - Look for: "Date", "Narration", "Withdrawal Amt.", "Deposit Amt."
@@ -65,11 +65,11 @@ class HDFCParser(BankParser):
             if match_count >= 3:
                 return idx
         raise ValueError("Header row not found for HDFC statement")
-    
-    def extract_transactions(self, df: pd.DataFrame, source_file: str) -> List[Transaction]:
+
+    def extract_transactions(self, df: pd.DataFrame, source_file: str) -> list[Transaction]:
         """
         Extract transactions from HDFC statement.
-        
+
         Suggested implementation:
         - Use find_header_row to locate data start
         - Map columns: Date -> transaction_date, Narration -> description
@@ -84,7 +84,7 @@ class HDFCParser(BankParser):
         data = data.dropna(how="all")
 
         cols = self._resolve_columns(data)
-        transactions: List[Transaction] = []
+        transactions: list[Transaction] = []
 
         for _, row in data.iterrows():
             raw_date = self.cell_text(row.get(cols["transaction_date"], ""))
@@ -136,7 +136,7 @@ class HDFCParser(BankParser):
             )
 
         return transactions
-    
+
     def get_column_mapping(self) -> dict:
         """
         Return HDFC column name mappings.
@@ -152,12 +152,8 @@ class HDFCParser(BankParser):
 
     def _resolve_columns(self, df: pd.DataFrame) -> dict:
         mapping = self.get_column_mapping()
-        resolved = {}
-        lower_cols = {
-            self.cell_text(c).lower(): c
-            for c in df.columns
-            if self.cell_text(c)
-        }
+        resolved: dict[str, str | None] = {}
+        lower_cols = {self.cell_text(c).lower(): c for c in df.columns if self.cell_text(c)}
         for key, candidates in mapping.items():
             resolved[key] = None
             for candidate in candidates:

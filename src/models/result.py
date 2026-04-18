@@ -6,7 +6,7 @@ outputs. Used by the orchestrator to report on file processing status.
 """
 
 from dataclasses import dataclass
-from typing import List
+
 from src.models.transactions import Transaction
 
 
@@ -14,7 +14,7 @@ from src.models.transactions import Transaction
 class ProcessingResult:
     """
     Result of processing a bank statement file.
-    
+
     Attributes:
         source_file: Path to the source file
         bank: Bank name (HDFC, SBI, AXIS)
@@ -26,13 +26,13 @@ class ProcessingResult:
         errors: List of error messages
         warnings: List of warning messages
     """
+
     source_file: str
     bank: str
     total_transactions: int
     successful: int
     failed: int
     duplicates_skipped: int
-    transactions: List[Transaction]
-    errors: List[str]
-    warnings: List[str]
-
+    transactions: list[Transaction]
+    errors: list[str]
+    warnings: list[str]

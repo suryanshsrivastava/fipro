@@ -82,5 +82,3 @@ python process_bank_statements.py
 - Python 3.11+ (for `tomllib` support)
 - pandas
 - Input files should contain transaction data in expected formats
-
-

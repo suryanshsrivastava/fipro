@@ -6,25 +6,25 @@ validating them, and creating CrawledFile metadata objects. It does not load
 file contents, only discovers and validates files.
 """
 
-from typing import List
-from datetime import datetime
 import os
+from datetime import datetime
+
 from src.models.account import CrawledFile
 
 
-def discover_files(config: dict) -> List[CrawledFile]:
+def discover_files(config: dict) -> list[CrawledFile]:
     """
     Discover files in the input directory.
-    
+
     Scans the input directory for supported file extensions (xls, xlsx) and
     creates CrawledFile objects with metadata. Does not load file contents.
-    
+
     Args:
         config: Configuration dictionary with paths and supported_extensions
-        
+
     Returns:
         List of CrawledFile objects
-        
+
     Suggested implementation:
     - Get input path from config['paths']['input']
     - Get supported extensions from config['processing']['supported_extensions']
@@ -32,7 +32,7 @@ def discover_files(config: dict) -> List[CrawledFile]:
     - Validate file is readable
     - Create CrawledFile with filepath, extension, size, crawl_date
     - Return list of CrawledFile objects
-    
+
     Functions that could be kept from existing code:
     - analyze_discovered_files() - provides summary statistics
     - get_bank_from_filename() - extracts bank name from filename
@@ -46,7 +46,7 @@ def discover_files(config: dict) -> List[CrawledFile]:
     if not supported_exts:
         supported_exts = ["xls", "xlsx"]
 
-    discovered: List[CrawledFile] = []
+    discovered: list[CrawledFile] = []
 
     for root, _, files in os.walk(input_path):
         for fname in files:
@@ -76,10 +76,10 @@ def discover_files(config: dict) -> List[CrawledFile]:
 def validate_file(filepath: str) -> bool:
     """
     Validate that a file is readable and not empty.
-    
+
     Args:
         filepath: Path to file to validate
-        
+
     Returns:
         True if file is valid, False otherwise
     """
@@ -87,21 +87,19 @@ def validate_file(filepath: str) -> bool:
         return False
     if not os.access(filepath, os.R_OK):
         return False
-    if os.path.getsize(filepath) <= 0:
-        return False
-    return True
+    return not os.path.getsize(filepath) <= 0
 
 
 def get_bank_from_filename(filename: str) -> str:
     """
     Extract bank name from filename.
-    
+
     Args:
         filename: Name of the file
-        
+
     Returns:
         Bank name (HDFC, SBI, AXIS, UNKNOWN)
-        
+
     Suggested implementation:
     - Check filename (case-insensitive) for 'hdfc', 'sbi', 'axis'
     - Return matching bank name or 'UNKNOWN'

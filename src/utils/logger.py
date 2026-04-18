@@ -8,22 +8,21 @@ Follows the logging configuration specified in the PRD.
 import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
-from typing import Optional
 
 
-def setup_logging(log_level: str = "INFO", log_file: Optional[str] = None) -> None:
+def setup_logging(log_level: str = "INFO", log_file: str | None = None) -> None:
     """
     Configure logging for Fipro.
-    
+
     Sets up:
     - Console handler with INFO level
     - Rotating file handler (5MB max, 3 backups) with DEBUG level
     - Standard format: "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
-    
+
     Args:
         log_level: Logging level (DEBUG, INFO, WARNING, ERROR)
         log_file: Path to log file (default: logs/fipro.log)
-        
+
     Suggested implementation:
     - Create logs directory if it doesn't exist
     - Configure root logger
@@ -32,10 +31,7 @@ def setup_logging(log_level: str = "INFO", log_file: Optional[str] = None) -> No
     - Set format and levels
     """
     # Resolve log file path and ensure directory exists
-    if log_file is None:
-        log_file_path = Path("logs") / "fipro.log"
-    else:
-        log_file_path = Path(log_file)
+    log_file_path = Path("logs") / "fipro.log" if log_file is None else Path(log_file)
 
     log_file_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -49,9 +45,7 @@ def setup_logging(log_level: str = "INFO", log_file: Optional[str] = None) -> No
     level = getattr(logging, log_level.upper(), logging.INFO)
     root_logger.setLevel(level)
 
-    formatter = logging.Formatter(
-        "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
-    )
+    formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 
     # Console handler for high-level progress
     console_handler = logging.StreamHandler()
@@ -73,12 +67,11 @@ def setup_logging(log_level: str = "INFO", log_file: Optional[str] = None) -> No
 def get_logger(name: str) -> logging.Logger:
     """
     Get a logger instance for a module.
-    
+
     Args:
         name: Logger name (typically __name__)
-        
+
     Returns:
         Logger instance
     """
     return logging.getLogger(name)
-

@@ -19,12 +19,12 @@ class Envelope:
         self.name = name
         self.allocated = Decimal(allocation)
         self.transactions = []
-    
+
     @property
     def spent(self):
         return sum(t.amount for t in self.transactions)
-    
-    @property 
+
+    @property
     def remaining(self):
         return self.allocated - self.spent
 ```
@@ -240,7 +240,7 @@ CREATE TABLE transactions (
 **Training Pipeline**
 
 ```
-Raw Transactions → Text Cleaning → Feature Engineering →  
+Raw Transactions → Text Cleaning → Feature Engineering →
 BERT Embeddings → LSTM Classifier → Envelope Mapping
 ```
 
@@ -501,4 +501,3 @@ CREATE INDEX idx_accounts_user ON accounts(user_id);
 [^103]: https://havesmallbytes.vercel.app/post/building-my-personal-finance-tracker
 
 [^104]: https://actualbudget.org
-

@@ -6,9 +6,9 @@
 
 ### 1.1. Introduction
 
-`fipro` is a personal single user finance management tool that is Goodbudget (popular app) type envelope budgetting system on steroids custom tailored for my personal use 
-- automate the process of tracking expenses and income. 
-- It ingests digital bank statements (PDFs), extracts transaction data, cleans and categorizes it, and provides a unified view of a user's financial activity. 
+`fipro` is a personal single user finance management tool that is Goodbudget (popular app) type envelope budgetting system on steroids custom tailored for my personal use
+- automate the process of tracking expenses and income.
+- It ingests digital bank statements (PDFs), extracts transaction data, cleans and categorizes it, and provides a unified view of a user's financial activity.
 - The primary goal is to eliminate the manual effort of data entry and provide clear insights into spending habits.
 
 FiPro is a comprehensive personal finance management application designed to automate the tedious process of tracking expenses and income through intelligent PDF bank statement parsing. The application transforms unstructured financial data from multiple banking institutions into actionable insights, eliminating manual data entry and providing users with a unified view of their financial activity.
@@ -151,11 +151,11 @@ A core, unified data model is crucial for consolidation. All extracted transacti
 
 The system employs a **microservices-inspired modular architecture** built around a data processing pipeline. Each component is designed as a distinct module performing specific tasks while maintaining loose coupling and high cohesion.
 
-  
+
 
 ### 2.2 High-Level Architecture
 
-  
+
 
 ```
 
@@ -195,15 +195,15 @@ v v v
 
 ```
 
-  
+
 
 ### 2.3 Component Breakdown
 
-  
+
 
 #### 2.3.1 File Processing Pipeline
 
-  
+
 
 **File Orchestrator**
 
@@ -221,7 +221,7 @@ v v v
 
 - Implement retry mechanisms with exponential backoff
 
-  
+
 
 **PDF Parser Engine**
 
@@ -237,7 +237,7 @@ v v v
 
 - OCR capabilities for scanned statements using Tesseract
 
-  
+
 
 **Transaction Extractor**
 
@@ -253,7 +253,7 @@ v v v
 
 - Amount parsing with currency symbol handling
 
-  
+
 
 **Data Cleaner & Standardizer**
 
@@ -269,11 +269,11 @@ v v v
 
 - Detect and flag potential duplicates
 
-  
+
 
 #### 2.3.2 API Backend
 
-  
+
 
 **FastAPI Server**
 
@@ -285,7 +285,7 @@ v v v
 
 - **Monitoring:** Request logging and performance metrics
 
-  
+
 
 **Core Endpoints:**
 
@@ -311,11 +311,11 @@ GET /api/v1/analytics/trends # Spending trends
 
 ```
 
-  
+
 
 #### 2.3.3 Frontend Application
 
-  
+
 
 **Technology Stack:**
 
@@ -331,7 +331,7 @@ GET /api/v1/analytics/trends # Spending trends
 
 - **Build Tool:** Vite for fast development
 
-  
+
 
 **Key Features:**
 
@@ -347,19 +347,19 @@ GET /api/v1/analytics/trends # Spending trends
 
 - **Export:** CSV/Excel export functionality
 
-  
+
 
 ---
 
-  
+
 
 ## 3. Data Model & Schema
 
-  
+
 
 ### 3.1 Core Transaction Schema
 
-  
+
 
 ```sql
 
@@ -393,7 +393,7 @@ updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 
 );
 
-  
+
 
 CREATE INDEX idx_transactions_date ON transactions(transaction_date);
 
@@ -405,11 +405,11 @@ CREATE INDEX idx_transactions_hash ON transactions(hash);
 
 ```
 
-  
+
 
 ### 3.2 Categories Schema
 
-  
+
 
 ```sql
 
@@ -431,7 +431,7 @@ created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 
 );
 
-  
+
 
 -- Pre-populate system categories
 
@@ -455,11 +455,11 @@ INSERT INTO categories (name, is_system) VALUES
 
 ```
 
-  
+
 
 ### 3.3 Bank Configuration Schema
 
-  
+
 
 ```sql
 
@@ -485,15 +485,15 @@ created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 
 ```
 
-  
+
 
 ---
 
-  
+
 
 ## 4. Security & Privacy Framework
 
-  
+
 
 ### 4.1 Data Protection
 
@@ -505,7 +505,7 @@ created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 
 - **File Security:** Automatic file cleanup after processing
 
-  
+
 
 ### 4.2 Authentication & Authorization
 
@@ -517,7 +517,7 @@ created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 
 - **API Security:** Rate limiting and request validation
 
-  
+
 
 ### 4.3 Privacy Compliance
 
@@ -529,19 +529,19 @@ created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 
 - **GDPR Compliance:** Right to erasure and data portability
 
-  
+
 
 ---
 
-  
+
 
 ## 5. Error Handling & Logging
 
-  
+
 
 ### 5.1 Error Classification
 
-  
+
 
 **Critical Errors (Level 1):**
 
@@ -551,7 +551,7 @@ created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 
 - Authentication/authorization failures
 
-  
+
 
 **Processing Errors (Level 2):**
 
@@ -561,7 +561,7 @@ created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 
 - Data validation errors
 
-  
+
 
 **User Errors (Level 3):**
 
@@ -571,11 +571,11 @@ created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 
 - Duplicate uploads
 
-  
+
 
 ### 5.2 Logging Strategy
 
-  
+
 
 ```python
 
@@ -635,11 +635,11 @@ LOGGING_CONFIG = {
 
 ```
 
-  
+
 
 ### 5.3 File Lifecycle Management
 
-  
+
 
 ```
 
@@ -657,15 +657,15 @@ Processing Directory (data/processing/)
 
 ```
 
-  
+
 
 ---
 
-  
+
 
 ## 6. Development Roadmap
 
-  
+
 
 ### 6.1 Phase 1: Core Infrastructure (Weeks 1-4)
 
@@ -687,7 +687,7 @@ Processing Directory (data/processing/)
 
 - [ ] Create data cleaning and standardization pipeline
 
-  
+
 
 **Deliverables:**
 
@@ -697,7 +697,7 @@ Processing Directory (data/processing/)
 
 - Basic transaction extraction for 2+ banks
 
-  
+
 
 ### 6.2 Phase 2: API & Frontend Foundation (Weeks 5-8)
 
@@ -723,7 +723,7 @@ Processing Directory (data/processing/)
 
 - [ ] File upload interface with progress tracking
 
-  
+
 
 **Deliverables:**
 
@@ -733,7 +733,7 @@ Processing Directory (data/processing/)
 
 - File upload and processing workflow
 
-  
+
 
 ### 6.3 Phase 3: Advanced Features (Weeks 9-12)
 
@@ -763,7 +763,7 @@ Processing Directory (data/processing/)
 
 - [ ] Investment account statements
 
-  
+
 
 **Deliverables:**
 
@@ -773,7 +773,7 @@ Processing Directory (data/processing/)
 
 - Multi-bank support
 
-  
+
 
 ### 6.4 Phase 4: Production Ready (Weeks 13-16)
 
@@ -805,7 +805,7 @@ Processing Directory (data/processing/)
 
 - [ ] User onboarding flow
 
-  
+
 
 **Deliverables:**
 
@@ -815,15 +815,15 @@ Processing Directory (data/processing/)
 
 - Mobile-optimized interface
 
-  
+
 
 ---
 
-  
+
 
 ## 7. Technology Stack
 
-  
+
 
 ### 7.1 Backend Stack
 
@@ -843,7 +843,7 @@ Processing Directory (data/processing/)
 
 - **Task Queue:** Celery with Redis (future enhancement)
 
-  
+
 
 ### 7.2 Frontend Stack
 
@@ -861,7 +861,7 @@ Processing Directory (data/processing/)
 
 - **Form Handling:** React Hook Form with Zod validation
 
-  
+
 
 ### 7.3 Infrastructure & DevOps
 
@@ -877,7 +877,7 @@ Processing Directory (data/processing/)
 
 - **Version Control:** Git with conventional commits
 
-  
+
 
 ### 7.4 Development Tools
 
@@ -891,15 +891,15 @@ Processing Directory (data/processing/)
 
 - **Package Management:** Poetry (Python), npm/yarn (JavaScript)
 
-  
+
 
 ---
 
-  
+
 
 ## 8. Performance & Scalability
 
-  
+
 
 ### 8.1 Performance Targets
 
@@ -913,7 +913,7 @@ Processing Directory (data/processing/)
 
 - **Concurrent Users:** 100+ simultaneous users (production target)
 
-  
+
 
 ### 8.2 Scalability Considerations
 
@@ -927,7 +927,7 @@ Processing Directory (data/processing/)
 
 - **Background Processing:** Async task processing for heavy operations
 
-  
+
 
 ### 8.3 Monitoring & Alerting
 
@@ -939,15 +939,15 @@ Processing Directory (data/processing/)
 
 - **Alerting:** Email/Slack notifications for critical issues
 
-  
+
 
 ---
 
-  
+
 
 ## 9. Testing Strategy
 
-  
+
 
 ### 9.1 Testing Pyramid
 
@@ -959,7 +959,7 @@ Processing Directory (data/processing/)
 
 - **Performance Tests:** Load testing with realistic data volumes
 
-  
+
 
 ### 9.2 Test Data Management
 
@@ -971,15 +971,15 @@ Processing Directory (data/processing/)
 
 - **Continuous Testing:** Automated test runs on every commit
 
-  
+
 
 ---
 
-  
+
 
 ## 10. Future Enhancements
 
-  
+
 
 ### 10.1 Advanced Features (Post-MVP)
 
@@ -993,7 +993,7 @@ Processing Directory (data/processing/)
 
 - **Multi-Currency Support:** Handle international transactions and currencies
 
-  
+
 
 ### 10.2 Technical Enhancements
 
@@ -1007,7 +1007,7 @@ Processing Directory (data/processing/)
 
 - **Cloud Deployment:** Kubernetes-based deployment on AWS/GCP
 
-  
+
 
 ### 10.3 Business Features
 
@@ -1021,15 +1021,15 @@ Processing Directory (data/processing/)
 
 - **Third-party Integrations:** Accounting software, tax tools
 
-  
+
 
 ---
 
-  
+
 
 ## 11. Risk Assessment & Mitigation
 
-  
+
 
 ### 11.1 Technical Risks
 
@@ -1045,7 +1045,7 @@ Processing Directory (data/processing/)
 
 | Third-party dependencies | Medium | Medium | Version pinning, dependency monitoring |
 
-  
+
 
 ### 11.2 Business Risks
 
@@ -1061,15 +1061,15 @@ Processing Directory (data/processing/)
 
 | Data privacy concerns | High | Low | Transparent privacy policy, local-first approach |
 
-  
+
 
 ---
 
-  
+
 
 ## 12. Success Metrics
 
-  
+
 
 ### 12.1 Technical Metrics
 
@@ -1081,7 +1081,7 @@ Processing Directory (data/processing/)
 
 - **Error Rate:** < 1% processing failures
 
-  
+
 
 ### 12.2 User Experience Metrics
 
@@ -1093,7 +1093,7 @@ Processing Directory (data/processing/)
 
 - **Feature Utilization:** 80% of core features used by active users
 
-  
+
 
 ### 12.3 Business Metrics
 
@@ -1105,15 +1105,15 @@ Processing Directory (data/processing/)
 
 - **User Growth:** 50% month-over-month growth in active users
 
-  
+
 
 ---
 
-  
+
 
 ## Appendices
 
-  
+
 
 ### Appendix A: Bank Statement Format Analysis
 
@@ -1123,7 +1123,7 @@ Processing Directory (data/processing/)
 
 - Edge cases and handling strategies
 
-  
+
 
 ### Appendix B: API Documentation
 
@@ -1133,7 +1133,7 @@ Processing Directory (data/processing/)
 
 - Error code reference
 
-  
+
 
 ### Appendix C: Deployment Guide
 
@@ -1143,7 +1143,7 @@ Processing Directory (data/processing/)
 
 - Troubleshooting guide
 
-  
+
 
 ### Appendix D: Contributing Guidelines
 
