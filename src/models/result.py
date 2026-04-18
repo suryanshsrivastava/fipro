@@ -10,6 +10,18 @@ from dataclasses import dataclass
 from src.models.transactions import Transaction
 
 
+@dataclass(slots=True)
+class PipelineRun:
+    """Outputs and transactions from a full pipeline run."""
+
+    results: list["ProcessingResult"]
+    deduplicated_transactions: list[Transaction]
+    goodbudget_csv_path: str
+    report_json_path: str
+    hub_csv_path: str
+    hub_summary: dict
+
+
 @dataclass
 class ProcessingResult:
     """
