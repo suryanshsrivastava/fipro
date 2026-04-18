@@ -7,7 +7,20 @@ outputs. Used by the orchestrator to report on file processing status.
 
 from dataclasses import dataclass
 from typing import List
+
 from src.models.transactions import Transaction
+
+
+@dataclass(slots=True)
+class PipelineRun:
+    """Outputs and transactions from a full pipeline run."""
+
+    results: List["ProcessingResult"]
+    deduplicated_transactions: List[Transaction]
+    goodbudget_csv_path: str
+    report_json_path: str
+    hub_csv_path: str
+    hub_summary: dict
 
 
 @dataclass

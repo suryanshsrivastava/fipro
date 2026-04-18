@@ -1,23 +1,41 @@
 """Processing report generator for Fipro."""
 
-from typing import List
-from datetime import datetime, timezone
+from __future__ import annotations
+
 import json
+from datetime import datetime, timezone
 from pathlib import Path
+from typing import List
 
 from src.models.result import ProcessingResult
-from src.models.transactions import Transaction, TransactionType, TransactionStatus
+from src.models.transactions import Transaction, TransactionStatus, TransactionType
+from src.utils.report_helpers import (
+    cash_flow_from_transactions,
+    ending_balances_by_statement,
+    filter_transactions_for_export,
+    top_descriptions,
+)
 
 
 def generate_report(
     results: List[ProcessingResult],
     output_path: str,
     exported_transactions: int | None = None,
+    config: dict | None = None,
 ) -> dict:
     """Generate and write a JSON processing report."""
     transactions = [
         transaction for result in results for transaction in result.transactions
     ]
+    include_internal_transfers = True
+    if config is not None:
+        include_internal_transfers = config.get("processing", {}).get(
+            "include_internal_transfers", True
+        )
+    transactions_for_metrics = filter_transactions_for_export(
+        transactions, include_internal_transfers
+    )
+
     by_bank: dict[str, dict[str, int]] = {}
     for transaction in transactions:
         bank_bucket = by_bank.setdefault(
@@ -29,6 +47,9 @@ def generate_report(
             bank_bucket["debits"] += 1
         else:
             bank_bucket["credits"] += 1
+
+    date_range = calculate_date_range(transactions)
+    ending_balances = ending_balances_by_statement(transactions)
 
     report = {
         "run_id": datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ"),
@@ -51,7 +72,10 @@ def generate_report(
             "failed_files": sum(1 for result in results if result.errors),
         },
         "by_bank": by_bank,
-        "date_range": calculate_date_range(transactions),
+        "date_range": date_range,
+        "cash_flow": cash_flow_from_transactions(transactions_for_metrics),
+        "net_worth_proxy": ending_balances,
+        "top_descriptions": top_descriptions(transactions_for_metrics),
         "files": sorted(
             [
                 {
@@ -85,4 +109,17 @@ def calculate_date_range(transactions: List[Transaction]) -> dict:
     return {
         "earliest": dates[0].isoformat(),
         "latest": dates[-1].isoformat(),
+    }
+
+
+def build_hub_summary(report: dict) -> dict:
+    """Compact snapshot for CLI (subset of report)."""
+    ending = report.get("net_worth_proxy") or {}
+    return {
+        "date_range": report.get("date_range"),
+        "cash_flow": report.get("cash_flow"),
+        "net_worth_proxy": {
+            "total_across_statements": ending.get("total_across_statements"),
+            "reason_if_no_total": ending.get("reason_if_no_total"),
+        },
     }

@@ -11,10 +11,12 @@ from src.core.deduplicator import deduplicate
 from src.core.ingestion import discover_files, get_bank_from_filename
 from src.core.transfer_detector import detect_transfers
 from src.exporters.goodbudget import export_to_goodbudget
-from src.exporters.report import generate_report
+from src.exporters.hub_csv import export_hub_csv
+from src.exporters.report import build_hub_summary, generate_report
 from src.models.account import CrawledFile
-from src.models.result import ProcessingResult
+from src.models.result import PipelineRun, ProcessingResult
 from src.models.transactions import Transaction
+from src.utils.report_helpers import filter_transactions_for_export
 from src.parsers.axis import AxisParser
 from src.parsers.hdfc import HDFCParser
 from src.parsers.sbi import SBIParser
@@ -23,11 +25,25 @@ from src.parsers.sbi import SBIParser
 AVAILABLE_PARSERS = [HDFCParser(), SBIParser(), AxisParser()]
 
 
-def process_pipeline(config: dict) -> List[ProcessingResult]:
+def process_pipeline(config: dict) -> PipelineRun:
     """Execute the file-based processing pipeline."""
     files = discover_files(config)
     if not files:
-        return []
+        return PipelineRun(
+            results=[],
+            deduplicated_transactions=[],
+            goodbudget_csv_path="",
+            report_json_path="",
+            hub_csv_path="",
+            hub_summary={
+                "date_range": {"earliest": None, "latest": None},
+                "cash_flow": None,
+                "net_worth_proxy": {
+                    "total_across_statements": None,
+                    "reason_if_no_total": "no_input_files",
+                },
+            },
+        )
 
     fail_on_file_error = config.get("processing", {}).get("fail_on_file_error", True)
     results: List[ProcessingResult] = []
@@ -91,17 +107,39 @@ def process_pipeline(config: dict) -> List[ProcessingResult]:
     output_dir = Path(config["paths"]["output"])
     csv_path = output_dir / f"goodbudget_{timestamp}.csv"
     report_path = output_dir / f"processing_report_{timestamp}.json"
+    hub_path = output_dir / f"hub_summary_{timestamp}.csv"
 
     exported_count = export_to_goodbudget(
         deduplicated_transactions, str(csv_path), config
     )
-    generate_report(results, str(report_path), exported_transactions=exported_count)
+    include_internal = config.get("processing", {}).get(
+        "include_internal_transfers", True
+    )
+    hub_transactions = filter_transactions_for_export(
+        deduplicated_transactions, include_internal
+    )
+    export_hub_csv(hub_transactions, str(hub_path))
+
+    report = generate_report(
+        results,
+        str(report_path),
+        exported_transactions=exported_count,
+        config=config,
+    )
+    hub_summary = build_hub_summary(report)
 
     processed_dir = config["paths"]["processed"]
     for crawled_file in successful_files:
         move_file_to_processed(crawled_file.filepath, processed_dir)
 
-    return results
+    return PipelineRun(
+        results=results,
+        deduplicated_transactions=deduplicated_transactions,
+        goodbudget_csv_path=str(csv_path),
+        report_json_path=str(report_path),
+        hub_csv_path=str(hub_path),
+        hub_summary=hub_summary,
+    )
 
 
 def route_file_to_parser(filename: str, parsers: List) -> object:

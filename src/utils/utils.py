@@ -1,8 +1,7 @@
-import tomllib
-from pathlib import Path
-from typing import List
+from typing import TYPE_CHECKING, List
 
-from ingest_transactions import CrawledFile
+if TYPE_CHECKING:
+    from src.models.account import CrawledFile
 
 # def load_config() -> dict:
 #     """Load configuration from config.toml file"""
@@ -17,7 +16,7 @@ from ingest_transactions import CrawledFile
 #     return config
 
 
-def consolidate_files_by_bank(files: List[CrawledFile]) -> dict:
+def consolidate_files_by_bank(files: List["CrawledFile"]) -> dict:
     """Consolidates a list of crawled files into a dictionary grouped by bank."""
     bank_files = {'HDFC': [], 'SBI': [], 'AXIS': [], 'UNKNOWN': []}
     

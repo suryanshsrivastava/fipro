@@ -1,53 +1,112 @@
 {
-  "summary": {
-    "total_files": 3,
-    "total_transactions": 8,
-    "exported_transactions": 7,
-    "duplicates_skipped": 1,
-    "transfers_detected": 2,
-    "failed_files": 0
-  },
   "by_bank": {
     "AXIS": {
-      "transactions": 2,
+      "credits": 1,
       "debits": 1,
-      "credits": 1
+      "transactions": 2
     },
     "HDFC": {
-      "transactions": 3,
+      "credits": 0,
       "debits": 3,
-      "credits": 0
+      "transactions": 3
     },
     "SBI": {
-      "transactions": 2,
+      "credits": 1,
       "debits": 1,
-      "credits": 1
+      "transactions": 2
     }
+  },
+  "cash_flow": {
+    "net_cash_flow": "55401.00",
+    "total_credits": "75000.00",
+    "total_debits": "19599.00"
   },
   "files": [
     {
-      "source_file": "axis.xlsx",
       "bank": "AXIS",
-      "total_transactions": 2,
-      "successful": 2,
+      "duplicates_skipped": 0,
       "failed": 0,
-      "duplicates_skipped": 0
+      "source_file": "axis.xlsx",
+      "successful": 2,
+      "total_transactions": 2
     },
     {
-      "source_file": "hdfc.xlsx",
       "bank": "HDFC",
-      "total_transactions": 4,
-      "successful": 3,
+      "duplicates_skipped": 1,
       "failed": 0,
-      "duplicates_skipped": 1
+      "source_file": "hdfc.xlsx",
+      "successful": 3,
+      "total_transactions": 4
     },
     {
-      "source_file": "sbi.xls",
       "bank": "SBI",
-      "total_transactions": 2,
-      "successful": 2,
+      "duplicates_skipped": 0,
       "failed": 0,
-      "duplicates_skipped": 0
+      "source_file": "sbi.xls",
+      "successful": 2,
+      "total_transactions": 2
+    }
+  ],
+  "net_worth_proxy": {
+    "by_statement": [
+      {
+        "as_of_date": "2025-11-06",
+        "bank": "AXIS",
+        "closing_balance": "131401.00",
+        "source_file": "axis.xlsx"
+      },
+      {
+        "as_of_date": "2025-11-05",
+        "bank": "HDFC",
+        "closing_balance": "33750.00",
+        "source_file": "hdfc.xlsx"
+      },
+      {
+        "as_of_date": "2025-11-04",
+        "bank": "SBI",
+        "closing_balance": "53150.00",
+        "source_file": "sbi.xls"
+      }
+    ],
+    "reason_if_no_total": null,
+    "total_across_statements": "218301.00"
+  },
+  "summary": {
+    "duplicates_skipped": 1,
+    "exported_transactions": 7,
+    "failed_files": 0,
+    "total_files": 3,
+    "total_transactions": 8,
+    "transfers_detected": 2
+  },
+  "top_descriptions": [
+    {
+      "count": 1,
+      "description": "TRANSFER FROM HDFC"
+    },
+    {
+      "count": 1,
+      "description": "Electricity Bill BESCOM"
+    },
+    {
+      "count": 1,
+      "description": "SALARY CREDIT NOV25"
+    },
+    {
+      "count": 1,
+      "description": "BILL PAY-BROADBAND"
+    },
+    {
+      "count": 1,
+      "description": "UPI-GROCERY MART-PAY"
+    },
+    {
+      "count": 1,
+      "description": "TRANSFER TO SBI"
+    },
+    {
+      "count": 1,
+      "description": "CREDIT CARD PAYMENT HDFC CARD"
     }
   ]
 }
