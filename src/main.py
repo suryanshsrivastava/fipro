@@ -4,7 +4,7 @@ import argparse
 import sys
 from collections import defaultdict
 
-from src.config import load_config
+from src.config import load_config, resolve_config_path
 from src.core.ingestion import discover_files
 from src.core.orchestrator import process_pipeline
 from src.utils.logger import setup_logging
@@ -13,6 +13,11 @@ from src.utils.logger import setup_logging
 def main():
     """Parse CLI arguments and dispatch commands."""
     parser = argparse.ArgumentParser(prog="fipro")
+    parser.add_argument(
+        "--version",
+        action="version",
+        version="fipro 0.1.0",
+    )
     subparsers = parser.add_subparsers(dest="command")
 
     process_parser = subparsers.add_parser("process", help="Process statement files")
@@ -67,6 +72,8 @@ def cmd_process(args, config: dict):
 def cmd_status(args, config: dict):
     """Show the list of pending files in the input directory."""
     files = discover_files(config)
+    config_path = resolve_config_path(getattr(args, "config", None))
+    print(f"Config path: {config_path}")
     print(f"Input directory: {config['paths']['input']}")
     print(f"Pending files: {len(files)}")
 

@@ -22,6 +22,7 @@ def test_cmd_status_groups_files_by_bank(capsys, tmp_path):
 
     captured = capsys.readouterr()
     assert exit_code == 0
+    assert "Config path:" in captured.out
     assert f"Input directory: {input_dir}" in captured.out
     assert "Pending files: 2" in captured.out
     assert "AXIS:" in captured.out

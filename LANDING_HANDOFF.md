@@ -35,8 +35,25 @@ uv run python -m src.main process
 uv run pytest -q
 ```
 
-## Follow-ups (recommended)
+## Additional completion work (flight run)
 
-1. Add one short end-to-end example section in README with sample input/output filenames.
-2. Add CI workflow to run `uv sync` + `uv run pytest -q` on push/PR.
-3. Add a tiny `--version` CLI command and expose config path in `status` output for smoother ops.
+- Added `--version` support in CLI (`fipro 0.1.0`).
+- `status` now prints resolved config path for easier operations/debugging.
+- Added `resolve_config_path()` helper in config loader.
+- Added a "Tomorrow morning runbook" section to `README.md` for immediate real-world use.
+- Executed a full fixture-backed E2E dry run with temporary directories/config:
+  - `status` detected all 3 banks (HDFC/SBI/AXIS)
+  - `process` exported transactions and generated both outputs
+  - input files moved to processed
+  - failed count stayed zero
+
+## Verification snapshot
+
+- Unit/integration tests: `uv run pytest -q` -> **62 passed**
+- E2E dry run command path:
+  - `uv run python -m src.main status --config <tmp-config>`
+  - `uv run python -m src.main process --config <tmp-config>`
+
+## Remaining recommended enhancement (non-blocking for tomorrow)
+
+1. Add CI workflow to run `uv sync` + `uv run pytest -q` on push/PR.

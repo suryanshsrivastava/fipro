@@ -8,11 +8,17 @@ import tomllib
 DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent.parent / "config" / "config.toml"
 
 
-def load_config(config_path: str | None = None) -> Dict:
-    """Load and validate the project TOML config."""
+def resolve_config_path(config_path: str | None = None) -> Path:
+    """Resolve config path using project default when omitted."""
     path = DEFAULT_CONFIG_PATH if config_path is None else Path(config_path)
     if not path.is_absolute():
         path = Path.cwd() / path
+    return path
+
+
+def load_config(config_path: str | None = None) -> Dict:
+    """Load and validate the project TOML config."""
+    path = resolve_config_path(config_path)
 
     if not path.exists():
         raise FileNotFoundError(f"config.toml not found at {path}")

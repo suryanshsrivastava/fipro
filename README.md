@@ -92,6 +92,20 @@ Goodbudget CSV columns:
 
 `Date,Envelope,Account,Name,Notes,Amount,Status`
 
+## Tomorrow morning runbook (real usage)
+
+1. Put your latest HDFC/SBI/Axis statements into `data/input/`
+2. Check discovery:
+   ```bash
+   uv run python -m src.main status
+   ```
+3. Process:
+   ```bash
+   uv run python -m src.main process
+   ```
+4. Open latest CSV in `data/output/` and import into Goodbudget.
+5. If a file fails parsing, check `data/failed/` for the moved file + `*.error.txt` sidecar.
+
 ## Testing
 
 ```bash
