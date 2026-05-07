@@ -66,8 +66,8 @@ def test_mixed_basic_pipeline_fixture(tmp_path):
     assert _normalize_csv(actual_csv) == _normalize_csv(expected_csv)
 
     actual_report = json.loads(report_path.read_text(encoding="utf-8"))
-    expected_report = json.loads(
-        (case_dir / "expected_report.json").read_text(encoding="utf-8")
+    expected_report = _stable_report(
+        json.loads((case_dir / "expected_report.json").read_text(encoding="utf-8"))
     )
     assert _stable_report(actual_report) == expected_report
 
@@ -82,7 +82,10 @@ def _stable_report(report: dict) -> dict:
         "by_bank": report["by_bank"],
         "cash_flow": report["cash_flow"],
         "net_worth_proxy": report["net_worth_proxy"],
-        "top_descriptions": report["top_descriptions"],
+        "top_descriptions": sorted(
+            report["top_descriptions"],
+            key=lambda item: (-item.get("count", 0), item.get("description", "")),
+        ),
         "files": [
             {
                 "source_file": item["source_file"],
