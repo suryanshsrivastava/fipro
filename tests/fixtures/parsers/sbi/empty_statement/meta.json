@@ -1,8 +1,0 @@
-{
-  "title": "SBI empty statement",
-  "purpose": "Validates a valid SBI statement with no transaction rows",
-  "covers": [
-    "empty statement handling"
-  ],
-  "fixture_version": 1
-}

@@ -6,22 +6,23 @@ the application. The Transaction model is designed to support both MVP CSV expor
 and future envelope budgeting features.
 """
 
+import hashlib
 from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
-from typing import Optional
 from enum import Enum
-import hashlib
 
 
 class TransactionType(Enum):
     """Transaction type enumeration."""
+
     DEBIT = "debit"
     CREDIT = "credit"
 
 
 class TransactionStatus(Enum):
     """Transaction status enumeration."""
+
     PENDING = "pending"
     UNCLEARED = "uncleared"
     CLEARED = "cleared"
@@ -33,11 +34,11 @@ class TransactionStatus(Enum):
 class Transaction:
     """
     Core transaction entity.
-    
+
     Designed for:
     - MVP: CSV export to Goodbudget
     - Future: Zero-based/envelope budgeting integration
-    
+
     Attributes:
         transaction_date: Date of the transaction
         description: Transaction description/narration
@@ -55,6 +56,7 @@ class Transaction:
         raw_data: Original row data for debugging
         created_at: Timestamp when transaction was created
     """
+
     # Required fields
     transaction_date: date
     description: str
@@ -62,39 +64,36 @@ class Transaction:
     transaction_type: TransactionType
     source_bank: str
     source_file: str
-    
+
     # Auto-generated
-    id: Optional[int] = None
+    id: int | None = None
     hash: str = field(init=False)
-    
+
     # Optional fields
-    balance: Optional[Decimal] = None
-    category: Optional[str] = None
-    envelope: Optional[str] = None
+    balance: Decimal | None = None
+    category: str | None = None
+    envelope: str | None = None
     status: TransactionStatus = TransactionStatus.PENDING
-    notes: Optional[str] = None
-    raw_data: Optional[dict] = None
-    
+    notes: str | None = None
+    raw_data: dict | None = None
+
     # Metadata
-    created_at: Optional[str] = None
-    
+    created_at: str | None = None
+
     def __post_init__(self):
         """Generate unique hash for deduplication."""
-        unique_str = (
-            f"{self.transaction_date}{self.amount}{self.description}"
-            f"{self.transaction_type.value}{self.source_bank}"
-        )
+        unique_str = f"{self.transaction_date}{self.amount}{self.description}"
         if self.balance:
             unique_str += str(self.balance)
         self.hash = hashlib.sha256(unique_str.encode()).hexdigest()[:16]
-    
+
     @property
     def signed_amount(self) -> Decimal:
         """Returns negative for debits, positive for credits."""
         if self.transaction_type == TransactionType.DEBIT:
             return -abs(self.amount)
         return abs(self.amount)
-    
+
     def to_goodbudget_row(self) -> dict:
         """Convert to Goodbudget CSV format."""
         return {
@@ -104,5 +103,5 @@ class Transaction:
             "Name": self.description[:50],
             "Notes": self.notes or "",
             "Amount": str(self.signed_amount),
-            "Status": "cleared"
+            "Status": "cleared",
         }

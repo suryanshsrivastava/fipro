@@ -7,23 +7,22 @@ used by different banks.
 """
 
 from datetime import date, datetime
-from typing import Optional
 
 
 def parse_date(date_str: str, format_str: str) -> date:
     """
     Parse date string using specified format.
-    
+
     Args:
         date_str: Date string to parse
         format_str: strftime format string (e.g., "%d/%m/%y", "%d-%m-%Y")
-        
+
     Returns:
         date object
-        
+
     Raises:
         ValueError: If date cannot be parsed with given format
-        
+
     Suggested implementation:
     - Use datetime.strptime() with format_str
     - Return date() object
@@ -33,19 +32,19 @@ def parse_date(date_str: str, format_str: str) -> date:
     return parsed.date()
 
 
-def parse_date_multiple_formats(date_str: str, formats: list[str]) -> Optional[date]:
+def parse_date_multiple_formats(date_str: str, formats: list[str]) -> date | None:
     """
     Try parsing date with multiple format strings.
-    
+
     Attempts each format in order until one succeeds.
-    
+
     Args:
         date_str: Date string to parse
         formats: List of strftime format strings to try
-        
+
     Returns:
         date object if successful, None otherwise
-        
+
     Suggested implementation:
     - Iterate through formats list
     - Try parse_date() for each format
@@ -64,10 +63,10 @@ def parse_date_multiple_formats(date_str: str, formats: list[str]) -> Optional[d
 def parse_hdfc_date(date_str: str) -> date:
     """
     Parse HDFC date format (DD/MM/YY or DD-MM-YYYY).
-    
+
     Args:
         date_str: HDFC date string
-        
+
     Returns:
         date object
     """
@@ -80,10 +79,10 @@ def parse_hdfc_date(date_str: str) -> date:
 def parse_sbi_date(date_str: str) -> date:
     """
     Parse SBI date format (DD MMM YYYY, e.g., "15 Nov 2025").
-    
+
     Args:
         date_str: SBI date string
-        
+
     Returns:
         date object
     """
@@ -94,12 +93,11 @@ def parse_sbi_date(date_str: str) -> date:
 def parse_axis_date(date_str: str) -> date:
     """
     Parse Axis date format (DD-MM-YYYY).
-    
+
     Args:
         date_str: Axis date string
-        
+
     Returns:
         date object
     """
     return parse_date(date_str, "%d-%m-%Y")
-

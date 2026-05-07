@@ -6,28 +6,15 @@ outputs. Used by the orchestrator to report on file processing status.
 """
 
 from dataclasses import dataclass
-from typing import List
 
 from src.models.transactions import Transaction
-
-
-@dataclass(slots=True)
-class PipelineRun:
-    """Outputs and transactions from a full pipeline run."""
-
-    results: List["ProcessingResult"]
-    deduplicated_transactions: List[Transaction]
-    goodbudget_csv_path: str
-    report_json_path: str
-    hub_csv_path: str
-    hub_summary: dict
 
 
 @dataclass
 class ProcessingResult:
     """
     Result of processing a bank statement file.
-    
+
     Attributes:
         source_file: Path to the source file
         bank: Bank name (HDFC, SBI, AXIS)
@@ -39,13 +26,13 @@ class ProcessingResult:
         errors: List of error messages
         warnings: List of warning messages
     """
+
     source_file: str
     bank: str
     total_transactions: int
     successful: int
     failed: int
     duplicates_skipped: int
-    transactions: List[Transaction]
-    errors: List[str]
-    warnings: List[str]
-
+    transactions: list[Transaction]
+    errors: list[str]
+    warnings: list[str]

@@ -1,231 +1,155 @@
-"""Main processing orchestrator for Fipro."""
-
+import logging
 import shutil
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import List
 
 import pandas as pd
 
-from src.core.deduplicator import deduplicate
-from src.core.ingestion import discover_files, get_bank_from_filename
+from src.core.deduplicator import deduplicate, get_seen_hashes_from_file, save_seen_hashes_to_file
+from src.core.ingestion import discover_files
 from src.core.transfer_detector import detect_transfers
 from src.exporters.goodbudget import export_to_goodbudget
-from src.exporters.hub_csv import export_hub_csv
-from src.exporters.report import build_hub_summary, generate_report
-from src.models.account import CrawledFile
-from src.models.result import PipelineRun, ProcessingResult
+from src.exporters.report import generate_report
+from src.models.result import ProcessingResult
 from src.models.transactions import Transaction
-from src.utils.report_helpers import filter_transactions_for_export
 from src.parsers.axis import AxisParser
+from src.parsers.base import BankParser
 from src.parsers.hdfc import HDFCParser
 from src.parsers.sbi import SBIParser
 
+logger = logging.getLogger("fipro.orchestrator")
 
-AVAILABLE_PARSERS = [HDFCParser(), SBIParser(), AxisParser()]
 
+def process_pipeline(config: dict) -> list[ProcessingResult]:
+    results: list[ProcessingResult] = []
+    input_path = config["paths"]["input"]
+    output_path = config["paths"].get("output", "data/output")
+    processed_path = config["paths"].get("processed", "data/processed")
+    failed_path = config["paths"].get("failed", "data/failed")
 
-def process_pipeline(config: dict) -> PipelineRun:
-    """Execute the file-based processing pipeline."""
+    seen_hashes_path = Path("data/.seen_hashes")
+    seen_hashes = get_seen_hashes_from_file(str(seen_hashes_path))
+
     files = discover_files(config)
     if not files:
-        return PipelineRun(
-            results=[],
-            deduplicated_transactions=[],
-            goodbudget_csv_path="",
-            report_json_path="",
-            hub_csv_path="",
-            hub_summary={
-                "date_range": {"earliest": None, "latest": None},
-                "cash_flow": None,
-                "net_worth_proxy": {
-                    "total_across_statements": None,
-                    "reason_if_no_total": "no_input_files",
-                },
-            },
-        )
+        logger.info("No files found in %s", input_path)
+        return results
 
-    fail_on_file_error = config.get("processing", {}).get("fail_on_file_error", True)
-    results: List[ProcessingResult] = []
-    all_transactions: List[Transaction] = []
-    failures: list[tuple[CrawledFile, str]] = []
-    successful_files: list[CrawledFile] = []
+    parsers = [HDFCParser(), SBIParser(), AxisParser()]
+    all_transactions: list[Transaction] = []
 
-    for crawled_file in files:
-        bank_hint = crawled_file.metadata.get(
-            "bank", get_bank_from_filename(crawled_file.filename)
-        )
-        result = ProcessingResult(
-            source_file=crawled_file.filepath,
-            bank=bank_hint,
-            total_transactions=0,
-            successful=0,
-            failed=0,
-            duplicates_skipped=0,
-            transactions=[],
-            errors=[],
-            warnings=[],
-        )
+    for crawled in files:
         try:
-            parser = route_file_to_parser(crawled_file.filepath, AVAILABLE_PARSERS)
-            transactions = parse_file(crawled_file.filepath, parser)
-            result.bank = parser.bank_name
-            result.total_transactions = len(transactions)
-            result.successful = len(transactions)
-            result.transactions = transactions
-            all_transactions.extend(transactions)
-            successful_files.append(crawled_file)
-        except Exception as exc:
-            result.errors.append(str(exc))
-            result.failed = 1
-            failures.append((crawled_file, str(exc)))
-        results.append(result)
+            df = load_statement_dataframe(crawled.filepath)
+            parser = route_file_to_parser(crawled.filename, df, parsers)
+            txns = parser.extract_transactions(df, crawled.filepath)
+            all_transactions.extend(txns)
+            move_file_to_processed(crawled.filepath, processed_path)
+            results.append(
+                ProcessingResult(
+                    source_file=crawled.filepath,
+                    bank=parser.bank_name,
+                    total_transactions=len(txns),
+                    successful=len(txns),
+                    failed=0,
+                    duplicates_skipped=0,
+                    transactions=txns,
+                    errors=[],
+                    warnings=[],
+                )
+            )
+        except Exception as e:
+            logger.error("Failed processing %s: %s", crawled.filepath, e)
+            move_file_to_failed(crawled.filepath, failed_path, str(e))
+            results.append(
+                ProcessingResult(
+                    source_file=crawled.filepath,
+                    bank=crawled.metadata.get("bank", "UNKNOWN"),
+                    total_transactions=0,
+                    successful=0,
+                    failed=0,
+                    duplicates_skipped=0,
+                    transactions=[],
+                    errors=[str(e)],
+                    warnings=[],
+                )
+            )
 
-    failed_dir = config["paths"]["failed"]
-    for crawled_file, error in failures:
-        move_file_to_failed(crawled_file.filepath, failed_dir, error)
+    # consolidation
+    all_transactions, dups = deduplicate(all_transactions, seen_hashes)
+    if not config.get("processing", {}).get("skip_internal_transfers", False):
+        all_transactions = detect_transfers(all_transactions)
+    save_seen_hashes_to_file(seen_hashes, str(seen_hashes_path))
 
-    if failures and fail_on_file_error:
-        raise RuntimeError(
-            f"Processing aborted because {len(failures)} file(s) failed to parse"
-        )
-
-    deduplicated_transactions, _ = deduplicate(all_transactions)
-    duplicates_by_source = _count_duplicates_by_source(all_transactions)
-    deduplicated_transactions = detect_transfers(deduplicated_transactions)
-
-    transactions_by_source: dict[str, list[Transaction]] = {}
-    for transaction in deduplicated_transactions:
-        transactions_by_source.setdefault(transaction.source_file, []).append(transaction)
-
-    for result in results:
-        result.duplicates_skipped = duplicates_by_source.get(result.source_file, 0)
-        result.transactions = transactions_by_source.get(result.source_file, [])
-        result.successful = len(result.transactions)
-
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-    output_dir = Path(config["paths"]["output"])
-    csv_path = output_dir / f"goodbudget_{timestamp}.csv"
-    report_path = output_dir / f"processing_report_{timestamp}.json"
-    hub_path = output_dir / f"hub_summary_{timestamp}.csv"
-
-    exported_count = export_to_goodbudget(
-        deduplicated_transactions, str(csv_path), config
-    )
-    include_internal = config.get("processing", {}).get(
-        "include_internal_transfers", True
-    )
-    hub_transactions = filter_transactions_for_export(
-        deduplicated_transactions, include_internal
-    )
-    export_hub_csv(hub_transactions, str(hub_path))
-
-    report = generate_report(
-        results,
-        str(report_path),
-        exported_transactions=exported_count,
-        config=config,
-    )
-    hub_summary = build_hub_summary(report)
-
-    processed_dir = config["paths"]["processed"]
-    for crawled_file in successful_files:
-        move_file_to_processed(crawled_file.filepath, processed_dir)
-
-    return PipelineRun(
-        results=results,
-        deduplicated_transactions=deduplicated_transactions,
-        goodbudget_csv_path=str(csv_path),
-        report_json_path=str(report_path),
-        hub_csv_path=str(hub_path),
-        hub_summary=hub_summary,
-    )
+    # export
+    csv_path = f"{output_path}/goodbudget_export.csv"
+    export_to_goodbudget(all_transactions, csv_path, config)
+    report_path = f"{output_path}/processing_report.json"
+    generate_report(results, report_path)
+    logger.info("Pipeline complete. %d transactions exported to %s", len(all_transactions), csv_path)
+    return results
 
 
-def route_file_to_parser(filename: str, parsers: List) -> object:
-    """Route a discovered file to a parser."""
-    filepath = Path(filename)
-    bank_hint = get_bank_from_filename(filepath.name)
-
-    prioritized = [
-        parser for parser in parsers if parser.bank_name == bank_hint
-    ] + [parser for parser in parsers if parser.bank_name != bank_hint]
-
-    for parser in prioritized:
-        try:
-            df = _load_file_as_dataframe(str(filepath), parser)
-            if df is not None and parser.can_parse(filepath.name, df):
-                return parser
-        except Exception:
-            continue
-
-    raise ValueError(f"No parser can handle file: {filepath.name}")
+def extract_raw_transactions(filepaths: list[str]) -> list[Transaction]:
+    parsers = [HDFCParser(), SBIParser(), AxisParser()]
+    transactions: list[Transaction] = []
+    for filepath in sorted(filepaths):
+        df = load_statement_dataframe(filepath)
+        parser = route_file_to_parser(Path(filepath).name, df, parsers)
+        transactions.extend(parser.extract_transactions(df, filepath))
+    return transactions
 
 
-def parse_file(filepath: str, parser: object) -> List[Transaction]:
-    """Load a file into a DataFrame and parse it into transactions."""
-    dataframe = _load_file_as_dataframe(filepath, parser)
-    if dataframe is None:
-        raise ValueError(f"Could not load file: {filepath}")
-    return parser.extract_transactions(dataframe, filepath)
+def extract_raw_dataframe(filepaths: list[str]) -> pd.DataFrame:
+    transactions = extract_raw_transactions(filepaths)
+    records = [
+        {
+            "transaction_date": t.transaction_date,
+            "description": t.description,
+            "amount": t.amount,
+            "transaction_type": t.transaction_type.value,
+            "source_bank": t.source_bank,
+            "source_file": t.source_file,
+            "balance": t.balance,
+        }
+        for t in transactions
+    ]
+    return pd.DataFrame.from_records(records)
+
+
+def load_statement_dataframe(filepath: str) -> pd.DataFrame:
+    path = Path(filepath)
+    suffix = path.suffix.lower()
+    if "sbi" in path.name.lower():
+        df = SBIParser.load_sbi_file(filepath)
+        if df is None:
+            raise ValueError(f"Unable to load SBI statement: {filepath}")
+        return df
+    if suffix not in {".xls", ".xlsx"}:
+        raise ValueError(f"Unsupported format: {filepath}")
+    engine = "xlrd" if suffix == ".xls" else "openpyxl"
+    return pd.read_excel(filepath, engine=engine, header=None)
+
+
+def route_file_to_parser(filename: str, df: pd.DataFrame, parsers: list[BankParser]) -> BankParser:
+    for parser in parsers:
+        if parser.can_parse(filename, df):
+            return parser
+    raise ValueError(f"No parser available for {filename}")
 
 
 def move_file_to_processed(source_path: str, dest_dir: str) -> str:
-    """Move a successfully processed file into the processed directory."""
-    destination_dir = Path(dest_dir)
-    destination_dir.mkdir(parents=True, exist_ok=True)
-    destination = _unique_destination(destination_dir / Path(source_path).name)
-    shutil.move(source_path, destination)
-    return str(destination)
+    dest = Path(dest_dir)
+    dest.mkdir(parents=True, exist_ok=True)
+    dst = dest / Path(source_path).name
+    shutil.move(source_path, dst)
+    return str(dst)
 
 
 def move_file_to_failed(source_path: str, dest_dir: str, error: str) -> str:
-    """Move a failed file and write a sidecar error log."""
-    destination_dir = Path(dest_dir)
-    destination_dir.mkdir(parents=True, exist_ok=True)
-    destination = _unique_destination(destination_dir / Path(source_path).name)
-    shutil.move(source_path, destination)
-    error_path = destination.with_name(destination.name + ".error.txt")
-    error_path.write_text(
-        f"File: {Path(source_path).name}\nError: {error}\n", encoding="utf-8"
-    )
-    return str(destination)
-
-
-def _load_file_as_dataframe(filepath: str, parser: object) -> pd.DataFrame | None:
-    if isinstance(parser, SBIParser):
-        dataframe = SBIParser.load_sbi_file(filepath)
-        if dataframe is not None:
-            return dataframe
-        return None
-
-    extension = Path(filepath).suffix.lower()
-    engines = ["xlrd", "openpyxl"] if extension == ".xls" else ["openpyxl", "xlrd"]
-    for engine in engines:
-        try:
-            return pd.read_excel(filepath, engine=engine, header=None)
-        except Exception:
-            continue
-    return None
-
-
-def _unique_destination(path: Path) -> Path:
-    candidate = path
-    counter = 1
-    while candidate.exists():
-        candidate = path.with_name(f"{path.stem}_{counter}{path.suffix}")
-        counter += 1
-    return candidate
-
-
-def _count_duplicates_by_source(transactions: List[Transaction]) -> dict[str, int]:
-    duplicates_by_source: dict[str, int] = {}
-    seen_hashes: set[str] = set()
-    for transaction in transactions:
-        if transaction.hash in seen_hashes:
-            duplicates_by_source[transaction.source_file] = (
-                duplicates_by_source.get(transaction.source_file, 0) + 1
-            )
-            continue
-        seen_hashes.add(transaction.hash)
-    return duplicates_by_source
+    dest = Path(dest_dir)
+    dest.mkdir(parents=True, exist_ok=True)
+    dst = dest / Path(source_path).name
+    shutil.move(source_path, dst)
+    error_log = dest / f"{Path(source_path).stem}.error.txt"
+    error_log.write_text(error)
+    return str(dst)

@@ -1,0 +1,751 @@
+{
+  "transactions": [
+    {
+      "transaction_date": "2025-06-01",
+      "description": "BY TRANSFER-UPI/CR/105748543647/SURYANSH/HDFC/suryanshsr/UPI--",
+      "amount": "272.00",
+      "transaction_type": "credit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "8624.26"
+    },
+    {
+      "transaction_date": "2025-06-04",
+      "description": "TO TRANSFER-UPI/DR/515545731309/BMTC BUS/CNRB/ka57f3239@/UPI--",
+      "amount": "12.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "8612.26"
+    },
+    {
+      "transaction_date": "2025-06-05",
+      "description": "TO TRANSFER-UPI/DR/515648235423/RAMITHA /HDFC/connect2ra/UPI--",
+      "amount": "1500.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "7112.26"
+    },
+    {
+      "transaction_date": "2025-06-06",
+      "description": "BY TRANSFER-UPI/CR/847355888878/RAVULA A/HDFC/ravulaanir/Payme--",
+      "amount": "110.00",
+      "transaction_type": "credit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "7222.26"
+    },
+    {
+      "transaction_date": "2025-06-11",
+      "description": "TO TRANSFER-UPI/DR/516212248868/RAMITHA /HDFC/connect2ra/UPI--",
+      "amount": "1500.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "5222.26"
+    },
+    {
+      "transaction_date": "2025-06-11",
+      "description": "TO TRANSFER-UPI/DR/516282689853/BMRCL DK/YESB/q976449242/UPI--",
+      "amount": "500.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "6722.26"
+    },
+    {
+      "transaction_date": "2025-06-17",
+      "description": "TO TRANSFER-UPI/DR/516838997554/Bengalur/YESB/paytm-8736/UPI--",
+      "amount": "30.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "5192.26"
+    },
+    {
+      "transaction_date": "2025-06-17",
+      "description": "TO TRANSFER-UPI/DR/516864958465/Bengalur/YESB/paytm-8736/UPI--",
+      "amount": "30.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "5162.26"
+    },
+    {
+      "transaction_date": "2025-06-17",
+      "description": "TO TRANSFER-UPI/DR/516865014755/Bengalur/YESB/paytm-8736/UPI--",
+      "amount": "30.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "5132.26"
+    },
+    {
+      "transaction_date": "2025-06-18",
+      "description": "TO TRANSFER-UPI/DR/516978578594/BMTC BUS/CNRB/ka57f6216@/UPI--",
+      "amount": "7.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "5125.26"
+    },
+    {
+      "transaction_date": "2025-06-19",
+      "description": "TO TRANSFER-UPI/DR/517026392913/BMTC BUS/CNRB/ka57f3267@/UPI--",
+      "amount": "12.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "5113.26"
+    },
+    {
+      "transaction_date": "2025-06-19",
+      "description": "TO TRANSFER-UPI/DR/517049794450/RAMITHA /HDFC/connect2ra/UPI--",
+      "amount": "1500.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "3613.26"
+    },
+    {
+      "transaction_date": "2025-06-20",
+      "description": "BY TRANSFER-UPI/CR/517188439687/ANIRUDH /SBIN/anirudhkap/UPI--",
+      "amount": "1223.00",
+      "transaction_type": "credit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "4836.26"
+    },
+    {
+      "transaction_date": "2025-06-21",
+      "description": "TO TRANSFER-UPI/DR/517241933667/WISHVISH/YESB/q632682571/UPI--",
+      "amount": "682.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "4154.26"
+    },
+    {
+      "transaction_date": "2025-06-24",
+      "description": "BY TRANSFER-UPI/CR/106978468755/MANIL K /HDFC/manilsharm/UPI--",
+      "amount": "2575.00",
+      "transaction_type": "credit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "6699.26"
+    },
+    {
+      "transaction_date": "2025-06-24",
+      "description": "TO TRANSFER-UPI/DR/517522300109/PAYTM TR/HDFC/travel1pay/UPI--",
+      "amount": "30.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "6669.26"
+    },
+    {
+      "transaction_date": "2025-06-24",
+      "description": "TO TRANSFER-UPI/DR/517593293756/PAYTM TR/HDFC/travel1pay/UPI--",
+      "amount": "30.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "4124.26"
+    },
+    {
+      "transaction_date": "2025-06-25",
+      "description": "CREDIT INTEREST---",
+      "amount": "24.00",
+      "transaction_type": "credit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "6686.26"
+    },
+    {
+      "transaction_date": "2025-06-25",
+      "description": "TO TRANSFER-UPI/DR/517671305366/BMTC BUS/CNRB/ka57f6366@/UPI--",
+      "amount": "7.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "6662.26"
+    },
+    {
+      "transaction_date": "2025-06-26",
+      "description": "TO TRANSFER-UPI/DR/517793769499/BMTC BUS/CNRB/ka57f4894@/UPI--",
+      "amount": "12.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "6674.26"
+    },
+    {
+      "transaction_date": "2025-06-27",
+      "description": "TO TRANSFER-UPI/DR/517850943226/Sapthaga/YESB/paytmqr6cr/UPI--",
+      "amount": "130.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "2924.26"
+    },
+    {
+      "transaction_date": "2025-06-27",
+      "description": "TO TRANSFER-UPI/DR/517881010247/SURYANSH/HDFC/suryanshsr/UPI--",
+      "amount": "3500.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "3174.26"
+    },
+    {
+      "transaction_date": "2025-06-27",
+      "description": "TO TRANSFER-UPI/DR/517887430504/Rinku Se/YESB/paytm.s1dl/UPI--",
+      "amount": "120.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "3054.26"
+    },
+    {
+      "transaction_date": "2025-06-28",
+      "description": "BY TRANSFER-UPI/CR/835397788725/SIDDHART/HDFC/sid.sri931/Payme--",
+      "amount": "2400.00",
+      "transaction_type": "credit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "4904.26"
+    },
+    {
+      "transaction_date": "2025-06-28",
+      "description": "TO TRANSFER-UPI/DR/517900688306/B USHA R/YESB/q984581489/UPI--",
+      "amount": "260.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "2664.26"
+    },
+    {
+      "transaction_date": "2025-06-28",
+      "description": "TO TRANSFER-UPI/DR/517901515500/Grahak S/YESB/yespay.mab/UPI--",
+      "amount": "160.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "2504.26"
+    },
+    {
+      "transaction_date": "2025-06-28",
+      "description": "TO TRANSFER-UPI/DR/554515106840/SATHISH/SBIN/9886661609/UPI--",
+      "amount": "141.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "4669.26"
+    },
+    {
+      "transaction_date": "2025-06-28",
+      "description": "TO TRANSFER-UPI/DR/554551614954/ISMAIL V U/YESB/q907502634/UPI--",
+      "amount": "94.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "4810.26"
+    },
+    {
+      "transaction_date": "2025-06-29",
+      "description": "TO TRANSFER-UPI/DR/100851136843/APPLE ME/HDFC/appleservi/UPI M--",
+      "amount": "75.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "4594.26"
+    },
+    {
+      "transaction_date": "2025-06-30",
+      "description": "TO TRANSFER-UPI/DR/518159628793/CFS/UTIB/cp.cfse06a/payment--",
+      "amount": "50.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "4544.26"
+    },
+    {
+      "transaction_date": "2025-06-30",
+      "description": "TO TRANSFER-UPI/DR/518159651744/PWC_MECR/UTIB/credpay.me/payme--",
+      "amount": "50.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "4494.26"
+    },
+    {
+      "transaction_date": "2025-07-01",
+      "description": "BY TRANSFER-UPI/CR/554882778623/SUKRITI/ICIC/sukriti.13/Pecos--",
+      "amount": "350.00",
+      "transaction_type": "credit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "4832.26"
+    },
+    {
+      "transaction_date": "2025-07-01",
+      "description": "TO TRANSFER-UPI/DR/518256229994/BMTC BUS/CNRB/ka57f6305@/UPI--",
+      "amount": "12.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "4482.26"
+    },
+    {
+      "transaction_date": "2025-07-01",
+      "description": "TO TRANSFER-UPI/DR/554835734358/THAMAMHADI/UBIN/9188384838/UPI--",
+      "amount": "181.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "4621.26"
+    },
+    {
+      "transaction_date": "2025-07-01",
+      "description": "TO TRANSFER-UPI/DR/554882336953/Bengalur/YESB/paytm-8736/UPI--",
+      "amount": "30.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "4802.26"
+    },
+    {
+      "transaction_date": "2025-07-02",
+      "description": "TO TRANSFER-UPI/DR/518317933113/BMTC BUS/CNRB/ka41d2744@/UPI--",
+      "amount": "12.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "4475.26"
+    },
+    {
+      "transaction_date": "2025-07-02",
+      "description": "TO TRANSFER-UPI/DR/518378426150/Mr SYED /MAHB/8495002521/UPI--",
+      "amount": "325.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "4150.26"
+    },
+    {
+      "transaction_date": "2025-07-02",
+      "description": "TO TRANSFER-UPI/DR/554915143718/Mr Sanie/IDIB/sabieshvp2/UPI--",
+      "amount": "134.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "4487.26"
+    },
+    {
+      "transaction_date": "2025-07-03",
+      "description": "BY TRANSFER-UPI/CR/555098234041/SURYANSH/UTIB/suryanshsr/UPI--",
+      "amount": "5000.00",
+      "transaction_type": "credit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "8960.26"
+    },
+    {
+      "transaction_date": "2025-07-03",
+      "description": "TO TRANSFER-UPI/DR/518433443740/Hemanta /KKBK/8453056736/UPI--",
+      "amount": "190.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "3960.26"
+    },
+    {
+      "transaction_date": "2025-07-03",
+      "description": "TO TRANSFER-UPI/DR/555016234842/BHAGINI /HDFC/bhaginimul/Gener--",
+      "amount": "2395.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "6565.26"
+    },
+    {
+      "transaction_date": "2025-07-04",
+      "description": "BY TRANSFER-UPI/CR/555196368947/SURYANSH/UTIB/suryanshsr/UPI--",
+      "amount": "6000.00",
+      "transaction_type": "credit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "12565.26"
+    },
+    {
+      "transaction_date": "2025-07-04",
+      "description": "TO TRANSFER-UPI/DR/518519245954/ARDHENDU/BKID/ardhenduma/UPI--",
+      "amount": "6000.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "6565.26"
+    },
+    {
+      "transaction_date": "2025-07-05",
+      "description": "BY TRANSFER-UPI/CR/107557489886/SURYANSH/HDFC/suryanshsr/UPI--",
+      "amount": "6737.98",
+      "transaction_type": "credit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "13303.24"
+    },
+    {
+      "transaction_date": "2025-07-05",
+      "description": "BY TRANSFER-UPI/CR/518658832545/SURYANSH/UTIB/suryanshsr/UPI--",
+      "amount": "6686.26",
+      "transaction_type": "credit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "19989.50"
+    },
+    {
+      "transaction_date": "2025-07-05",
+      "description": "TO TRANSFER-UPI/DR/518675683389/SURYANSH/HDFC/suryanshsr/UPI--",
+      "amount": "6686.26",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "13303.24"
+    },
+    {
+      "transaction_date": "2025-07-05",
+      "description": "TO TRANSFER-UPI/DR/518675853035/SURYANSH/UTIB/suryanshsr/UPI--",
+      "amount": "6737.98",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "6565.26"
+    },
+    {
+      "transaction_date": "2025-07-05",
+      "description": "TO TRANSFER-UPI/DR/518676296424/SURYANSH/UTIB/suryanshsr/UPI--",
+      "amount": "565.25",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "6000.01"
+    },
+    {
+      "transaction_date": "2025-07-07",
+      "description": "BY TRANSFER-UPI/CR/518809452016/Shantanu/SBIN/shantanu.d/UPI--",
+      "amount": "4500.00",
+      "transaction_type": "credit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "10500.01"
+    },
+    {
+      "transaction_date": "2025-07-07",
+      "description": "TO TRANSFER-UPI/DR/518812524792/SURYANSH/HDFC/suryanshsr/UPI--",
+      "amount": "4500.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "6000.01"
+    },
+    {
+      "transaction_date": "2025-07-09",
+      "description": "TO TRANSFER-UPI/DR/519003209526/PAYTM TR/HDFC/travel1pay/UPI--",
+      "amount": "30.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "5970.01"
+    },
+    {
+      "transaction_date": "2025-07-09",
+      "description": "TO TRANSFER-UPI/DR/519031971134/PAYTM TR/HDFC/travel1pay/UPI--",
+      "amount": "30.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "5940.01"
+    },
+    {
+      "transaction_date": "2025-07-10",
+      "description": "BY TRANSFER-UPI/CR/100948692942/PAYTM TR/HDFC/travel1pay/REFUN--",
+      "amount": "40.00",
+      "transaction_type": "credit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "5850.01"
+    },
+    {
+      "transaction_date": "2025-07-10",
+      "description": "TO TRANSFER-UPI/DR/519127698645/GANESH A/YESB/q114339945/UPI--",
+      "amount": "76.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "4274.01"
+    },
+    {
+      "transaction_date": "2025-07-10",
+      "description": "TO TRANSFER-UPI/DR/519141397184/RAMITHA /HDFC/connect2ra/UPI--",
+      "amount": "1500.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "4350.01"
+    },
+    {
+      "transaction_date": "2025-07-10",
+      "description": "TO TRANSFER-UPI/DR/519175971342/PAYTM TR/HDFC/travel1pay/UPI--",
+      "amount": "30.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "5910.01"
+    },
+    {
+      "transaction_date": "2025-07-10",
+      "description": "TO TRANSFER-UPI/DR/519191294522/PAYTM TR/HDFC/travel1pay/UPI--",
+      "amount": "60.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "5810.01"
+    },
+    {
+      "transaction_date": "2025-07-10",
+      "description": "TO TRANSFER-UPI/DR/555714500844/PAYTM TR/HDFC/travel1pay/UPI--",
+      "amount": "40.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "5870.01"
+    },
+    {
+      "transaction_date": "2025-07-10",
+      "description": "TO TRANSFER-UPI/DR/555743721413/PAYTM TR/HDFC/travel1pay/UPI--",
+      "amount": "40.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "4234.01"
+    },
+    {
+      "transaction_date": "2025-07-15",
+      "description": "TO TRANSFER-UPI/DR/519631588007/Bengalur/YESB/paytm-8736/UPI--",
+      "amount": "30.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "4204.01"
+    },
+    {
+      "transaction_date": "2025-07-16",
+      "description": "TO TRANSFER-UPI/DR/519740263510/PAYTM TR/HDFC/travel1pay/UPI--",
+      "amount": "30.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "4174.01"
+    },
+    {
+      "transaction_date": "2025-07-16",
+      "description": "TO TRANSFER-UPI/DR/519773206367/Mobivend/ICIC/mobivendlo/Payme--",
+      "amount": "63.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "4111.01"
+    },
+    {
+      "transaction_date": "2025-07-17",
+      "description": "TO TRANSFER-UPI/DR/519806029622/RAMITHA /HDFC/connect2ra/UPI--",
+      "amount": "1500.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "2488.01"
+    },
+    {
+      "transaction_date": "2025-07-17",
+      "description": "TO TRANSFER-UPI/DR/519806050534/Bengalur/YESB/paytm-8736/UPI--",
+      "amount": "30.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "3988.01"
+    },
+    {
+      "transaction_date": "2025-07-17",
+      "description": "TO TRANSFER-UPI/DR/519825180929/Bengalur/YESB/paytm-8736/UPI--",
+      "amount": "30.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "4081.01"
+    },
+    {
+      "transaction_date": "2025-07-17",
+      "description": "TO TRANSFER-UPI/DR/519856998247/Mobivend/ICIC/mobivendlo/Payme--",
+      "amount": "63.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "4018.01"
+    },
+    {
+      "transaction_date": "2025-07-25",
+      "description": "TO TRANSFER-UPI/DR/520605549054/RAMITHA /HDFC/connect2ra/UPI--",
+      "amount": "1500.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "988.01"
+    },
+    {
+      "transaction_date": "2025-07-29",
+      "description": "TO TRANSFER-UPI/DR/101070980266/APPLE ME/HDFC/appleservi/UPI M--",
+      "amount": "75.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "913.01"
+    },
+    {
+      "transaction_date": "2025-08-01",
+      "description": "BY TRANSFER-UPI/CR/109037744720/SURYANSH/HDFC/suryanshsr/UPI--",
+      "amount": "6000.00",
+      "transaction_type": "credit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "6913.01"
+    },
+    {
+      "transaction_date": "2025-08-01",
+      "description": "TO TRANSFER-UPI/DR/521378573292/RAMITHA /HDFC/connect2ra/UPI--",
+      "amount": "1500.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "5413.01"
+    },
+    {
+      "transaction_date": "2025-08-01",
+      "description": "TO TRANSFER-UPI/DR/557915811872/Pankaj S/BARB/9821206902/UPI--",
+      "amount": "140.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "5273.01"
+    },
+    {
+      "transaction_date": "2025-08-02",
+      "description": "TO TRANSFER-UPI/DR/521455274572/CONNAUGH/RATN/amznplmcdc/UPI--",
+      "amount": "1462.14",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "3810.87"
+    },
+    {
+      "transaction_date": "2025-08-06",
+      "description": "TO TRANSFER-UPI/DR/558430192681/RAMITHA /HDFC/connect2ra/UPI--",
+      "amount": "1500.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "2310.87"
+    },
+    {
+      "transaction_date": "2025-08-07",
+      "description": "TO TRANSFER-UPI/DR/558540308092/DMART AV/HDFC/dmartavenu/UPI--",
+      "amount": "16.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "2294.87"
+    },
+    {
+      "transaction_date": "2025-08-07",
+      "description": "TO TRANSFER-UPI/DR/558572523805/AVENUE F/HDFC/avenuefood/Gener--",
+      "amount": "15.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "2279.87"
+    },
+    {
+      "transaction_date": "2025-08-08",
+      "description": "BY TRANSFER-UPI/CR/522027340803/SURYANSH/UTIB/suryanshsr/UPI--",
+      "amount": "3000.00",
+      "transaction_type": "credit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "5279.87"
+    },
+    {
+      "transaction_date": "2025-08-09",
+      "description": "TO TRANSFER-UPI/DR/522077709213/Amazon P/YESB/amazonpayb/Reque--",
+      "amount": "3900.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "1379.87"
+    },
+    {
+      "transaction_date": "2025-08-12",
+      "description": "BY TRANSFER-UPI/CR/109699826514/SURYANSH/HDFC/suryanshsr/UPI--",
+      "amount": "1500.00",
+      "transaction_type": "credit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "2879.87"
+    },
+    {
+      "transaction_date": "2025-08-12",
+      "description": "TO TRANSFER-UPI/DR/522469580160/SURYANSH/HDFC/suryanshsr/UPI--",
+      "amount": "1500.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "1379.87"
+    },
+    {
+      "transaction_date": "2025-08-14",
+      "description": "TO TRANSFER-UPI/DR/522660171576/AYUSH JAIN/UTIB/7011442050/baa--",
+      "amount": "501.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "878.87"
+    },
+    {
+      "transaction_date": "2025-08-19",
+      "description": "BY TRANSFER-UPI/CR/101237643363/NPCI BHIM/HDFC/bhimcashba/BHIM--",
+      "amount": "2.00",
+      "transaction_type": "credit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "634.87"
+    },
+    {
+      "transaction_date": "2025-08-19",
+      "description": "TO TRANSFER-UPI/DR/024356369941/Swiggy/AIRP/swiggy7429/Swiggy--",
+      "amount": "246.00",
+      "transaction_type": "debit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "632.87"
+    },
+    {
+      "transaction_date": "2025-08-23",
+      "description": "BY TRANSFER-UPI/CR/689542315690/AYUSH JAIN/PUNB/7011442050/Sen--",
+      "amount": "2000.00",
+      "transaction_type": "credit",
+      "source_bank": "SBI",
+      "source_file": "input.xls",
+      "balance": "2634.87"
+    }
+  ]
+}

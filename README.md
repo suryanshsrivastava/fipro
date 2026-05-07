@@ -1,121 +1,52 @@
-# fipro
+# Fipro
 
-Local-first personal finance pipeline for consolidating Indian bank statement Excel files into a Goodbudget-compatible CSV.
+Personal finance tool that extracts, consolidates, and deduplicates bank transactions from HDFC, SBI, and Axis Excel statements, then exports to Goodbudget-compatible CSV.
 
-## What it does (MVP)
+## Quickstart
 
-- Reads `.xls` / `.xlsx` statements from:
-  - HDFC
-  - SBI
-  - Axis
-- Parses and normalizes transactions
-- Deduplicates merged transactions
-- Detects likely inter-bank internal transfers
-- Exports:
-  - Goodbudget CSV
-  - JSON processing report
-- Moves files after run:
-  - successful files -> `data/processed/`
-  - failed files -> `data/failed/` (+ sidecar `*.error.txt`)
+```bash
+./scripts/setup.sh                     # one-shot: installs uv, syncs deps, installs hooks, runs gates
+```
 
-## Project layout
+Or step-by-step:
 
-- `src/main.py` - CLI entrypoint (`process`, `status`)
-- `src/core/` - discovery/orchestration/dedup/transfer detection
-- `src/parsers/` - bank-specific parsers
-- `src/exporters/` - Goodbudget CSV + JSON report exporters
-- `config/config.toml` - runtime config
-- `tests/` - parser/core/model/exporter/pipeline tests
+```bash
+uv sync --all-groups
+uv run pre-commit install
+
+# drop statements into data/input/, then:
+uv run fipro process
+
+# optional: view in local dashboard
+uv run fipro dashboard --port 8080
+```
+
+## Common Commands
+
+```bash
+uv run pytest                          # tests + coverage
+uv run ruff check src/ tests/          # lint
+uv run ruff format src/ tests/         # format
+uv run mypy src/                       # type check
+uv run fipro status                    # show pending files
+uv run fipro sheets --creds <path>     # upload to Google Sheets
+```
+
+## Layout
+
+- `src/` — application code (parsers, core pipeline, exporters, UI)
+- `tests/` — pytest suite with regression fixtures under `tests/fixtures/`
+- `config/config.toml` — runtime configuration
+- `data/input/` — drop bank statements here (gitignored)
+- `data/output/` — generated CSV/JSON (gitignored)
+
+## Further Reading
+
+- [AGENTS.md](AGENTS.md) — working conventions for AI agents and humans
+- [fipro-docs/PRD.md](fipro-docs/PRD.md) — product requirements
+- [docs/plans/](docs/plans/) — implementation plans, chronological
 
 ## Requirements
 
-- Python >= 3.14 (managed automatically by `uv`)
-- `uv` installed
-
-## Quick start
-
-```bash
-# from repo root
-uv sync
-```
-
-Prepare directories and place statements:
-
-```bash
-mkdir -p data/input data/output data/processed data/failed logs
-# copy bank statements into data/input/
-```
-
-See pending files:
-
-```bash
-uv run python -m src.main status
-```
-
-Process files:
-
-```bash
-uv run python -m src.main process
-```
-
-## CLI
-
-```bash
-uv run python -m src.main process [--config PATH]
-uv run python -m src.main status [--config PATH]
-```
-
-Exit codes:
-
-- `0` success
-- `1` failure
-
-## Config
-
-Default config: `config/config.toml`
-
-Important sections:
-
-- `[paths]` input/output/processed/failed/log file locations
-- `[processing]` supported file extensions and failure mode
-- `[banks.*]` filename patterns
-- `[external_accounts]` keyword-based payment note tagging
-
-## Outputs
-
-On successful processing run:
-
-- `data/output/goodbudget_YYYYMMDD_HHMMSS.csv`
-- `data/output/processing_report_YYYYMMDD_HHMMSS.json`
-
-Goodbudget CSV columns:
-
-`Date,Envelope,Account,Name,Notes,Amount,Status`
-
-## Tomorrow morning runbook (real usage)
-
-1. Put your latest HDFC/SBI/Axis statements into `data/input/`
-2. Check discovery:
-   ```bash
-   uv run python -m src.main status
-   ```
-3. Process:
-   ```bash
-   uv run python -m src.main process
-   ```
-4. Open latest CSV in `data/output/` and import into Goodbudget.
-5. If a file fails parsing, check `data/failed/` for the moved file + `*.error.txt` sidecar.
-
-## Testing
-
-```bash
-uv run pytest -q
-```
-
-Current baseline in this branch: all tests passing.
-
-## Notes
-
-- MVP scope is Excel statements only (`.xls`, `.xlsx`)
-- No PDF parsing in current implementation
-- Local-first: no cloud sync/database required for core pipeline
+- Python 3.14+
+- [uv](https://docs.astral.sh/uv/) for dependency management

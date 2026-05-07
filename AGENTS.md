@@ -20,40 +20,46 @@
 
 ### Environment Setup
 ```bash
-# Package Management: Use `uv` for Python dependencies
-# Check for existing `.fipro-env` before creating new ones
+./scripts/setup.sh          # one-shot bootstrap (installs uv, syncs deps, hooks, runs gates)
+```
 
-uv sync
-source .fipro-env/bin/activate
+Or manually:
+
+```bash
+uv sync --all-groups        # installs runtime + dev tools (ruff, mypy, pytest, pre-commit, vulture)
+uv run pre-commit install   # one-time: installs the commit hooks
 ```
 
 ### Run Pipeline
 ```bash
-python -m src.process_bank_statements
+uv run fipro process        # full pipeline
+uv run fipro status         # list pending input files
+uv run fipro dashboard      # local HTML dashboard on :8080
+uv run fipro sheets --creds config/google_credentials.json
 ```
 
 ### Testing
 ```bash
-# Framework: pytest
-# Coverage target: 80% unit tests
-python -m pytest tests/ -v --cov=src
+uv run pytest               # runs suite + coverage gate (see pyproject.toml)
 ```
+
+Coverage gate is currently a regression baseline (see `[tool.coverage.report]`). PRD section 14.1 targets 80%; raise the `fail_under` in pyproject.toml as tests are added, never lower it.
 
 ### Code Quality
 ```bash
-# Linting
-ruff check src/
-
-# Formatting
-black src/
-
-# Type checking
-mypy src/
+uv run ruff check src/ tests/       # lint
+uv run ruff format src/ tests/      # format (black-compatible)
+uv run mypy src/                    # type check
+uv run vulture                      # dead code detection (advisory, not gated)
+gitleaks detect --config .gitleaks.toml   # secret scan (if gitleaks installed)
 ```
+
+Ruff, ruff-format, and mypy must pass before commit. Pre-commit runs ruff automatically.
+Vulture and gitleaks are advisory: run before merging but do not block commits.
 
 ## Technology Stack (MVP)
 
-- **Python 3.11+**
+- **Python 3.14+**
 - **Excel Parsing**: `pandas`, `xlrd` (xls), `openpyxl` (xlsx)
 - **CLI**: Standard library or `click`
 - **Config**: TOML (`config/config.toml`)
@@ -86,7 +92,7 @@ class Transaction:
     transaction_type: TransactionType
     source_bank: str
     source_file: str
-    
+
     id: Optional[int] = None
     hash: str = field(init=False)
     balance: Optional[Decimal] = None
@@ -95,14 +101,14 @@ class Transaction:
     status: TransactionStatus = TransactionStatus.PENDING
     notes: Optional[str] = None
     raw_data: Optional[dict] = None
-    
+
     def __post_init__(self):
         import hashlib
         unique_str = f"{self.transaction_date}{self.amount}{self.description}"
         if self.balance:
             unique_str += str(self.balance)
         self.hash = hashlib.sha256(unique_str.encode()).hexdigest()[:16]
-    
+
     @property
     def signed_amount(self) -> Decimal:
         if self.transaction_type == TransactionType.DEBIT:
@@ -193,15 +199,15 @@ class BankParser(ABC):
     @abstractmethod
     def bank_name(self) -> str:
         pass
-    
+
     @abstractmethod
     def can_parse(self, filename: str, df: pd.DataFrame) -> bool:
         pass
-    
+
     @abstractmethod
     def find_header_row(self, df: pd.DataFrame) -> int:
         pass
-    
+
     @abstractmethod
     def extract_transactions(self, df: pd.DataFrame, source_file: str) -> list:
         pass
