@@ -344,9 +344,13 @@ def load_csv_data(csv_path: str) -> List[dict]:
         return list(csv.DictReader(f))
 
 
-def serve_dashboard(csv_path: str = 'data/output/goodbudget_export.csv', port: int = 8080, summary_top_n: int = 5):
-    Path(csv_path).parent.mkdir(parents=True, exist_ok=True)
-    rows = load_csv_data(csv_path)
+def serve_dashboard(csv_path: str = 'data/output/goodbudget_export.csv', port: int = 8080, summary_top_n: int = 5, open_browser: bool = False):
+    csv_file = Path(csv_path)
+    csv_file.parent.mkdir(parents=True, exist_ok=True)
+
+    dashboard_data_path = csv_file.parent / 'dashboard_data.csv'
+    data_source = dashboard_data_path if dashboard_data_path.exists() else csv_file
+    rows = load_csv_data(str(data_source))
 
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
@@ -378,7 +382,8 @@ def serve_dashboard(csv_path: str = 'data/output/goodbudget_export.csv', port: i
     server = HTTPServer(('127.0.0.1', port), Handler)
     url = f'http://localhost:{port}'
     print(f'Dashboard: {url}')
-    webbrowser.open(url)
+    if open_browser:
+        webbrowser.open(url)
     server.serve_forever()
 
 

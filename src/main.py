@@ -76,7 +76,7 @@ def cmd_dashboard(csv_path: str, port: int, open_browser: bool, config: dict):
         sys.exit(1)
     summary_top_n = config.get("summary", {}).get("top_n", 5)
     print(f'Starting dashboard on http://localhost:{port} ...')
-    serve_dashboard(csv_path, port, summary_top_n=summary_top_n)
+    serve_dashboard(csv_path, port, summary_top_n=summary_top_n, open_browser=open_browser)
 
 
 def cmd_sheets(csv_path: str, creds_path: str, title: str):
