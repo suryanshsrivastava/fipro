@@ -14,11 +14,11 @@ CIF No.          :	_89863729892
 IFS (Indian Financial System) Code         :	SBIN0016120
 CKYCR Number          :	XXXXXXXXXX1649
 MICR (Magnetic Ink Character Recognition)  Code        :	_110002397
-Nomination Registered    :	Yes
+Nomination Registered    :	Yes 
 Balance on 1 Jun 2025        :	8,352.26
 Start Date          :	1 Jun 2025
 End Date            :	24 Aug 2025
-Txn Date	Value Date	Description	Ref No./Cheque No.	        Debit	Credit	Balance
+Txn Date	Value Date	Description	Ref No./Cheque No.	        Debit	Credit	Balance	
 1 Jun 2025	1 Jun 2025	   BY TRANSFER-UPI/CR/105748543647/SURYANSH/HDFC/suryanshsr/UPI--	TRANSFER FROM 4897732162091	 	272.00	8,624.26
 4 Jun 2025	4 Jun 2025	   TO TRANSFER-UPI/DR/515545731309/BMTC BUS/CNRB/ka57f3239@/UPI--	TRANSFER TO 4897693162093	12.00	 	8,612.26
 5 Jun 2025	5 Jun 2025	   TO TRANSFER-UPI/DR/515648235423/RAMITHA /HDFC/connect2ra/UPI--	TRANSFER TO 4897694162092	1,500.00	 	7,112.26
@@ -104,3 +104,4 @@ Txn Date	Value Date	Description	Ref No./Cheque No.	        Debit	Credit	Balance
 23 Aug 2025	23 Aug 2025	   BY TRANSFER-UPI/CR/689542315690/AYUSH JAIN/PUNB/7011442050/Sen--	TRANSFER FROM 4897737162096	 	2,000.00	2,634.87
 
 **This is a computer generated statement and does not require a signature
+

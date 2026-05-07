@@ -105,3 +105,4 @@ class Transaction:
             "Amount": str(self.signed_amount),
             "Status": "cleared",
         }
+

@@ -5,6 +5,7 @@ This module defines data structures for representing bank accounts and discovere
 files during the ingestion phase.
 """
 
+from dataclasses import dataclass, field
 import os
 from dataclasses import dataclass, field
 

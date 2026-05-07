@@ -26,32 +26,25 @@ def main():
     args = parser.parse_args()
 
     try:
-        run = process_pipeline(config)
-    except Exception as exc:
-        print(f"Processing failed: {exc}", file=sys.stderr)
-        return 1
+        config = load_config(args.config)
+        setup_logging(config.get('fipro', {}).get('log_level', 'INFO'))
+    except FileNotFoundError as e:
+        print(f'Error: {e}', file=sys.stderr)
+        sys.exit(1)
+    except ValueError as e:
+        print(f'Config error: {e}', file=sys.stderr)
+        sys.exit(1)
 
-    if not run.results:
-        print("No input files found.")
-        return 0
-
-    transaction_count = sum(len(result.transactions) for result in run.results)
-    print(
-        f"Processed {len(run.results)} file(s) and exported {transaction_count} transaction(s)."
-    )
-    dr = run.hub_summary.get("date_range") or {}
-    earliest, latest = dr.get("earliest"), dr.get("latest")
-    if earliest and latest:
-        print(f"Statement window: {earliest} to {latest}")
-    cf = run.hub_summary.get("cash_flow") or {}
-    if cf.get("net_cash_flow") is not None:
-        print(f"Net cash flow (export scope): {cf['net_cash_flow']}")
-    nw = (run.hub_summary.get("net_worth_proxy") or {}).get(
-        "total_across_statements"
-    )
-    if nw is not None:
-        print(f"Balances sum (statements with closing balance): {nw}")
-    return 0
+    if args.command == 'status':
+        cmd_status(config)
+    elif args.command == 'dashboard':
+        cmd_dashboard(args.csv, args.port, args.open, config)
+    elif args.command == 'sheets':
+        cmd_sheets(args.csv, args.creds, args.title)
+    elif args.command == 'summary':
+        cmd_summary(args.csv, args.month, config)
+    else:
+        cmd_process(config)
 
 
 def cmd_process(config):

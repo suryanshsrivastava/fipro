@@ -6,6 +6,7 @@ formats, handling commas, currency symbols, and converting to Decimal
 for precise financial calculations.
 """
 
+from decimal import Decimal, InvalidOperation
 import re
 from decimal import Decimal, InvalidOperation
 

@@ -1,23 +1,13 @@
-from typing import TYPE_CHECKING, List
+import csv
+from datetime import date
+from decimal import Decimal
+from typing import List
 
-if TYPE_CHECKING:
-    from src.models.account import CrawledFile
-
-# def load_config() -> dict:
-#     """Load configuration from config.toml file"""
-#     config_path = Path('config.toml')
-#     if not config_path.exists():
-#         print("config.toml not found. Please  create a configuration file.")
-#         raise FileNotFoundError("config.toml not found")
-    
-#     with open(config_path, 'rb') as f:
-#         config = tomllib.load(f)
-    
-#     return config
+from src.models.account import CrawledFile
+from src.models.transactions import Transaction, TransactionStatus, TransactionType
 
 
-def consolidate_files_by_bank(files: List["CrawledFile"]) -> dict:
-    """Consolidates a list of crawled files into a dictionary grouped by bank."""
+def consolidate_files_by_bank(files: List[CrawledFile]) -> dict:
     bank_files = {'HDFC': [], 'SBI': [], 'AXIS': [], 'UNKNOWN': []}
     for file in files:
         name = file.filename.upper()

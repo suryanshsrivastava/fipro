@@ -6,6 +6,8 @@ validating them, and creating CrawledFile metadata objects. It does not load
 file contents, only discovers and validates files.
 """
 
+from typing import List
+from datetime import datetime
 import os
 from datetime import datetime
 

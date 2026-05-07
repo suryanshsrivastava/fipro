@@ -1,6 +1,6 @@
 # budget Q2 2025
 ## [[2025-05-28]]
-current:
+current: 
 [[Axis]]: 2,53,007.31
 [[HDFC]]: 4876.48
 [[SBI]]: 256
@@ -18,7 +18,7 @@ Axis - Salary = 38,386.78
 [[Cred]] -40,296 = -22,837 -17,459
 - pay off the credit card bills: (+9 +9) cashback
 
-verify:
+verify: 
 [[Axis]]: 2,14,620.53
 [[HDFC]]: 0
 [[SBI]]: 3241.26
@@ -94,7 +94,7 @@ we're getting into the hassle of downloading each of the three transaction files
 	- SBI: 6686.26
 	- Total: 54003.77
 - I keep getting confused by the goodbudget approach of envelope budgetting or zero budgetting.
-- Think of it like two layers.
+- Think of it like two layers. 
 	- one is the money in your "Account"
 	- another is the money in the envelopes. I really need to fill those up according to how I budget them
 	- Also there is a difference between the size of the envelope and how much the envelope is filled with

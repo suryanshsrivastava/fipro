@@ -29,7 +29,7 @@ aliases:
 
 # Timeline
 Devlogs
-## Phase 1:
+## Phase 1: 
 I will try to go from ingesting bank statements and credit card transaction details into a csv file digestable by the goodbudget
 - prototyping in python started with my old favourite [[jupyter]] notebooks
 	- what is ipykernel? why do other scripting languages not have  such a simple notebook type development setup. [[Mathematica]] also has this
@@ -44,9 +44,9 @@ tech debt
 
 [[2025-08-27]]
 - I feel like I left this development just because I started evaluating the switching cost for later and compare that to just making the right decision right now. and when I have to weigh in such decisions, I just end up procrastinating on it
-- I am also doing this [[programming]] right now while I am high.
-- It will need 9 basic files always to start with
-	- HDFC
+- I am also doing this [[programming]] right now while I am high. 
+- It will need 9 basic files always to start with 
+	- HDFC 
 		- current
 		- patch
 	- Axis
@@ -71,6 +71,6 @@ today's the day we start making the app we had been procrastinating on for so lo
 - I do not start dividing the script into functions just yet
 - do we want to continue working right now with the current kernel configuration or try to understand what is going wrong here
 	- can't spend time just side questing and procrastinating on the actual task
-	-
+	- 
 - okay hear me out and this might sound like the craziest idea possible. how about you actually work for 90 minutes and then study for 90 minutes. as [[Feynman]] said. original, chaotic
 - My XPS ain't even breaking a sweat yet

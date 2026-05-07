@@ -152,8 +152,12 @@ class HDFCParser(BankParser):
 
     def _resolve_columns(self, df: pd.DataFrame) -> dict:
         mapping = self.get_column_mapping()
-        resolved: dict[str, str | None] = {}
-        lower_cols = {self.cell_text(c).lower(): c for c in df.columns if self.cell_text(c)}
+        resolved = {}
+        lower_cols = {
+            self.cell_text(c).lower(): c
+            for c in df.columns
+            if self.cell_text(c)
+        }
         for key, candidates in mapping.items():
             resolved[key] = None
             for candidate in candidates:

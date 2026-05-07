@@ -62,7 +62,7 @@ class AxisParser(BankParser):
         """
         expected_full = {"tran date", "particulars", "debit", "credit"}
         expected_abbrev = {"tran date", "particulars", "dr", "cr"}
-
+        
         for idx in range(min(25, len(df))):
             row_values = [self.cell_text(v).lower() for v in df.iloc[idx].tolist() if self.cell_text(v)]
             match_full = len(expected_full.intersection(row_values))
@@ -160,8 +160,12 @@ class AxisParser(BankParser):
         }
 
     def _resolve_columns(self, df: pd.DataFrame, mapping: dict) -> dict:
-        resolved: dict[str, str | None] = {}
-        lower_cols = {self.cell_text(c).lower(): c for c in df.columns if self.cell_text(c)}
+        resolved = {}
+        lower_cols = {
+            self.cell_text(c).lower(): c
+            for c in df.columns
+            if self.cell_text(c)
+        }
         for key, candidates in mapping.items():
             resolved[key] = None
             for candidate in candidates:

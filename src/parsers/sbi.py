@@ -128,7 +128,7 @@ class SBIParser(BankParser):
         else:
             # Headers are in a data row (Excel format)
             headers = df.iloc[header_idx].map(self.cell_text)
-            data = df.iloc[header_idx + 1 :].copy()
+            data = df.iloc[header_idx + 1:].copy()
             data.columns = headers
 
         data = data.dropna(how="all")
@@ -213,8 +213,12 @@ class SBIParser(BankParser):
         }
 
     def _resolve_columns(self, df: pd.DataFrame, mapping: dict) -> dict:
-        resolved: dict[str, str | None] = {}
-        lower_cols = {self.cell_text(c).lower(): c for c in df.columns if self.cell_text(c)}
+        resolved = {}
+        lower_cols = {
+            self.cell_text(c).lower(): c
+            for c in df.columns
+            if self.cell_text(c)
+        }
         for key, candidates in mapping.items():
             resolved[key] = None
             for candidate in candidates:
