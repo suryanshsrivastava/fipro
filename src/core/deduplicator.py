@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import List, Set, Tuple
 from src.models.transactions import Transaction
 
@@ -25,6 +26,8 @@ def get_seen_hashes_from_file(filepath: str) -> Set[str]:
 
 
 def save_seen_hashes_to_file(hashes: Set[str], filepath: str) -> None:
-    with open(filepath, 'w') as f:
+    path = Path(filepath)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open('w') as f:
         for h in sorted(hashes):
             f.write(h + '\n')

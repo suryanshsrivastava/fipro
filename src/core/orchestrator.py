@@ -27,7 +27,7 @@ def process_pipeline(config: dict) -> List[ProcessingResult]:
     processed_path = config['paths'].get('processed', 'data/processed')
     failed_path = config['paths'].get('failed', 'data/failed')
 
-    seen_hashes_path = Path('data/.seen_hashes')
+    seen_hashes_path = Path(config.get('paths', {}).get('state_dir', output_path)).resolve() / '.seen_hashes'
     seen_hashes = get_seen_hashes_from_file(str(seen_hashes_path))
 
     files = discover_files(config)

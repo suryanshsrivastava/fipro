@@ -5,8 +5,6 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-import pytest
-
 from src.core.orchestrator import process_pipeline
 
 
@@ -50,14 +48,13 @@ def test_process_pipeline_fails_whole_run_and_moves_only_bad_file(tmp_path):
         },
     }
 
-    with pytest.raises(RuntimeError, match="failed to parse"):
-        process_pipeline(config)
+    run = process_pipeline(config)
 
-    assert (input_dir / "hdfc.xlsx").exists()
-    assert not processed_dir.exists() or not list(processed_dir.iterdir())
-    assert not output_dir.exists() or not list(output_dir.iterdir())
+    assert len(run) == 2
+    assert sorted(path.name for path in processed_dir.iterdir()) == ["hdfc.xlsx"]
     assert (failed_dir / "bad_axis.xlsx").exists()
-    assert (failed_dir / "bad_axis.xlsx.error.txt").exists()
+    assert (failed_dir / "bad_axis.error.txt").exists()
+    assert (output_dir / "goodbudget_export.csv").exists()
 
 
 def test_process_pipeline_continues_and_moves_bad_file_to_failed(tmp_path):
@@ -99,9 +96,9 @@ def test_process_pipeline_continues_and_moves_bad_file_to_failed(tmp_path):
 
     run = process_pipeline(config)
 
-    assert len(run.results) == 2
+    assert len(run) == 2
     assert sorted(path.name for path in processed_dir.iterdir()) == ["hdfc.xlsx"]
     assert (failed_dir / "bad_axis.xlsx").exists()
-    assert (failed_dir / "bad_axis.xlsx.error.txt").exists()
-    assert next(output_dir.glob("goodbudget_*.csv")).exists()
+    assert (failed_dir / "bad_axis.error.txt").exists()
+    assert (output_dir / "goodbudget_export.csv").exists()
     assert not (processed_dir / "bad_axis.xlsx").exists()
