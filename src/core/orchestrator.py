@@ -8,9 +8,12 @@ from src.core.deduplicator import deduplicate, get_seen_hashes_from_file, save_s
 from src.core.ingestion import discover_files
 from src.core.transfer_detector import detect_transfers
 from src.exporters.goodbudget import export_to_goodbudget
-from src.exporters.report import generate_report
-from src.models.result import ProcessingResult
+from src.exporters.hub_csv import export_hub_csv
+from src.exporters.report import build_hub_summary, generate_report
+from src.models.account import CrawledFile
+from src.models.result import PipelineRun, ProcessingResult
 from src.models.transactions import Transaction
+from src.utils.report_helpers import filter_transactions_for_export
 from src.parsers.axis import AxisParser
 from src.parsers.base import BankParser
 from src.parsers.hdfc import HDFCParser
@@ -19,20 +22,25 @@ from src.parsers.sbi import SBIParser
 logger = logging.getLogger("fipro.orchestrator")
 
 
-def process_pipeline(config: dict) -> list[ProcessingResult]:
-    results: list[ProcessingResult] = []
-    input_path = config["paths"]["input"]
-    output_path = config["paths"].get("output", "data/output")
-    processed_path = config["paths"].get("processed", "data/processed")
-    failed_path = config["paths"].get("failed", "data/failed")
-
-    seen_hashes_path = Path("data/.seen_hashes")
-    seen_hashes = get_seen_hashes_from_file(str(seen_hashes_path))
-
+def process_pipeline(config: dict) -> PipelineRun:
+    """Execute the file-based processing pipeline."""
     files = discover_files(config)
     if not files:
-        logger.info("No files found in %s", input_path)
-        return results
+        return PipelineRun(
+            results=[],
+            deduplicated_transactions=[],
+            goodbudget_csv_path="",
+            report_json_path="",
+            hub_csv_path="",
+            hub_summary={
+                "date_range": {"earliest": None, "latest": None},
+                "cash_flow": None,
+                "net_worth_proxy": {
+                    "total_across_statements": None,
+                    "reason_if_no_total": "no_input_files",
+                },
+            },
+        )
 
     parsers = [HDFCParser(), SBIParser(), AxisParser()]
     all_transactions: list[Transaction] = []
@@ -74,19 +82,65 @@ def process_pipeline(config: dict) -> list[ProcessingResult]:
                 )
             )
 
-    # consolidation
-    all_transactions, dups = deduplicate(all_transactions, seen_hashes)
-    if not config.get("processing", {}).get("skip_internal_transfers", False):
-        all_transactions = detect_transfers(all_transactions)
-    save_seen_hashes_to_file(seen_hashes, str(seen_hashes_path))
+    failed_dir = config["paths"]["failed"]
+    for crawled_file, error in failures:
+        move_file_to_failed(crawled_file.filepath, failed_dir, error)
 
-    # export
-    csv_path = f"{output_path}/goodbudget_export.csv"
-    export_to_goodbudget(all_transactions, csv_path, config)
-    report_path = f"{output_path}/processing_report.json"
-    generate_report(results, report_path)
-    logger.info("Pipeline complete. %d transactions exported to %s", len(all_transactions), csv_path)
-    return results
+    if failures and fail_on_file_error:
+        raise RuntimeError(
+            f"Processing aborted because {len(failures)} file(s) failed to parse"
+        )
+
+    deduplicated_transactions, _ = deduplicate(all_transactions)
+    duplicates_by_source = _count_duplicates_by_source(all_transactions)
+    deduplicated_transactions = detect_transfers(deduplicated_transactions)
+
+    transactions_by_source: dict[str, list[Transaction]] = {}
+    for transaction in deduplicated_transactions:
+        transactions_by_source.setdefault(transaction.source_file, []).append(transaction)
+
+    for result in results:
+        result.duplicates_skipped = duplicates_by_source.get(result.source_file, 0)
+        result.transactions = transactions_by_source.get(result.source_file, [])
+        result.successful = len(result.transactions)
+
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    output_dir = Path(config["paths"]["output"])
+    csv_path = output_dir / f"goodbudget_{timestamp}.csv"
+    report_path = output_dir / f"processing_report_{timestamp}.json"
+    hub_path = output_dir / f"hub_summary_{timestamp}.csv"
+
+    exported_count = export_to_goodbudget(
+        deduplicated_transactions, str(csv_path), config
+    )
+    include_internal = config.get("processing", {}).get(
+        "include_internal_transfers", True
+    )
+    hub_transactions = filter_transactions_for_export(
+        deduplicated_transactions, include_internal
+    )
+    export_hub_csv(hub_transactions, str(hub_path))
+
+    report = generate_report(
+        results,
+        str(report_path),
+        exported_transactions=exported_count,
+        config=config,
+    )
+    hub_summary = build_hub_summary(report)
+
+    processed_dir = config["paths"]["processed"]
+    for crawled_file in successful_files:
+        move_file_to_processed(crawled_file.filepath, processed_dir)
+
+    return PipelineRun(
+        results=results,
+        deduplicated_transactions=deduplicated_transactions,
+        goodbudget_csv_path=str(csv_path),
+        report_json_path=str(report_path),
+        hub_csv_path=str(hub_path),
+        hub_summary=hub_summary,
+    )
 
 
 def extract_raw_transactions(filepaths: list[str]) -> list[Transaction]:
