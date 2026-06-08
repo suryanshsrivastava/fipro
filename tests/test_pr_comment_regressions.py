@@ -95,6 +95,19 @@ def test_serve_dashboard_does_not_open_browser_without_flag(tmp_path: Path, monk
     assert opened_urls == []
 
 
+def test_load_csv_data_treats_invalid_amount_as_zero(tmp_path: Path):
+    csv_path = tmp_path / "dashboard.csv"
+    csv_path.write_text(
+        "Date,Envelope,Account,Name,Notes,Amount,Status\n2025-01-15,Unallocated,HDFC,Test,,N/A,cleared\n"
+    )
+
+    rows = dashboard.load_csv_data(str(csv_path))
+
+    assert len(rows) == 1
+    assert rows[0]["amount"] == "N/A"
+    assert rows[0]["transaction_type"] == "credit"
+
+
 def test_process_pipeline_skips_internal_transfers_from_export(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
     debit = make_transaction(
         txn_date=date(2025, 8, 2),

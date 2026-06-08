@@ -158,7 +158,7 @@ def load_csv_data(csv_path: str) -> list[dict]:
         amount = row.get("amount") or row.get("Amount") or ""
         try:
             signed_amount = float(amount)
-        except TypeError, ValueError:
+        except (TypeError, ValueError):  # fmt: skip
             signed_amount = 0.0
         normalized_rows.append(
             {
