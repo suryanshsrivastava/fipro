@@ -1,0 +1,15 @@
+{
+  "title": "HDFC raw monthly export",
+  "purpose": "Validates extraction from a native HDFC .xls export with a long preamble, credit rows, debit rows, and balances.",
+  "covers": [
+    "header row detection after a long statement preamble",
+    "withdrawal and deposit amount mapping",
+    "date parsing from raw exported values",
+    "balance extraction from the native export"
+  ],
+  "anonymization_review": {
+    "completed": true,
+    "method": "Masked or replaced personal identifiers while preserving parser-critical layout and value formats."
+  },
+  "fixture_version": 1
+}

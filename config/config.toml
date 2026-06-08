@@ -1,3 +1,5 @@
+# Configuration file for Fipro
+
 [fipro]
 version = "0.1.0"
 log_level = "INFO"
@@ -7,22 +9,27 @@ input = "data/input"
 output = "data/output"
 processed = "data/processed"
 failed = "data/failed"
-log_file = "logs/fipro.log"
 
 [processing]
 supported_extensions = ["xls", "xlsx"]
-include_internal_transfers = true
-fail_on_file_error = true
+skip_internal_transfers = false
 
 [banks.hdfc]
+name = "HDFC"
 patterns = ["*hdfc*", "*HDFC*"]
+date_format = "%d/%m/%y"
 
 [banks.sbi]
+name = "SBI"
 patterns = ["*sbi*", "*SBI*"]
+date_format = "%d %b %Y"
 
 [banks.axis]
+name = "AXIS"
 patterns = ["*axis*", "*Axis*"]
+date_format = "%d-%m-%Y"
 
-[external_accounts]
-names = ["CREDIT_CARD"]
-payment_keywords = ["CREDIT CARD", "CC PAYMENT", "CARD PAYMENT", "CRED"]
+[export.goodbudget]
+default_envelope = "Unallocated"
+default_status = "cleared"
+max_description_length = 50
