@@ -146,7 +146,7 @@ def route_file_to_parser(filename: str, df: pd.DataFrame, parsers: list[BankPars
 def move_file_to_processed(source_path: str, dest_dir: str) -> str:
     dest = Path(dest_dir)
     dest.mkdir(parents=True, exist_ok=True)
-    dst = dest / Path(source_path).name
+    dst = _unique_destination(dest / Path(source_path).name)
     shutil.move(source_path, dst)
     return str(dst)
 
@@ -154,8 +154,17 @@ def move_file_to_processed(source_path: str, dest_dir: str) -> str:
 def move_file_to_failed(source_path: str, dest_dir: str, error: str) -> str:
     dest = Path(dest_dir)
     dest.mkdir(parents=True, exist_ok=True)
-    dst = dest / Path(source_path).name
+    dst = _unique_destination(dest / Path(source_path).name)
     shutil.move(source_path, dst)
-    error_log = dest / f"{Path(source_path).stem}.error.txt"
+    error_log = dst.with_name(dst.name + ".error.txt")
     error_log.write_text(error)
     return str(dst)
+
+
+def _unique_destination(path: Path) -> Path:
+    candidate = path
+    counter = 1
+    while candidate.exists():
+        candidate = path.with_name(f"{path.stem}_{counter}{path.suffix}")
+        counter += 1
+    return candidate

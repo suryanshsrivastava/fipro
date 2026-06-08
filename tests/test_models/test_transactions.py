@@ -185,8 +185,27 @@ class TestTransaction:
             transaction_date=date(2025, 1, 15),
             description="Test",
             amount=Decimal("100"),
-            transaction_type=TransactionType.CREDIT,
-            source_bank="SBI",
-            source_file="other.xls",
+            transaction_type=TransactionType.DEBIT,
+            source_bank="HDFC",
+            source_file="test.xls",
         )
         assert txn1.hash == txn2.hash
+
+    def test_hash_differs_for_same_description_different_bank(self):
+        hdfc = Transaction(
+            transaction_date=date(2025, 1, 15),
+            description="UPI-SWIGGY",
+            amount=Decimal("450.00"),
+            transaction_type=TransactionType.DEBIT,
+            source_bank="HDFC",
+            source_file="hdfc.xls",
+        )
+        sbi = Transaction(
+            transaction_date=date(2025, 1, 15),
+            description="UPI-SWIGGY",
+            amount=Decimal("450.00"),
+            transaction_type=TransactionType.CREDIT,
+            source_bank="SBI",
+            source_file="sbi.xls",
+        )
+        assert hdfc.hash != sbi.hash

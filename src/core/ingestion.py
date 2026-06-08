@@ -1,7 +1,7 @@
 """Discover and validate bank statement files in the input directory."""
 
 import os
-from datetime import datetime
+from datetime import UTC, datetime
 
 from src.models.account import CrawledFile
 
@@ -35,7 +35,7 @@ def discover_files(config: dict) -> list[CrawledFile]:
                     filepath=full_path,
                     extension=ext,
                     size=size,
-                    crawl_date=datetime.utcnow().isoformat(),
+                    crawl_date=datetime.now(UTC).isoformat(),
                     metadata=metadata,
                 )
             )
