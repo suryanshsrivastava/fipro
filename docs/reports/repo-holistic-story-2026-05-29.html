@@ -1,0 +1,760 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Fipro Repository Storybook and Current State</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #111833;
+      --panel-2: #172246;
+      --text: #e8ecff;
+      --muted: #a8b3d9;
+      --ok: #1fb67a;
+      --warn: #f6b73c;
+      --bad: #ff6b6b;
+      --info: #62a9ff;
+      --border: #2a3768;
+      --pill: #26366d;
+      --shadow: 0 10px 24px rgba(0, 0, 0, 0.3);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, Segoe UI, Roboto, Arial, sans-serif;
+      background: linear-gradient(180deg, #070b17 0%, #0b1020 100%);
+      color: var(--text);
+    }
+    a { color: #9bc1ff; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .wrap { max-width: 1400px; margin: 0 auto; padding: 24px; }
+    h1, h2, h3 { margin: 0 0 12px; }
+    h1 { font-size: 30px; }
+    h2 { font-size: 22px; margin-top: 30px; }
+    h3 { font-size: 18px; }
+    .lead { color: var(--muted); margin: 10px 0 0; line-height: 1.5; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 14px;
+      margin-top: 16px;
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      box-shadow: var(--shadow);
+    }
+    .stat { grid-column: span 3; }
+    .stat .value { font-size: 30px; font-weight: 700; }
+    .stat .label { color: var(--muted); margin-top: 4px; }
+    .stat .sub { font-size: 12px; color: #91a4df; margin-top: 8px; }
+    .full { grid-column: 1 / -1; }
+    .half { grid-column: span 6; }
+    .third { grid-column: span 4; }
+    .tabs {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+    }
+    .tab-btn {
+      border: 1px solid var(--border);
+      background: #0f1734;
+      color: var(--text);
+      border-radius: 999px;
+      padding: 7px 13px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .tab-btn.active { background: #24346a; border-color: #4560b0; }
+    .tab-pane { display: none; margin-top: 14px; }
+    .tab-pane.active { display: block; }
+    .pill {
+      display: inline-block;
+      background: var(--pill);
+      border: 1px solid #3b4f95;
+      border-radius: 999px;
+      padding: 3px 10px;
+      font-size: 12px;
+      margin: 3px 6px 3px 0;
+      color: #d5ddff;
+    }
+    .pill.ok { border-color: #219a6a; background: #154d3a; }
+    .pill.warn { border-color: #9c7a24; background: #4e3f17; }
+    .pill.bad { border-color: #9f3b3b; background: #582323; }
+    .muted { color: var(--muted); }
+    .row {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .controls {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+    input[type="text"], select {
+      background: #10183a;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 13px;
+      min-width: 220px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+      font-size: 13px;
+    }
+    th, td {
+      text-align: left;
+      padding: 9px 8px;
+      border-bottom: 1px solid #22315f;
+      vertical-align: top;
+    }
+    th { color: #b7c4f2; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
+    tr:hover td { background: #131d42; }
+    .small { font-size: 12px; color: var(--muted); }
+    .code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 12px;
+      background: #0b1433;
+      border: 1px solid #2f417d;
+      border-radius: 6px;
+      padding: 2px 7px;
+      display: inline-block;
+    }
+    .timeline-item {
+      border-left: 3px solid #3f5cb3;
+      padding: 10px 0 10px 12px;
+      margin-left: 4px;
+    }
+    .timeline-item + .timeline-item { margin-top: 10px; }
+    .timeline-date { color: #9bb1f4; font-size: 12px; }
+    .chapter {
+      background: var(--panel-2);
+      border: 1px solid #39539f;
+      border-radius: 10px;
+      padding: 14px;
+    }
+    .bar {
+      height: 8px;
+      background: #182347;
+      border-radius: 999px;
+      overflow: hidden;
+      border: 1px solid #2d3f79;
+    }
+    .bar > span {
+      display: block;
+      height: 100%;
+      background: linear-gradient(90deg, #4a76ef, #6dc4ff);
+    }
+    .legend {
+      font-size: 12px;
+      color: var(--muted);
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .feature-card {
+      border: 1px solid #344b8f;
+      background: #101b3d;
+      border-radius: 8px;
+      padding: 10px;
+    }
+    .future-ok { color: #8eeac2; font-weight: 700; }
+    .future-risk { color: #ffd289; font-weight: 700; }
+    @media (max-width: 1050px) {
+      .stat, .half, .third { grid-column: 1 / -1; }
+      .feature-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Fipro: Repository Storybook and Current State</h1>
+    <p class="lead">
+      Snapshot generated on <strong>2026-05-29</strong>. This report maps the full branch/fork/worktree journey,
+      surfaces where each feature exists in code, and separates implemented work from future-only scope.
+      Includes <strong>time-turner42/tum</strong> as a first-class branch lineage.
+    </p>
+
+    <div class="grid">
+      <div class="card stat">
+        <div class="value" id="stat-refs">0</div>
+        <div class="label">Tracked refs in analysis</div>
+        <div class="sub">local + remotes + fork branch tips</div>
+      </div>
+      <div class="card stat">
+        <div class="value" id="stat-prs">0</div>
+        <div class="label">PRs discovered</div>
+        <div class="sub">open + merged + closed</div>
+      </div>
+      <div class="card stat">
+        <div class="value" id="stat-worktrees">0</div>
+        <div class="label">Active worktrees</div>
+        <div class="sub">parallel local lanes</div>
+      </div>
+      <div class="card stat">
+        <div class="value" id="stat-open-threads">0</div>
+        <div class="label">Open branch threads</div>
+        <div class="sub">primary sources of project entropy</div>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="tab-story">Interactive Storybook</button>
+      <button class="tab-btn" data-tab="tab-topology">Fork/Branch Topology</button>
+      <button class="tab-btn" data-tab="tab-features">Feature-to-Code Explorer</button>
+      <button class="tab-btn" data-tab="tab-future">Future Scope Verification</button>
+      <button class="tab-btn" data-tab="tab-current">Current Working State</button>
+    </div>
+
+    <section id="tab-story" class="tab-pane active">
+      <div class="grid">
+        <div class="card half">
+          <h2>Journey Chapters</h2>
+          <p class="small">Use previous/next to walk the repo history as an interactive narrative.</p>
+          <div class="row" style="margin-bottom: 10px;">
+            <button class="tab-btn" id="prev-chapter">Previous</button>
+            <button class="tab-btn" id="next-chapter">Next</button>
+            <select id="chapter-select"></select>
+          </div>
+          <div id="chapter-body" class="chapter"></div>
+        </div>
+        <div class="card half">
+          <h2>Major Events Timeline</h2>
+          <div id="timeline"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-topology" class="tab-pane">
+      <div class="card full">
+        <h2>Fork and Branch Landscape</h2>
+        <div class="controls">
+          <input type="text" id="branch-search" placeholder="Filter by branch/ref/owner..." />
+          <select id="branch-state-filter">
+            <option value="all">All states</option>
+            <option value="open">Open PR branches</option>
+            <option value="merged">Merged/landed branches</option>
+            <option value="stale">Stale or divergent branches</option>
+          </select>
+          <select id="owner-filter">
+            <option value="all">All owners</option>
+            <option value="suryanshsrivastava">suryanshsrivastava</option>
+            <option value="time-turner42">time-turner42</option>
+          </select>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Owner/Repo</th>
+              <th>Ref</th>
+              <th>Head</th>
+              <th>Status</th>
+              <th>vs origin/main</th>
+              <th>PR</th>
+              <th>Code Presence Snapshot</th>
+            </tr>
+          </thead>
+          <tbody id="branches-tbody"></tbody>
+        </table>
+      </div>
+
+      <div class="grid">
+        <div class="card half">
+          <h3>Worktree Map</h3>
+          <div id="worktree-list"></div>
+        </div>
+        <div class="card half">
+          <h3>Thread Pressure Meter</h3>
+          <p class="small">Count of active lanes still diverging from <span class="code">origin/main</span>.</p>
+          <div class="bar"><span id="pressure-bar" style="width:0%"></span></div>
+          <p id="pressure-text" class="small" style="margin-top:8px;"></p>
+          <div class="legend" style="margin-top:12px;">
+            <span><span class="pill bad">High pressure</span> many concurrent open branches/forks</span>
+            <span><span class="pill warn">Medium</span> some consolidation needed</span>
+            <span><span class="pill ok">Low</span> branch story mostly linear</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-features" class="tab-pane">
+      <div class="card full">
+        <h2>Feature-to-Branch-to-Code Explorer</h2>
+        <p class="small">
+          Select a feature to see exactly where it is implemented, with file-level evidence.
+          This includes <span class="code">origin/pr-13-tum</span> from the time-turner42 fork lineage.
+        </p>
+        <div class="controls">
+          <select id="feature-select"></select>
+          <select id="feature-owner-filter">
+            <option value="all">All owners</option>
+            <option value="suryanshsrivastava">suryanshsrivastava</option>
+            <option value="time-turner42">time-turner42 fork lineage</option>
+          </select>
+        </div>
+        <div id="feature-results" class="feature-grid"></div>
+      </div>
+    </section>
+
+    <section id="tab-future" class="tab-pane">
+      <div class="grid">
+        <div class="card half">
+          <h2>Future Scope Items Verified as Not Implemented Anywhere</h2>
+          <p class="small">
+            Verification scan: 29 refs (local + remotes + time-turner42 fork branch tips), runtime-oriented paths
+            (<span class="code">src</span>, <span class="code">config</span>, <span class="code">pyproject.toml</span>).
+          </p>
+          <div id="future-list"></div>
+        </div>
+        <div class="card half">
+          <h2>Important Scope Nuance</h2>
+          <div class="timeline-item">
+            <div class="timeline-date">MVP docs say non-goal: full web product</div>
+            <div>
+              A local HTML dashboard exists in several branches (<span class="code">feature/budgetting</span>,
+              <span class="code">feature/demo</span>, <span class="code">origin/pr-13-tum</span>), but no hosted backend/API stack.
+            </div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-date">time-turner42 fork check</div>
+            <div>
+              Fork branches mostly mirror upstream lineages; the unique integration branch is
+              <span class="code">tum</span> (tracked as <span class="code">origin/pr-13-tum</span>).
+            </div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-date">What this means for planning</div>
+            <div>
+              Major unimplemented future initiatives remain open: PDF/OCR pipeline, DB-backed storage, auto-categorization,
+              cloud/multi-user capabilities, and server API layer.
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-current" class="tab-pane">
+      <div class="grid">
+        <div class="card half">
+          <h2>Current Checked-Out Branch</h2>
+          <p><span class="code">feature/budgetting</span> (ahead 1 over <span class="code">origin/feature/budgetting</span>)</p>
+          <p class="small">This branch diverges by <strong>3 ahead / 3 behind</strong> vs <span class="code">origin/main</span>.</p>
+          <h3>Dirty Working Tree Snapshot</h3>
+          <div id="dirty-files"></div>
+        </div>
+        <div class="card half">
+          <h2>Consolidation Readout</h2>
+          <p class="small">
+            This is a recommendation aid for pruning and convergence. It does not mutate git state.
+          </p>
+          <div id="consolidation-actions"></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const reportData = {
+      refsScanned: 29,
+      prs: [
+        { number: 13, title: "goal: working mvp", state: "OPEN", owner: "time-turner42", head: "tum", base: "main", url: "https://github.com/suryanshsrivastava/fipro/pull/13" },
+        { number: 12, title: "Local-first financial hub snapshot (cash flow, balances, hub CSV)", state: "OPEN", owner: "suryanshsrivastava", head: "cursor/plaid-inspired-single-view-99f2", base: "main", url: "https://github.com/suryanshsrivastava/fipro/pull/12" },
+        { number: 10, title: "docs: track pruning of merged local-consolidation branch", state: "OPEN", owner: "suryanshsrivastava", head: "cursor/prune-local-consolidation-94fa", base: "main", url: "https://github.com/suryanshsrivastava/fipro/pull/10" },
+        { number: 9, title: "Add monthly consolidation with weekly checkpoints", state: "OPEN", owner: "suryanshsrivastava", head: "cursor/cloud-agent-1776171234021-celhh", base: "main", url: "https://github.com/suryanshsrivastava/fipro/pull/9" },
+        { number: 8, title: "Overhaul pipeline, parsers, dashboard and test fixtures for raw export workflow", state: "OPEN", owner: "suryanshsrivastava", head: "feature/budgetting", base: "main", url: "https://github.com/suryanshsrivastava/fipro/pull/8" },
+        { number: 7, title: "Implement local consolidation pipeline with parser fixtures and end-to-end tests", state: "MERGED", owner: "suryanshsrivastava", head: "feature/local-consolidation", base: "main", url: "https://github.com/suryanshsrivastava/fipro/pull/7" },
+        { number: 6, title: "Implement Excel statement processing pipeline with fixture-based regression tests", state: "MERGED", owner: "suryanshsrivastava", head: "feature/implementation", base: "main", url: "https://github.com/suryanshsrivastava/fipro/pull/6" },
+        { number: 5, title: "Implement statement processing pipeline with fixture-based regression tests", state: "MERGED", owner: "suryanshsrivastava", head: "feature/implementation", base: "main", url: "https://github.com/suryanshsrivastava/fipro/pull/5" },
+        { number: 4, title: "Feature/input bank transactions", state: "MERGED", owner: "suryanshsrivastava", head: "feature/input-bank-transactions", base: "main", url: "https://github.com/suryanshsrivastava/fipro/pull/4" },
+        { number: 3, title: "Test/cc payments processing", state: "OPEN", owner: "suryanshsrivastava", head: "feature/cc-payments-processing", base: "main", url: "https://github.com/suryanshsrivastava/fipro/pull/3" }
+      ],
+      worktrees: [
+        { path: "/home/suryanshsrivastava/Work/Projects/fipro", branch: "feature/budgetting", head: "64d6922", active: true },
+        { path: "/home/suryanshsrivastava/.cursor/worktrees/fipro/y9ua", branch: "cursor/aae800e1", head: "f1f64fc", active: false },
+        { path: "/home/suryanshsrivastava/Work/Projects/fipro-demo", branch: "feature/demo", head: "cc987c8", active: false },
+        { path: "/home/suryanshsrivastava/Work/Projects/fipro-worktrees/cc-payment-salvage", branch: "feature/cc-payment-salvage", head: "f21a52a", active: false },
+        { path: "/home/suryanshsrivastava/Work/Projects/fipro-worktrees/local-consolidation", branch: "feature/local-consolidation", head: "b8217a1", active: false }
+      ],
+      branches: [
+        {
+          owner: "suryanshsrivastava", repo: "fipro", ref: "origin/main", sha: "a51af78", updated: "2026-04-18",
+          prState: "baseline", ahead: 0, behind: 0, tags: ["baseline"], evidence: ["pipeline", "parsers", "dedupe", "goodbudget"]
+        },
+        {
+          owner: "suryanshsrivastava", repo: "fipro", ref: "feature/budgetting", sha: "64d6922", updated: "2026-04-18",
+          prState: "open", pr: 8, ahead: 3, behind: 3, tags: ["ci", "dashboard", "sheets", "prd"], evidence: ["src/ui/dashboard.py", ".github/workflows/ci.yml", "docs/PRD.md"]
+        },
+        {
+          owner: "suryanshsrivastava", repo: "fipro", ref: "feature/demo", sha: "cc987c8", updated: "2026-04-22",
+          prState: "untracked-open-thread", ahead: 3, behind: 4, tags: ["demo", "dashboard_data_split"], evidence: ["src/main.py", "src/core/orchestrator.py"]
+        },
+        {
+          owner: "time-turner42", repo: "fipro", ref: "origin/pr-13-tum", sha: "0095355", updated: "2026-05-10",
+          prState: "open", pr: 13, ahead: 24, behind: 0, tags: ["integration-branch", "hub", "summary", "stabilization"], evidence: ["src/exporters/hub_csv.py", "src/core/consolidator.py", "HANDOFF_TONIGHT.md"]
+        },
+        {
+          owner: "suryanshsrivastava", repo: "fipro", ref: "origin/cursor/plaid-inspired-single-view-99f2", sha: "86b5ad9", updated: "2026-04-18",
+          prState: "open", pr: 12, ahead: 1, behind: 0, tags: ["hub", "summary"], evidence: ["src/exporters/hub_csv.py", "src/main.py"]
+        },
+        {
+          owner: "suryanshsrivastava", repo: "fipro", ref: "origin/cursor/cloud-agent-1776171234021-celhh", sha: "9546612", updated: "2026-04-14",
+          prState: "open", pr: 9, ahead: 2, behind: 3, tags: ["monthly-consolidation", "summary"], evidence: ["src/core/consolidator.py", "src/main.py"]
+        },
+        {
+          owner: "suryanshsrivastava", repo: "fipro", ref: "feature/local-consolidation", sha: "b8217a1", updated: "2026-03-08",
+          prState: "merged", pr: 7, ahead: 0, behind: 3, tags: ["merged", "still-local-worktree"], evidence: ["merged in PR #7"]
+        },
+        {
+          owner: "suryanshsrivastava", repo: "fipro", ref: "feature/implementation", sha: "ef8de48", updated: "2026-03-08",
+          prState: "merged", pr: 6, ahead: 0, behind: 8, tags: ["merged"], evidence: ["merged in PR #5/#6"]
+        },
+        {
+          owner: "suryanshsrivastava", repo: "fipro", ref: "feature/cc-payments-processing", sha: "8b369bc", updated: "2025-08-17",
+          prState: "open-stale", pr: 3, ahead: 3, behind: 31, tags: ["stale", "legacy-layout"], evidence: ["no src/main.py in this branch tip"]
+        }
+      ],
+      chapters: [
+        {
+          title: "Genesis and Early Parsing",
+          period: "Mar 2025 - Jan 2026",
+          body: "Initial commits establish the repo, ingestion experiments, parser scaffolding, and local checkpoints. `main` later freezes at `f1f64fc` locally while remote `origin/main` continues moving.",
+          refs: ["main", "origin/feature/input-bank-transactions", "cursor/aae800e1"]
+        },
+        {
+          title: "Pipeline Maturation and Fixture Discipline",
+          period: "Mar 2026",
+          body: "Feature branches `feature/implementation` and `feature/local-consolidation` ship the parser + pipeline workflow with fixture-backed tests. PR #5/#6/#7 are merged into `origin/main`.",
+          refs: ["feature/implementation", "feature/local-consolidation", "origin/main"]
+        },
+        {
+          title: "Branch Proliferation Phase",
+          period: "Apr 2026",
+          body: "Parallel branches emerge: `feature/budgetting` (large overhaul + CI/docs), `cursor/plaid-inspired...` (hub summary), and `cursor/cloud-agent...` (monthly checkpoints). Open PR stack starts diverging.",
+          refs: ["feature/budgetting", "origin/cursor/plaid-inspired-single-view-99f2", "origin/cursor/cloud-agent-1776171234021-celhh"]
+        },
+        {
+          title: "Fork Integration Attempt (time-turner42/tum)",
+          period: "May 2026",
+          body: "`tum` integrates multiple upstream branches plus stabilization fixes (strict export split, dedupe hardening, dashboard behavior), then opens PR #13 back to upstream main.",
+          refs: ["origin/pr-13-tum", "feature/budgetting", "origin/main"]
+        },
+        {
+          title: "Current State: Rich but Fragmented",
+          period: "Now",
+          body: "Code capabilities are broader than baseline main, but spread across open branches/forks/worktrees. Highest-value next step is convergence into one canonical integration line with clear MVP boundary.",
+          refs: ["feature/budgetting", "origin/pr-13-tum", "origin/main", "feature/demo"]
+        }
+      ],
+      timeline: [
+        { date: "2025-03-30", text: "Initial repo commits land." },
+        { date: "2025-08-17", text: "Early CC-processing lane appears (PR #1/#3), branch lineage later goes stale." },
+        { date: "2025-10-02", text: "Input-bank-transactions branch merged (PR #4)." },
+        { date: "2026-03-08", text: "Core implementation and local consolidation branches merged (PR #5/#6/#7)." },
+        { date: "2026-04-14", text: "Raw export overhaul and agent-driven branches created (budgetting/cloud/plaid lanes)." },
+        { date: "2026-04-18", text: "origin/main advances via docs archival merge; local main remains behind." },
+        { date: "2026-05-07", text: "FAWKE5 Bot creates tum consolidation sequence." },
+        { date: "2026-05-10", text: "PR #13 opened from time-turner42/tum to upstream main." }
+      ],
+      features: {
+        "core_pipeline_process_status": {
+          title: "Core pipeline + CLI process/status",
+          branches: [
+            { ref: "origin/main", owner: "suryanshsrivastava", evidence: ["src/main.py", "src/core/orchestrator.py"] },
+            { ref: "feature/budgetting", owner: "suryanshsrivastava", evidence: ["src/main.py", "src/core/orchestrator.py"] },
+            { ref: "feature/demo", owner: "suryanshsrivastava", evidence: ["src/main.py", "src/core/orchestrator.py"] },
+            { ref: "origin/pr-13-tum", owner: "time-turner42", evidence: ["src/main.py", "src/core/orchestrator.py"] }
+          ]
+        },
+        "dashboard_ui": {
+          title: "Local dashboard UI",
+          branches: [
+            { ref: "feature/budgetting", owner: "suryanshsrivastava", evidence: ["src/ui/dashboard.py"] },
+            { ref: "feature/demo", owner: "suryanshsrivastava", evidence: ["src/ui/dashboard.py"] },
+            { ref: "origin/pr-13-tum", owner: "time-turner42", evidence: ["src/ui/dashboard.py"] },
+            { ref: "origin/cursor/cloud-agent-1776171234021-celhh", owner: "suryanshsrivastava", evidence: ["src/ui/dashboard.py"] }
+          ]
+        },
+        "google_sheets_export": {
+          title: "Google Sheets exporter",
+          branches: [
+            { ref: "feature/budgetting", owner: "suryanshsrivastava", evidence: ["src/exporters/sheets.py"] },
+            { ref: "feature/demo", owner: "suryanshsrivastava", evidence: ["src/exporters/sheets.py"] },
+            { ref: "origin/pr-13-tum", owner: "time-turner42", evidence: ["src/exporters/sheets.py"] },
+            { ref: "origin/cursor/cloud-agent-1776171234021-celhh", owner: "suryanshsrivastava", evidence: ["src/exporters/sheets.py"] }
+          ]
+        },
+        "hub_summary_csv": {
+          title: "Hub summary CSV (bank-level cash-flow snapshot)",
+          branches: [
+            { ref: "origin/cursor/plaid-inspired-single-view-99f2", owner: "suryanshsrivastava", evidence: ["src/exporters/hub_csv.py"] },
+            { ref: "origin/pr-13-tum", owner: "time-turner42", evidence: ["src/exporters/hub_csv.py"] }
+          ]
+        },
+        "weekly_monthly_consolidation": {
+          title: "Weekly checkpoints / monthly consolidation",
+          branches: [
+            { ref: "origin/cursor/cloud-agent-1776171234021-celhh", owner: "suryanshsrivastava", evidence: ["src/core/consolidator.py", "src/models/consolidation.py"] },
+            { ref: "origin/pr-13-tum", owner: "time-turner42", evidence: ["src/core/consolidator.py", "src/models/consolidation.py"] }
+          ]
+        },
+        "summary_cli_command": {
+          title: "Summary CLI command",
+          branches: [
+            { ref: "origin/cursor/plaid-inspired-single-view-99f2", owner: "suryanshsrivastava", evidence: ["src/main.py (summary path)"] },
+            { ref: "origin/cursor/cloud-agent-1776171234021-celhh", owner: "suryanshsrivastava", evidence: ["src/main.py (cmd_summary)"] },
+            { ref: "origin/pr-13-tum", owner: "time-turner42", evidence: ["src/main.py (cmd_summary)"] }
+          ]
+        },
+        "ci_and_release_automation": {
+          title: "CI/readiness automation",
+          branches: [
+            { ref: "feature/budgetting", owner: "suryanshsrivastava", evidence: [".github/workflows/ci.yml", ".github/workflows/gitleaks.yml", "docs/PRD.md"] },
+            { ref: "feature/demo", owner: "suryanshsrivastava", evidence: [".github/workflows/ci.yml", "docs/PRD.md"] }
+          ]
+        },
+        "strict_goodbudget_export_plus_dashboard_dataset": {
+          title: "Strict Goodbudget export + dashboard data split",
+          branches: [
+            { ref: "feature/demo", owner: "suryanshsrivastava", evidence: ["src/core/orchestrator.py (dashboard_data.csv)", "src/main.py"] },
+            { ref: "origin/pr-13-tum", owner: "time-turner42", evidence: ["src/exporters/goodbudget.py (dashboard_data.csv path)", "src/ui/dashboard.py"] }
+          ]
+        }
+      },
+      futureScopeChecks: [
+        { item: "PDF/OCR parsing pipeline", status: "not_implemented", details: "No runtime hits for pdfplumber/PyPDF2/pypdf/fitz/tesseract in src/config/pyproject across 29 refs." },
+        { item: "SQLite or other database-backed persistence", status: "not_implemented", details: "No runtime hits for sqlite3/sqlalchemy/duckdb/postgres/mysql in scanned refs." },
+        { item: "Auto-categorization/ML classification engine", status: "not_implemented", details: "No runtime hits for classifier/model.predict/sklearn/xgboost in scanned refs." },
+        { item: "Cloud sync + multi-user auth", status: "not_implemented", details: "No runtime hits for JWT/auth/login/user_id/passlib/bcrypt paths; only roadmap text exists." },
+        { item: "Web backend API (FastAPI/Flask/Django)", status: "not_implemented", details: "No runtime hits for fastapi/flask/django/uvicorn/app routes." }
+      ],
+      dirtyFiles: [
+        "AGENTS.md",
+        "docs/architecture.md",
+        "docs/reports/readiness-report-2026-04-18.md (added)",
+        "src/core/deduplicator.py",
+        "src/core/ingestion.py",
+        "src/core/orchestrator.py",
+        "src/exporters/goodbudget.py",
+        "src/exporters/report.py",
+        "src/exporters/sheets.py",
+        "src/main.py",
+        "src/ui/dashboard.py",
+        "src/utils/utils.py",
+        "tests/test_pr_comment_regressions.py (added)"
+      ]
+    };
+
+    const tabs = document.querySelectorAll(".tab-btn[data-tab]");
+    tabs.forEach(btn => {
+      btn.addEventListener("click", () => {
+        tabs.forEach(b => b.classList.remove("active"));
+        document.querySelectorAll(".tab-pane").forEach(p => p.classList.remove("active"));
+        btn.classList.add("active");
+        document.getElementById(btn.dataset.tab).classList.add("active");
+      });
+    });
+
+    const statOpenThreads = reportData.branches.filter(b => ["open", "open-stale", "untracked-open-thread"].includes(b.prState)).length;
+    document.getElementById("stat-refs").textContent = reportData.refsScanned;
+    document.getElementById("stat-prs").textContent = reportData.prs.length;
+    document.getElementById("stat-worktrees").textContent = reportData.worktrees.length;
+    document.getElementById("stat-open-threads").textContent = statOpenThreads;
+
+    const chapterSelect = document.getElementById("chapter-select");
+    const chapterBody = document.getElementById("chapter-body");
+    let chapterIndex = 0;
+    reportData.chapters.forEach((c, i) => {
+      const opt = document.createElement("option");
+      opt.value = i;
+      opt.textContent = `${i + 1}. ${c.title}`;
+      chapterSelect.appendChild(opt);
+    });
+    function renderChapter() {
+      const c = reportData.chapters[chapterIndex];
+      chapterSelect.value = String(chapterIndex);
+      chapterBody.innerHTML = `
+        <h3>${c.title}</h3>
+        <p class="small">${c.period}</p>
+        <p>${c.body}</p>
+        <div>${c.refs.map(r => `<span class="pill">${r}</span>`).join("")}</div>
+      `;
+    }
+    document.getElementById("prev-chapter").addEventListener("click", () => {
+      chapterIndex = (chapterIndex - 1 + reportData.chapters.length) % reportData.chapters.length;
+      renderChapter();
+    });
+    document.getElementById("next-chapter").addEventListener("click", () => {
+      chapterIndex = (chapterIndex + 1) % reportData.chapters.length;
+      renderChapter();
+    });
+    chapterSelect.addEventListener("change", e => {
+      chapterIndex = Number(e.target.value);
+      renderChapter();
+    });
+    renderChapter();
+
+    const timeline = document.getElementById("timeline");
+    reportData.timeline.forEach(t => {
+      const el = document.createElement("div");
+      el.className = "timeline-item";
+      el.innerHTML = `<div class="timeline-date">${t.date}</div><div>${t.text}</div>`;
+      timeline.appendChild(el);
+    });
+
+    function renderBranchTable() {
+      const search = document.getElementById("branch-search").value.trim().toLowerCase();
+      const state = document.getElementById("branch-state-filter").value;
+      const owner = document.getElementById("owner-filter").value;
+      const tbody = document.getElementById("branches-tbody");
+      tbody.innerHTML = "";
+
+      let filtered = reportData.branches.filter(b => {
+        const matchesSearch = !search || [b.ref, b.owner, b.repo, b.sha, ...(b.tags || [])].join(" ").toLowerCase().includes(search);
+        const matchesOwner = owner === "all" || b.owner === owner;
+        let matchesState = true;
+        if (state === "open") matchesState = ["open", "open-stale", "untracked-open-thread"].includes(b.prState);
+        else if (state === "merged") matchesState = b.prState === "merged" || b.prState === "baseline";
+        else if (state === "stale") matchesState = b.prState === "open-stale" || b.behind > 10 || b.tags.includes("stale");
+        return matchesSearch && matchesOwner && matchesState;
+      });
+
+      filtered.forEach(b => {
+        const tr = document.createElement("tr");
+        const statusPill = b.prState === "open-stale"
+          ? `<span class="pill bad">open-stale</span>`
+          : b.prState === "open"
+          ? `<span class="pill warn">open</span>`
+          : b.prState === "untracked-open-thread"
+          ? `<span class="pill warn">local thread</span>`
+          : b.prState === "merged"
+          ? `<span class="pill ok">merged</span>`
+          : `<span class="pill ok">baseline</span>`;
+        const prCell = b.pr
+          ? `<a href="https://github.com/suryanshsrivastava/fipro/pull/${b.pr}" target="_blank">#${b.pr}</a>`
+          : `<span class="small">-</span>`;
+        tr.innerHTML = `
+          <td><strong>${b.owner}/${b.repo}</strong><div class="small">${b.updated}</div></td>
+          <td><span class="code">${b.ref}</span></td>
+          <td><span class="code">${b.sha}</span></td>
+          <td>${statusPill}<div class="small">${(b.tags || []).join(", ")}</div></td>
+          <td><span class="code">+${b.ahead} / -${b.behind}</span></td>
+          <td>${prCell}</td>
+          <td>${(b.evidence || []).map(e => `<span class="pill">${e}</span>`).join("")}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    document.getElementById("branch-search").addEventListener("input", renderBranchTable);
+    document.getElementById("branch-state-filter").addEventListener("change", renderBranchTable);
+    document.getElementById("owner-filter").addEventListener("change", renderBranchTable);
+    renderBranchTable();
+
+    const worktreeList = document.getElementById("worktree-list");
+    reportData.worktrees.forEach(w => {
+      const div = document.createElement("div");
+      div.className = "timeline-item";
+      div.innerHTML = `
+        <div><span class="code">${w.branch}</span> ${w.active ? '<span class="pill ok">active</span>' : ''}</div>
+        <div class="small">${w.path}</div>
+        <div class="small">HEAD: ${w.head}</div>
+      `;
+      worktreeList.appendChild(div);
+    });
+
+    const pressureRatio = Math.min(1, statOpenThreads / 8);
+    document.getElementById("pressure-bar").style.width = `${Math.round(pressureRatio * 100)}%`;
+    const pressureLabel = pressureRatio > 0.65 ? "High branch pressure" : pressureRatio > 0.35 ? "Medium branch pressure" : "Low branch pressure";
+    document.getElementById("pressure-text").textContent = `${pressureLabel}: ${statOpenThreads} open thread(s) across branches and fork lanes.`;
+
+    const featureSelect = document.getElementById("feature-select");
+    Object.entries(reportData.features).forEach(([key, f], idx) => {
+      const opt = document.createElement("option");
+      opt.value = key;
+      opt.textContent = `${idx + 1}. ${f.title}`;
+      featureSelect.appendChild(opt);
+    });
+
+    function renderFeatureResults() {
+      const key = featureSelect.value || Object.keys(reportData.features)[0];
+      const ownerFilter = document.getElementById("feature-owner-filter").value;
+      const feature = reportData.features[key];
+      const holder = document.getElementById("feature-results");
+      holder.innerHTML = "";
+      const list = feature.branches.filter(b => ownerFilter === "all" || b.owner === ownerFilter);
+      if (!list.length) {
+        holder.innerHTML = `<div class="feature-card">No branches match the selected owner filter.</div>`;
+        return;
+      }
+      list.forEach(item => {
+        const card = document.createElement("div");
+        card.className = "feature-card";
+        const ownerTag = item.owner === "time-turner42" ? '<span class="pill warn">time-turner42 fork lineage</span>' : '<span class="pill">upstream lineage</span>';
+        card.innerHTML = `
+          <div class="row" style="justify-content:space-between">
+            <strong>${item.ref}</strong>
+            ${ownerTag}
+          </div>
+          <div class="small" style="margin-top:8px;">Evidence</div>
+          <div>${item.evidence.map(e => `<span class="pill">${e}</span>`).join("")}</div>
+        `;
+        holder.appendChild(card);
+      });
+    }
+    featureSelect.addEventListener("change", renderFeatureResults);
+    document.getElementById("feature-owner-filter").addEventListener("change", renderFeatureResults);
+    renderFeatureResults();
+
+    const futureList = document.getElementById("future-list");
+    reportData.futureScopeChecks.forEach(item => {
+      const div = document.createElement("div");
+      div.className = "timeline-item";
+      const cls = item.status === "not_implemented" ? "future-ok" : "future-risk";
+      div.innerHTML = `
+        <div><span class="${cls}">${item.status.replace("_", " ")}</span> - ${item.item}</div>
+        <div class="small">${item.details}</div>
+      `;
+      futureList.appendChild(div);
+    });
+
+    const dirty = document.getElementById("dirty-files");
+    reportData.dirtyFiles.forEach(f => {
+      const p = document.createElement("div");
+      p.className = "pill warn";
+      p.textContent = f;
+      dirty.appendChild(p);
+    });
+
+    const actions = document.getElementById("consolidation-actions");
+    [
+      "Create one convergence branch from origin/main and merge/cherry-pick selected deltas from feature/budgetting + origin/pr-13-tum.",
+      "Declare a single canonical PR, then close superseded open PR lanes (#8/#9/#10/#12/#13) with explicit lineage notes.",
+      "Prune merged/stale local branches and worktrees after convergence (feature/local-consolidation, feature/implementation, old local main lane).",
+      "Codify MVP boundary in PRD: keep implemented local dashboard options; defer server/cloud/db/auto-categorization scope.",
+      "Treat feature/demo and tum-only enhancements as explicit include/exclude decisions before release tagging."
+    ].forEach(step => {
+      const el = document.createElement("div");
+      el.className = "timeline-item";
+      el.innerHTML = `<div>${step}</div>`;
+      actions.appendChild(el);
+    });
+  </script>
+</body>
+</html>
