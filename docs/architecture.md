@@ -9,7 +9,6 @@ data/input/*.xls|*.xlsx
   -> src/core/ingestion.py
   -> src/core/orchestrator.py
       -> src/parsers/{hdfc,sbi,axis}.py
-      -> src/core/transformer.py
       -> src/core/deduplicator.py
       -> src/core/transfer_detector.py
       -> src/exporters/goodbudget.py
@@ -30,7 +29,6 @@ data/input/*.xls|*.xlsx
 ### Core Pipeline (`src/core/`)
 - `ingestion.py`: input discovery and file handling.
 - `orchestrator.py`: parser selection and end-to-end flow.
-- `transformer.py`: mapping raw rows to domain model.
 - `deduplicator.py`: hash-based duplicate elimination.
 - `transfer_detector.py`: likely internal transfer classification.
 

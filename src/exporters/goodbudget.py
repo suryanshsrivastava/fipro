@@ -3,29 +3,14 @@ from pathlib import Path
 
 from src.models.transactions import Transaction, TransactionStatus
 
+GOODBUDGET_FIELDNAMES = ["Date", "Envelope", "Account", "Name", "Notes", "Amount", "Status"]
+
 
 def export_to_goodbudget(transactions: list[Transaction], output_path: str, config: dict) -> None:
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-    # Include both Goodbudget-standard cols + dashboard-readable cols
-    fieldnames = [
-        "Date",
-        "Envelope",
-        "Account",
-        "Name",
-        "Notes",
-        "Amount",
-        "Status",
-        "transaction_date",
-        "description",
-        "amount",
-        "transaction_type",
-        "source_bank",
-        "source_file",
-        "balance",
-    ]
     max_len = config.get("export", {}).get("goodbudget", {}).get("max_description_length", 50)
     with open(output_path, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer = csv.DictWriter(f, fieldnames=GOODBUDGET_FIELDNAMES)
         writer.writeheader()
         for txn in transactions:
             row = format_goodbudget_row(txn, config, max_len)
@@ -44,13 +29,4 @@ def format_goodbudget_row(transaction: Transaction, config: dict, max_len: int =
         "Notes": transaction.notes or "",
         "Amount": str(transaction.signed_amount),
         "Status": txn_status,
-        # dashboard-readable cols
-        "transaction_date": transaction.transaction_date.strftime("%Y-%m-%d"),
-        "description": transaction.description,
-        "transaction_type": transaction.transaction_type.value,
-        "source_bank": transaction.source_bank,
-        "source_file": transaction.source_file,
-        "balance": str(transaction.balance) if transaction.balance else "",
-        # dashboard-readable alias
-        "amount": str(transaction.signed_amount),
     }

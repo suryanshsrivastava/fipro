@@ -130,27 +130,22 @@ fipro/
 │   └── output/               # Generated CSV exports
 ├── logs/
 ├── src/
-│   ├── __init__.py
 │   ├── main.py               # CLI entry point
-│   ├── models.py             # Transaction, ProcessingResult dataclasses
-│   ├── orchestrator.py       # File discovery and routing
-│   ├── parsers/
-│   │   ├── __init__.py
-│   │   ├── base.py           # BankParser ABC
-│   │   ├── hdfc.py
-│   │   ├── sbi.py
-│   │   └── axis.py
-│   ├── processing/
-│   │   ├── __init__.py
-│   │   ├── cleaner.py        # Date/amount standardization
-│   │   ├── deduplicator.py   # Hash-based deduplication
+│   ├── config.py             # TOML config loader
+│   ├── core/
+│   │   ├── ingestion.py      # Input discovery
+│   │   ├── orchestrator.py   # Pipeline coordination
+│   │   ├── deduplicator.py
 │   │   └── transfer_detector.py
-│   └── export/
-│       ├── __init__.py
-│       └── goodbudget.py     # CSV exporter
+│   ├── parsers/              # HDFC, SBI, Axis BankParser impls
+│   ├── models/               # Transaction, ProcessingResult, CrawledFile
+│   ├── exporters/            # goodbudget, report, sheets
+│   ├── ui/                   # Local HTML dashboard
+│   └── utils/                # amount_parser, date_parser, logger
 └── tests/
-    ├── test_parsers/
-    ├── test_processing/
+    ├── test_models/
+    ├── test_extraction/
+    ├── integration/
     └── fixtures/             # Anonymized sample statements
 ```
 

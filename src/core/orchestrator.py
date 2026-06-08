@@ -10,7 +10,7 @@ from src.core.transfer_detector import detect_transfers
 from src.exporters.goodbudget import export_to_goodbudget
 from src.exporters.report import generate_report
 from src.models.result import ProcessingResult
-from src.models.transactions import Transaction
+from src.models.transactions import Transaction, TransactionStatus
 from src.parsers.axis import AxisParser
 from src.parsers.base import BankParser
 from src.parsers.hdfc import HDFCParser
@@ -36,6 +36,7 @@ def process_pipeline(config: dict) -> list[ProcessingResult]:
 
     parsers = [HDFCParser(), SBIParser(), AxisParser()]
     all_transactions: list[Transaction] = []
+    processed_files: list[str] = []
 
     for crawled in files:
         try:
@@ -43,7 +44,7 @@ def process_pipeline(config: dict) -> list[ProcessingResult]:
             parser = route_file_to_parser(crawled.filename, df, parsers)
             txns = parser.extract_transactions(df, crawled.filepath)
             all_transactions.extend(txns)
-            move_file_to_processed(crawled.filepath, processed_path)
+            processed_files.append(crawled.filepath)
             results.append(
                 ProcessingResult(
                     source_file=crawled.filepath,
@@ -74,18 +75,23 @@ def process_pipeline(config: dict) -> list[ProcessingResult]:
                 )
             )
 
-    # consolidation
     all_transactions, dups = deduplicate(all_transactions, seen_hashes)
-    if not config.get("processing", {}).get("skip_internal_transfers", False):
-        all_transactions = detect_transfers(all_transactions)
-    save_seen_hashes_to_file(seen_hashes, str(seen_hashes_path))
+    all_transactions = detect_transfers(all_transactions)
 
-    # export
+    export_transactions = all_transactions
+    if config.get("processing", {}).get("skip_internal_transfers", False):
+        export_transactions = [txn for txn in all_transactions if txn.status != TransactionStatus.TRANSFER]
+
     csv_path = f"{output_path}/goodbudget_export.csv"
-    export_to_goodbudget(all_transactions, csv_path, config)
+    export_to_goodbudget(export_transactions, csv_path, config)
+    save_seen_hashes_to_file(seen_hashes, str(seen_hashes_path))
     report_path = f"{output_path}/processing_report.json"
-    generate_report(results, report_path)
-    logger.info("Pipeline complete. %d transactions exported to %s", len(all_transactions), csv_path)
+    generate_report(results, report_path, duplicates_skipped=dups)
+
+    for filepath in processed_files:
+        move_file_to_processed(filepath, processed_path)
+
+    logger.info("Pipeline complete. %d transactions exported to %s", len(export_transactions), csv_path)
     return results
 
 

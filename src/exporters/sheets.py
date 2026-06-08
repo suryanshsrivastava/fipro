@@ -4,6 +4,8 @@ from pathlib import Path
 import gspread
 from google.oauth2.service_account import Credentials
 
+from src.exporters.goodbudget import GOODBUDGET_FIELDNAMES
+
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive.file",
@@ -23,7 +25,7 @@ def export_to_google_sheets(
     with open(csv_path, newline="") as f:
         rows = list(csv.DictReader(f))
 
-    headers = ["Date", "Envelope", "Account", "Name", "Notes", "Amount", "Status"]
+    headers = list(GOODBUDGET_FIELDNAMES)
     data_rows = [headers]
     for row in rows:
         data_rows.append(
@@ -71,14 +73,10 @@ def export_to_google_sheets(
         },
     )
 
-    # Auto-resize columns. Pre-existing API-shape bug tracked as SHEETS-001.
-    resize_request: list[dict] = [
-        {
-            "type": "autoResizeDimensions",
-            "dimensions": {"dimension": "COLUMNS", "startIndex": 0, "endIndex": 7},
-        }
-    ]
-    spreadsheet.batch_update(resize_request)  # type: ignore[arg-type]
+    resize_request = {
+        "requests": [{"autoResizeDimensions": {"dimensions": {"dimension": "COLUMNS", "startIndex": 0, "endIndex": 7}}}]
+    }
+    spreadsheet.batch_update(resize_request)
 
     spreadsheet_url = spreadsheet.url
     print(f"Google Sheet created: {spreadsheet_url}")

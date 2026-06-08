@@ -3,7 +3,8 @@ import sys
 from pathlib import Path
 
 from src.config import load_config
-from src.core.orchestrator import discover_files, process_pipeline
+from src.core.ingestion import discover_files
+from src.core.orchestrator import process_pipeline
 from src.exporters.sheets import export_to_google_sheets
 from src.ui.dashboard import serve_dashboard
 from src.utils.logger import setup_logging
@@ -70,7 +71,7 @@ def cmd_dashboard(csv_path: str, port: int, open_browser: bool):
         print(f"CSV not found: {csv_path} — run `fipro process` first.", file=sys.stderr)
         sys.exit(1)
     print(f"Starting dashboard on http://localhost:{port} ...")
-    serve_dashboard(csv_path, port)
+    serve_dashboard(csv_path, port, open_browser=open_browser)
 
 
 def cmd_sheets(csv_path: str, creds_path: str, title: str):

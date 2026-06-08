@@ -69,7 +69,7 @@ HTML_TEMPLATE = """
 </div>
 <script>
 const DATA = {{DATA}};
-const COLS = ['transaction_date','description','amount','transaction_type','source_bank','source_file','status','notes'];
+const COLS = ['transaction_date','description','amount','transaction_type','source_bank','status','notes'];
 const DIR = {transaction_date:1, description:1, amount:1, transaction_type:1, source_bank:1};
 let sortCol='transaction_date', sortDir=-1, search='', bank='', type='';
 
@@ -107,7 +107,9 @@ function render() {
   let rows = DATA.filter(r => {
     if (search && !r.description.toLowerCase().includes(search)) return false;
     if (bank && r.source_bank !== bank) return false;
-    if (type && r.transaction_type !== type && r.status !== 'internal_transfer') return false;
+    if (type === 'internal_transfer') return r.status === 'internal_transfer';
+    if (type && r.transaction_type !== type) return false;
+    if (type && r.status === 'internal_transfer') return false;
     return true;
   });
   const sortFn = (a,b) => {
@@ -126,7 +128,6 @@ function render() {
       <td class=\"amount ${cls}\">${amt<0?'−':'+'}${Math.abs(amt).toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
       <td>${r.transaction_type}</td>
       <td><span class=account>${r.source_bank}</span></td>
-      <td title=\"${r.source_file}\">${r.source_file.split('/').pop()}</td>
       <td>${r.status}</td>
       <td title=\"${r.notes||''}\">${(r.notes||'').slice(0,30)}</td>
     </tr>`;
@@ -150,10 +151,31 @@ init();
 
 def load_csv_data(csv_path: str) -> list[dict]:
     with open(csv_path, newline="") as f:
-        return list(csv.DictReader(f))
+        rows = list(csv.DictReader(f))
+
+    normalized_rows: list[dict] = []
+    for row in rows:
+        amount = row.get("amount") or row.get("Amount") or ""
+        try:
+            signed_amount = float(amount)
+        except TypeError, ValueError:
+            signed_amount = 0.0
+        normalized_rows.append(
+            {
+                "transaction_date": row.get("transaction_date") or row.get("Date") or "",
+                "description": row.get("description") or row.get("Name") or "",
+                "amount": amount,
+                "transaction_type": row.get("transaction_type") or ("debit" if signed_amount < 0 else "credit"),
+                "source_bank": row.get("source_bank") or row.get("Account") or "",
+                "source_file": row.get("source_file") or "",
+                "status": row.get("status") or row.get("Status") or "",
+                "notes": row.get("notes") or row.get("Notes") or "",
+            }
+        )
+    return normalized_rows
 
 
-def serve_dashboard(csv_path: str = "data/output/goodbudget_export.csv", port: int = 8080):
+def serve_dashboard(csv_path: str = "data/output/goodbudget_export.csv", port: int = 8080, open_browser: bool = True):
     Path(csv_path).parent.mkdir(parents=True, exist_ok=True)
     rows = load_csv_data(csv_path)
 
@@ -180,11 +202,14 @@ def serve_dashboard(csv_path: str = "data/output/goodbudget_export.csv", port: i
     server = HTTPServer(("127.0.0.1", port), Handler)
     url = f"http://localhost:{port}"
     print(f"Dashboard: {url}")
-    webbrowser.open(url)
+    if open_browser:
+        webbrowser.open(url)
     server.serve_forever()
 
 
-def start_dashboard_thread(csv_path: str = "data/output/goodbudget_export.csv", port: int = 8080):
-    t = threading.Thread(target=serve_dashboard, args=(csv_path, port), daemon=True)
+def start_dashboard_thread(
+    csv_path: str = "data/output/goodbudget_export.csv", port: int = 8080, open_browser: bool = True
+):
+    t = threading.Thread(target=serve_dashboard, args=(csv_path, port, open_browser), daemon=True)
     t.start()
     return t
