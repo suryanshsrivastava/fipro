@@ -1,1 +1,0 @@
-"""Pipeline regression tests."""

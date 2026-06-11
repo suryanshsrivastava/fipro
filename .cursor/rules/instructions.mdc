@@ -1,0 +1,9 @@
+---
+alwaysApply: true
+---
+
+- Reuse code before duplicating. Shared helpers live in [src/utils/utils.py](src/utils/utils.py); amount parsing in [src/utils/amount_parser.py](src/utils/amount_parser.py); date parsing in [src/utils/date_parser.py](src/utils/date_parser.py). Add new shared helpers to the appropriate file in `src/utils/`.
+
+- Keep the codebase simple. If you see code that can be simplified without losing clarity, simplify it.
+
+- Prefer procedural over functional. Use functions only when they need to be reused or when they enforce useful separation of responsibilities.

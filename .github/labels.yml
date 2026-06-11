@@ -1,0 +1,31 @@
+- name: bug
+  color: "d73a4a"
+  description: Something is broken.
+
+- name: enhancement
+  color: "a2eeef"
+  description: New feature or improvement.
+
+- name: maintenance
+  color: "c5def5"
+  description: Refactor, chores, or internal quality work.
+
+- name: documentation
+  color: "0075ca"
+  description: Docs updates.
+
+- name: security
+  color: "b60205"
+  description: Security-related changes or findings.
+
+- name: dependencies
+  color: "0366d6"
+  description: Dependency updates.
+
+- name: needs-triage
+  color: "fbca04"
+  description: Awaiting initial maintainer triage.
+
+- name: good first issue
+  color: "7057ff"
+  description: Good for first-time contributors.

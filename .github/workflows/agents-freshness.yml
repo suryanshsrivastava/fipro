@@ -1,0 +1,43 @@
+name: AGENTS and Docs Freshness
+
+on:
+  pull_request:
+    paths:
+      - "AGENTS.md"
+      - "README.md"
+      - "RUNBOOK.md"
+      - "ARCHITECTURE.md"
+      - "docs/**"
+      - ".github/workflows/agents-freshness.yml"
+  push:
+    branches:
+      - main
+
+jobs:
+  freshness:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate AGENTS.md and documentation links
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test -f AGENTS.md
+          test -f README.md
+          test -f RUNBOOK.md
+          test -f docs/PRD.md
+          test -f docs/architecture.md
+
+          grep -q "scripts/setup.sh" AGENTS.md
+          grep -q "uv run ruff check" AGENTS.md
+          grep -q "uv run mypy" AGENTS.md
+          grep -q "uv run pytest" AGENTS.md
+
+          grep -q "docs/PRD.md" README.md
+          grep -q "docs/architecture.md" README.md
+          grep -q "docs/PRD.md" RUNBOOK.md
+
+          echo "AGENTS/docs freshness checks passed"

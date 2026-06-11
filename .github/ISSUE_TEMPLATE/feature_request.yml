@@ -1,0 +1,44 @@
+name: Feature request
+description: Propose a new capability or workflow improvement.
+title: "feat: "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: What user pain are we addressing?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the desired behavior.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Scope
+      options:
+        - MVP-safe (fits current local-first CLI scope)
+        - Post-MVP (future roadmap)
+        - Unsure
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I checked AGENTS.md and docs/PRD.md for existing scope constraints.
+          required: true

@@ -1,0 +1,15 @@
+{
+  "title": "SBI raw monthly export",
+  "purpose": "Validates extraction from a native SBI text-backed .xls export with headers already represented as dataframe columns.",
+  "covers": [
+    "text-backed SBI loader path",
+    "existing-header extraction flow",
+    "debit and credit amount mapping",
+    "balance extraction from the native export"
+  ],
+  "anonymization_review": {
+    "completed": true,
+    "method": "Masked or replaced personal identifiers while preserving parser-critical layout and value formats."
+  },
+  "fixture_version": 1
+}

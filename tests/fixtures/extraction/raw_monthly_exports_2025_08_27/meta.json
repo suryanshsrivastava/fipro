@@ -1,0 +1,15 @@
+{
+  "title": "Combined raw monthly exports from 2025-08-27 snapshot",
+  "purpose": "Validates the central raw extraction dataframe built from one native export per supported bank before deduplication or downstream transformations.",
+  "covers": [
+    "multi-bank extraction into a single dataframe",
+    "stable source file attribution",
+    "pre-processing transaction field normalization",
+    "combined raw extraction ordering and completeness"
+  ],
+  "anonymization_review": {
+    "completed": true,
+    "method": "Masked or replaced personal identifiers while preserving parser-critical layout and value formats."
+  },
+  "fixture_version": 1
+}

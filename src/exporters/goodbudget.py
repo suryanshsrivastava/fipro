@@ -1,82 +1,32 @@
-"""Goodbudget CSV exporter for Fipro."""
-
 import csv
 from pathlib import Path
-from typing import List
 
 from src.models.transactions import Transaction, TransactionStatus
 
+GOODBUDGET_FIELDNAMES = ["Date", "Envelope", "Account", "Name", "Notes", "Amount", "Status"]
 
-def export_to_goodbudget(
-    transactions: List[Transaction], output_path: str, config: dict
-) -> int:
-    """Export transactions to a Goodbudget-compatible CSV file."""
-    include_internal_transfers = config.get("processing", {}).get(
-        "include_internal_transfers", True
-    )
-    filtered = [
-        transaction
-        for transaction in transactions
-        if include_internal_transfers
-        or transaction.status != TransactionStatus.TRANSFER
-    ]
-    filtered.sort(
-        key=lambda transaction: (
-            transaction.transaction_date,
-            transaction.source_bank,
-            transaction.description,
-        )
-    )
 
-    output = Path(output_path)
-    output.parent.mkdir(parents=True, exist_ok=True)
-
-    with output.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(
-            handle,
-            fieldnames=[
-                "Date",
-                "Envelope",
-                "Account",
-                "Name",
-                "Notes",
-                "Amount",
-                "Status",
-            ],
-        )
+def export_to_goodbudget(transactions: list[Transaction], output_path: str, config: dict) -> None:
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    max_len = config.get("export", {}).get("goodbudget", {}).get("max_description_length", 50)
+    with open(output_path, "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=GOODBUDGET_FIELDNAMES)
         writer.writeheader()
-        for transaction in filtered:
-            writer.writerow(format_goodbudget_row(transaction, config))
-
-    return len(filtered)
-
-
-def format_goodbudget_row(transaction: Transaction, config: dict) -> dict:
-    """Format a single transaction row for Goodbudget export."""
-    row = transaction.to_goodbudget_row()
-    row["Notes"] = _build_notes(transaction, config)
-    return row
+        for txn in transactions:
+            row = format_goodbudget_row(txn, config, max_len)
+            writer.writerow(row)
 
 
-def _build_notes(transaction: Transaction, config: dict) -> str:
-    notes: list[str] = []
-    if transaction.notes:
-        notes.append(transaction.notes)
-    if transaction.status == TransactionStatus.TRANSFER:
-        notes.append("Internal transfer detected")
-
-    external_accounts = config.get("external_accounts", {})
-    account_names = external_accounts.get("names", ["CREDIT_CARD"])
-    payment_keywords = [
-        keyword.upper() for keyword in external_accounts.get("payment_keywords", [])
-    ]
-
-    description = transaction.description.upper()
-    if (
-        transaction.transaction_type.value == "debit"
-        and any(keyword in description for keyword in payment_keywords)
-        and account_names
-    ):
-        notes.append(f"External account payment: {account_names[0]}")
-
-    return " | ".join(notes)
+def format_goodbudget_row(transaction: Transaction, config: dict, max_len: int = 50) -> dict:
+    envelope = config.get("export", {}).get("goodbudget", {}).get("default_envelope", "Unallocated")
+    status = config.get("export", {}).get("goodbudget", {}).get("default_status", "cleared")
+    txn_status = "internal_transfer" if transaction.status == TransactionStatus.TRANSFER else status
+    return {
+        "Date": transaction.transaction_date.strftime("%Y-%m-%d"),
+        "Envelope": transaction.envelope or envelope,
+        "Account": transaction.source_bank,
+        "Name": transaction.description[:max_len],
+        "Notes": transaction.notes or "",
+        "Amount": str(transaction.signed_amount),
+        "Status": txn_status,
+    }

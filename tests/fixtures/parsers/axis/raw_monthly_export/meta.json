@@ -1,0 +1,15 @@
+{
+  "title": "Axis raw monthly export",
+  "purpose": "Validates extraction from a native Axis .xls export that uses abbreviated DR, CR, and BAL headers.",
+  "covers": [
+    "abbreviated header detection",
+    "debit and credit amount mapping",
+    "date parsing from raw exported values",
+    "balance extraction from the native export"
+  ],
+  "anonymization_review": {
+    "completed": true,
+    "method": "Masked or replaced personal identifiers while preserving parser-critical layout and value formats."
+  },
+  "fixture_version": 1
+}

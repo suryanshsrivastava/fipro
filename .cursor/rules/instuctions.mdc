@@ -1,9 +1,0 @@
----
-alwaysApply: true
----
-
-- try to reuse the same code as much as possible. We love to see code reuse, but we also want to make sure that we don't duplicate code. So, if you see a piece of code that you think could be reused, please add it to the `utils.py` file. This will help us keep our codebase clean and maintainable.
-
-- try to keep the codebase as simple as possible. We love to see code that is easy to understand and maintain. So, if you see a piece of code that you think could be simplified, please do so.
-
-- I like procedural over functional. use functions only when it needs to be resused or when you want to enforce separation of responsibilities (but only if it makes the code easier to understand and maintain)

@@ -1,0 +1,11 @@
+---
+alwaysApply: true
+---
+
+- Never commit fixtures containing real PII. Before staging anything under `tests/fixtures/`, grep for real names and UPI reference numbers.
+- Run `uv run pytest` before proposing a commit. Coverage gate is enforced.
+- Run `uv run ruff check src/ tests/` before proposing a commit.
+- Run `uv run mypy src/` before proposing a commit.
+- When adding a dependency, also run `uv lock` and stage `uv.lock`.
+- Logging tracks progress only. Do not narrate every step; tight docstrings plus minimal `logger.info` calls are preferred over verbose logging.
+- No emojis in code or documentation.

@@ -1,8 +1,0 @@
-{
-  "title": "Axis empty statement",
-  "purpose": "Validates a valid Axis statement with no transaction rows",
-  "covers": [
-    "empty statement handling"
-  ],
-  "fixture_version": 1
-}

@@ -172,7 +172,7 @@ class TestTransaction:
         assert txn.raw_data == {"col1": "val1"}
         assert txn.created_at == "2025-01-15T10:00:00"
 
-    def test_hash_distinguishes_bank_and_transaction_type(self):
+    def test_hash_deterministic(self):
         txn1 = Transaction(
             transaction_date=date(2025, 1, 15),
             description="Test",
@@ -185,8 +185,27 @@ class TestTransaction:
             transaction_date=date(2025, 1, 15),
             description="Test",
             amount=Decimal("100"),
+            transaction_type=TransactionType.DEBIT,
+            source_bank="HDFC",
+            source_file="test.xls",
+        )
+        assert txn1.hash == txn2.hash
+
+    def test_hash_differs_for_same_description_different_bank(self):
+        hdfc = Transaction(
+            transaction_date=date(2025, 1, 15),
+            description="UPI-SWIGGY",
+            amount=Decimal("450.00"),
+            transaction_type=TransactionType.DEBIT,
+            source_bank="HDFC",
+            source_file="hdfc.xls",
+        )
+        sbi = Transaction(
+            transaction_date=date(2025, 1, 15),
+            description="UPI-SWIGGY",
+            amount=Decimal("450.00"),
             transaction_type=TransactionType.CREDIT,
             source_bank="SBI",
-            source_file="other.xls",
+            source_file="sbi.xls",
         )
-        assert txn1.hash != txn2.hash
+        assert hdfc.hash != sbi.hash

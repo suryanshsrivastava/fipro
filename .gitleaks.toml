@@ -1,0 +1,29 @@
+# Gitleaks config for fipro.
+# Run locally: `gitleaks detect --source . --config .gitleaks.toml`
+# See https://github.com/gitleaks/gitleaks
+
+title = "fipro gitleaks config"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "google-service-account-json"
+description = "Google service account credentials JSON"
+regex = '''"type":\s*"service_account"'''
+tags = ["key", "google"]
+
+[[rules]]
+id = "upi-reference-number"
+description = "UPI reference numbers in fixtures. Any 12-digit UPI ref outside sanitized placeholders triggers this."
+regex = '''UPI/P2[AM]/\d{12}/[A-Z]'''
+path = '''tests/fixtures/.*'''
+tags = ["pii", "fipro"]
+
+[allowlist]
+description = "Paths allowed to contain sensitive-looking strings"
+paths = [
+  '''\.fipro-env/''',
+  '''uv\.lock''',
+  '''legacy/archives/''',
+]
