@@ -74,6 +74,23 @@ def test_save_seen_hashes_to_file_creates_parent_directory(tmp_path: Path):
     assert target.read_text().splitlines() == ["abc123", "def456"]
 
 
+def test_move_file_to_processed_avoids_overwriting_existing_archive(tmp_path: Path):
+    source = tmp_path / "input" / "hdfc.xls"
+    source.parent.mkdir(parents=True)
+    source.write_text("new statement")
+    processed_dir = tmp_path / "processed"
+    processed_dir.mkdir()
+    existing = processed_dir / "hdfc.xls"
+    existing.write_text("old statement")
+
+    dest = orchestrator.move_file_to_processed(str(source), str(processed_dir))
+
+    assert dest == str(processed_dir / "hdfc_1.xls")
+    assert not source.exists()
+    assert existing.read_text() == "old statement"
+    assert Path(dest).read_text() == "new statement"
+
+
 def test_serve_dashboard_does_not_open_browser_without_flag(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     csv_path = tmp_path / "dashboard.csv"
     csv_path.write_text("Date,Envelope,Account,Name,Notes,Amount,Status\n")
