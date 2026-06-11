@@ -17,7 +17,7 @@ packaging==25.0
 pandas==2.3.3
 parso==0.8.5
 pexpect==4.9.0
-platformdirs==4.4.0
+platformdirs==4.10.0
 prompt-toolkit==3.0.52
 psutil==7.1.0
 ptyprocess==0.7.0
