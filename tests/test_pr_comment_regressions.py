@@ -6,6 +6,7 @@ from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
 
+import gspread
 import pytest
 
 from src.core import orchestrator
@@ -221,8 +222,13 @@ def test_export_to_google_sheets_uses_batch_update_request_body(tmp_path: Path, 
     )
 
     recorded_requests: list[object] = []
+    created_titles: list[str] = []
+    opened_titles: list[str] = []
 
     class FakeWorksheet:
+        def clear(self):
+            return None
+
         def update(self, *_args, **_kwargs):
             return None
 
@@ -241,16 +247,29 @@ def test_export_to_google_sheets_uses_batch_update_request_body(tmp_path: Path, 
             recorded_requests.append(request_body)
 
     class FakeClient:
-        def create(self, _title: str):
+        def __init__(self, existing_titles: set[str] | None = None):
+            self._existing = existing_titles or set()
+
+        def open(self, title: str):
+            opened_titles.append(title)
+            if title not in self._existing:
+                raise gspread.SpreadsheetNotFound
+            return FakeSpreadsheet()
+
+        def create(self, title: str):
+            created_titles.append(title)
+            self._existing.add(title)
             return FakeSpreadsheet()
 
     monkeypatch.setattr(
-        "src.exporters.sheets.Credentials.from_service_account_file", lambda *_args, **_kwargs: object()
+        "src.exporters.sheets.gspread.service_account",
+        lambda **_kwargs: FakeClient(),
     )
-    monkeypatch.setattr("src.exporters.sheets.gspread.authorize", lambda _creds: FakeClient())
 
     export_to_google_sheets(str(csv_path), credentials_path=str(tmp_path / "creds.json"), spreadsheet_title="Test")
 
+    assert created_titles == ["Test"]
+    assert opened_titles == ["Test"]
     assert recorded_requests == [
         {
             "requests": [
@@ -258,3 +277,55 @@ def test_export_to_google_sheets_uses_batch_update_request_body(tmp_path: Path, 
             ]
         }
     ]
+
+
+def test_export_to_google_sheets_reuses_existing_spreadsheet(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    csv_path = tmp_path / "goodbudget.csv"
+    csv_path.write_text(
+        "Date,Envelope,Account,Name,Notes,Amount,Status\n2025-08-01,Unallocated,HDFC,Groceries,, -100.00,cleared\n"
+    )
+
+    created_titles: list[str] = []
+    cleared = False
+
+    class FakeWorksheet:
+        def clear(self):
+            nonlocal cleared
+            cleared = True
+
+        def update(self, *_args, **_kwargs):
+            return None
+
+        def append_rows(self, *_args, **_kwargs):
+            return None
+
+        def format(self, *_args, **_kwargs):
+            return None
+
+    class FakeSpreadsheet:
+        def __init__(self):
+            self.sheet1 = FakeWorksheet()
+            self.url = "https://example.test/existing"
+
+        def batch_update(self, _request_body):
+            return None
+
+    class FakeClient:
+        def open(self, title: str):
+            if title == "Fipro Transactions":
+                return FakeSpreadsheet()
+            raise gspread.SpreadsheetNotFound
+
+        def create(self, title: str):
+            created_titles.append(title)
+            return FakeSpreadsheet()
+
+    monkeypatch.setattr(
+        "src.exporters.sheets.gspread.service_account",
+        lambda **_kwargs: FakeClient(),
+    )
+
+    export_to_google_sheets(str(csv_path), credentials_path=str(tmp_path / "creds.json"))
+
+    assert created_titles == []
+    assert cleared is True

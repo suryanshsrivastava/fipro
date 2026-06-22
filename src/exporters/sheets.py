@@ -2,7 +2,6 @@ import csv
 from pathlib import Path
 
 import gspread
-from google.oauth2.service_account import Credentials
 
 from src.exporters.goodbudget import GOODBUDGET_FIELDNAMES
 
@@ -12,6 +11,13 @@ SCOPES = [
 ]
 
 
+def _open_or_create_spreadsheet(client: gspread.Client, spreadsheet_title: str) -> gspread.Spreadsheet:
+    try:
+        return client.open(spreadsheet_title)
+    except gspread.SpreadsheetNotFound:
+        return client.create(spreadsheet_title)
+
+
 def export_to_google_sheets(
     csv_path: str,
     credentials_path: str = "config/google_credentials.json",
@@ -19,8 +25,7 @@ def export_to_google_sheets(
 ) -> str:
     Path(csv_path).parent.mkdir(parents=True, exist_ok=True)
 
-    creds = Credentials.from_service_account_file(credentials_path, scopes=SCOPES)
-    client = gspread.authorize(creds)
+    client = gspread.service_account(filename=credentials_path, scopes=SCOPES)
 
     with open(csv_path, newline="") as f:
         rows = list(csv.DictReader(f))
@@ -40,21 +45,20 @@ def export_to_google_sheets(
             ]
         )
 
-    spreadsheet = client.create(spreadsheet_title)
+    spreadsheet = _open_or_create_spreadsheet(client, spreadsheet_title)
     worksheet = spreadsheet.sheet1
+    worksheet.clear()
 
-    # Write in batches of 1000 rows to avoid API limits
     batch_size = 1000
     for i in range(0, len(data_rows), batch_size):
         batch = data_rows[i : i + batch_size]
         start_row = i + 1
         end_row = start_row + len(batch) - 1
         if i == 0:
-            worksheet.update(f"A1:G{end_row}", batch)  # type: ignore[arg-type]  # pre-existing, tracked as SHEETS-001
+            worksheet.update(f"A1:G{end_row}", batch)  # type: ignore[arg-type]
         else:
-            worksheet.append_rows(batch, insert_data_option="OVERWRITE")  # type: ignore[arg-type]  # pre-existing, tracked as SHEETS-001
+            worksheet.append_rows(batch, insert_data_option="OVERWRITE")  # type: ignore[arg-type]
 
-    # Format headers
     worksheet.format(
         "A1:G1",
         {
@@ -64,7 +68,6 @@ def export_to_google_sheets(
         },
     )
 
-    # Format amount column
     cell_count = len(data_rows)
     worksheet.format(
         f"F2:F{cell_count}",
@@ -79,5 +82,5 @@ def export_to_google_sheets(
     spreadsheet.batch_update(resize_request)
 
     spreadsheet_url = spreadsheet.url
-    print(f"Google Sheet created: {spreadsheet_url}")
+    print(f"Google Sheet updated: {spreadsheet_url}")
     return spreadsheet_url
