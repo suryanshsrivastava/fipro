@@ -27,8 +27,17 @@ class SheetsCommandResult:
 
 
 def run_process_command(config: dict) -> list[str]:
-    run = process_pipeline(config)
-    return summarize_pipeline_run(run)
+    return summarize_pipeline_run(process_pipeline(config))
+
+
+def _require_existing_file(
+    path: str,
+    *,
+    error_message: str,
+    path_exists: Callable[[Path], bool],
+) -> None:
+    if not path_exists(Path(path)):
+        raise CommandInputError(error_message)
 
 
 def run_status_command(
@@ -60,9 +69,11 @@ def prepare_dashboard_launch(
     path_exists: Callable[[Path], bool] | None = None,
 ) -> DashboardLaunch:
     exists = path_exists or Path.exists
-    csv = Path(csv_path)
-    if not exists(csv):
-        raise CommandInputError(f"CSV not found: {csv_path} — run `fipro process` first.")
+    _require_existing_file(
+        csv_path,
+        error_message=f"CSV not found: {csv_path} — run `fipro process` first.",
+        path_exists=exists,
+    )
 
     return DashboardLaunch(
         csv_path=csv_path,
@@ -81,13 +92,16 @@ def run_sheets_command(
     exporter: Callable[[str, str, str], str] = export_to_google_sheets,
 ) -> SheetsCommandResult:
     exists = path_exists or Path.exists
-    csv = Path(csv_path)
-    creds = Path(creds_path)
-
-    if not exists(csv):
-        raise CommandInputError(f"CSV not found: {csv_path} — run `fipro process` first.")
-    if not exists(creds):
-        raise CommandInputError(f"Google credentials not found: {creds_path}")
+    _require_existing_file(
+        csv_path,
+        error_message=f"CSV not found: {csv_path} — run `fipro process` first.",
+        path_exists=exists,
+    )
+    _require_existing_file(
+        creds_path,
+        error_message=f"Google credentials not found: {creds_path}",
+        path_exists=exists,
+    )
 
     url = exporter(csv_path, creds_path, title)
     return SheetsCommandResult(url=url, lines=[f"Done. Open: {url}"])
