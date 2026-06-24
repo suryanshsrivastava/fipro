@@ -43,16 +43,17 @@ class HubSummary:
         )
 
     def __getitem__(self, key: str):
-        if key == "date_range":
-            return {"earliest": self.earliest, "latest": self.latest}
-        if key == "cash_flow":
-            return self.cash_flow
-        if key == "net_worth_proxy":
-            return {
+        mapping = {
+            "date_range": {"earliest": self.earliest, "latest": self.latest},
+            "cash_flow": self.cash_flow,
+            "net_worth_proxy": {
                 "total_across_statements": self.total_across_statements,
                 "reason_if_no_total": self.reason_if_no_total,
-            }
-        raise KeyError(key)
+            },
+        }
+        if key not in mapping:
+            raise KeyError(key)
+        return mapping[key]
 
 
 @dataclass(slots=True)

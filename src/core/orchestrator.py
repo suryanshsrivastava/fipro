@@ -1,4 +1,5 @@
 import logging
+import shutil
 import tempfile
 from pathlib import Path
 
@@ -40,7 +41,7 @@ _EXPORT_ARTIFACTS = (
 def _commit_export_artifacts(staging_dir: Path, output_dir: Path) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     for name in _EXPORT_ARTIFACTS:
-        (output_dir / name).write_bytes((staging_dir / name).read_bytes())
+        shutil.copy2(staging_dir / name, output_dir / name)
 
 
 def _run_export_phase(
@@ -134,8 +135,9 @@ def process_pipeline(config: dict) -> PipelineRun:
                 )
             )
         except Exception as e:
-            logger.error("Failed processing %s: %s", crawled.filepath, e)
-            failures.append((crawled.filepath, str(e)))
+            error = str(e)
+            logger.error("Failed processing %s: %s", crawled.filepath, error)
+            failures.append((crawled.filepath, error))
             results.append(
                 ProcessingResult(
                     source_file=crawled.filepath,
@@ -145,13 +147,13 @@ def process_pipeline(config: dict) -> PipelineRun:
                     failed=1,
                     duplicates_skipped=0,
                     transactions=[],
-                    errors=[str(e)],
+                    errors=[error],
                     warnings=[],
                 )
             )
 
     if failures:
-        _persist_failures(failures, failed_path)
+        persist_failed_files(failures, failed_path, mover=move_file_to_failed)
 
     if failures and fail_on_file_error:
         raise RuntimeError(f"Processing aborted because {len(failures)} file(s) failed to parse")
@@ -249,7 +251,3 @@ def move_file_to_processed(source_path: str, dest_dir: str) -> str:
 
 def move_file_to_failed(source_path: str, dest_dir: str, error: str) -> str:
     return _move_file_to_failed(source_path, dest_dir, error)
-
-
-def _persist_failures(failures: list[tuple[str, str]], failed_path: str) -> None:
-    persist_failed_files(failures, failed_path, mover=move_file_to_failed)

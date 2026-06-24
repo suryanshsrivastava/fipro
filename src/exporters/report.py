@@ -31,6 +31,7 @@ def generate_report(
         transactions = [transaction for result in results for transaction in result.transactions]
     include_internal_transfers = include_internal_transfers_from_config(config)
     transactions_for_metrics = filter_transactions_for_export(transactions, include_internal_transfers)
+    exported_count = exported_transactions if exported_transactions is not None else len(transactions_for_metrics)
 
     by_bank: dict[str, dict[str, int]] = {}
     for transaction in transactions_for_metrics:
@@ -52,9 +53,7 @@ def generate_report(
         "summary": {
             "total_files": len(results),
             "total_transactions": sum(result.total_transactions for result in results),
-            "exported_transactions": (
-                exported_transactions if exported_transactions is not None else len(transactions_for_metrics)
-            ),
+            "exported_transactions": exported_count,
             "duplicates_skipped": duplicates_skipped,
             "transfers_detected": sum(
                 1 for transaction in transactions if transaction.status == TransactionStatus.TRANSFER
