@@ -11,6 +11,51 @@ from src.models.transactions import Transaction
 
 
 @dataclass(slots=True)
+class HubSummary:
+    """Compact snapshot for CLI and PipelineRun."""
+
+    earliest: str | None
+    latest: str | None
+    cash_flow: dict | None
+    total_across_statements: str | None
+    reason_if_no_total: str | None
+
+    @classmethod
+    def empty(cls, reason: str = "no_input_files") -> HubSummary:
+        return cls(
+            earliest=None,
+            latest=None,
+            cash_flow=None,
+            total_across_statements=None,
+            reason_if_no_total=reason,
+        )
+
+    @classmethod
+    def from_report(cls, report: dict) -> HubSummary:
+        date_range = report.get("date_range") or {}
+        ending = report.get("net_worth_proxy") or {}
+        return cls(
+            earliest=date_range.get("earliest"),
+            latest=date_range.get("latest"),
+            cash_flow=report.get("cash_flow"),
+            total_across_statements=ending.get("total_across_statements"),
+            reason_if_no_total=ending.get("reason_if_no_total"),
+        )
+
+    def __getitem__(self, key: str):
+        if key == "date_range":
+            return {"earliest": self.earliest, "latest": self.latest}
+        if key == "cash_flow":
+            return self.cash_flow
+        if key == "net_worth_proxy":
+            return {
+                "total_across_statements": self.total_across_statements,
+                "reason_if_no_total": self.reason_if_no_total,
+            }
+        raise KeyError(key)
+
+
+@dataclass(slots=True)
 class PipelineRun:
     """Outputs and transactions from a full pipeline run."""
 
@@ -19,7 +64,7 @@ class PipelineRun:
     goodbudget_csv_path: str
     report_json_path: str
     hub_csv_path: str
-    hub_summary: dict
+    hub_summary: HubSummary
 
 
 @dataclass

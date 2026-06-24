@@ -6,12 +6,13 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
-from src.models.result import ProcessingResult
+from src.models.result import HubSummary, PipelineRun, ProcessingResult
 from src.models.transactions import Transaction, TransactionStatus, TransactionType
 from src.utils.report_helpers import (
     cash_flow_from_transactions,
     ending_balances_by_statement,
     filter_transactions_for_export,
+    include_internal_transfers_from_config,
     top_descriptions,
 )
 
@@ -19,21 +20,16 @@ from src.utils.report_helpers import (
 def generate_report(
     results: list[ProcessingResult],
     output_path: str,
-    exported_transactions: int | None = None,
     config: dict | None = None,
     duplicates_skipped: int = 0,
     transactions: list[Transaction] | None = None,
-) -> dict:
+    exported_transactions: int | None = None,
+    return_hub_summary: bool = True,
+) -> dict | tuple[dict, HubSummary]:
     """Generate and write a JSON processing report."""
     if transactions is None:
         transactions = [transaction for result in results for transaction in result.transactions]
-    include_internal_transfers = True
-    if config is not None:
-        processing = config.get("processing", {})
-        if "include_internal_transfers" in processing:
-            include_internal_transfers = processing["include_internal_transfers"]
-        elif processing.get("skip_internal_transfers", False):
-            include_internal_transfers = False
+    include_internal_transfers = include_internal_transfers_from_config(config)
     transactions_for_metrics = filter_transactions_for_export(transactions, include_internal_transfers)
 
     by_bank: dict[str, dict[str, int]] = {}
@@ -57,7 +53,7 @@ def generate_report(
             "total_files": len(results),
             "total_transactions": sum(result.total_transactions for result in results),
             "exported_transactions": (
-                len(transactions_for_metrics) if exported_transactions is None else exported_transactions
+                exported_transactions if exported_transactions is not None else len(transactions_for_metrics)
             ),
             "duplicates_skipped": duplicates_skipped,
             "transfers_detected": sum(
@@ -90,6 +86,8 @@ def generate_report(
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "w") as f:
         json.dump(report, f, indent=2, default=str)
+    if return_hub_summary:
+        return report, HubSummary.from_report(report)
     return report
 
 
@@ -105,14 +103,29 @@ def calculate_date_range(transactions: list[Transaction]) -> dict:
     }
 
 
-def build_hub_summary(report: dict) -> dict:
-    """Compact snapshot for CLI (subset of report)."""
-    ending = report.get("net_worth_proxy") or {}
-    return {
-        "date_range": report.get("date_range"),
-        "cash_flow": report.get("cash_flow"),
-        "net_worth_proxy": {
-            "total_across_statements": ending.get("total_across_statements"),
-            "reason_if_no_total": ending.get("reason_if_no_total"),
-        },
-    }
+def summarize_pipeline_run(run: PipelineRun) -> list[str]:
+    """Format CLI lines from a completed pipeline run."""
+    if not run.results:
+        return ["No input files found."]
+
+    parsed_count = sum(result.total_transactions for result in run.results)
+    exported_count = len(run.deduplicated_transactions)
+    failed = sum(len(result.errors) for result in run.results)
+    lines = [
+        (
+            f"Processed {len(run.results)} file(s): "
+            f"{parsed_count} parsed, {exported_count} exported after dedup, {failed} error(s)."
+        )
+    ]
+
+    summary = run.hub_summary
+    if summary.earliest and summary.latest:
+        lines.append(f"Statement window: {summary.earliest} to {summary.latest}")
+
+    if summary.cash_flow and summary.cash_flow.get("net_cash_flow") is not None:
+        lines.append(f"Net cash flow (export scope): {summary.cash_flow['net_cash_flow']}")
+
+    if summary.total_across_statements is not None:
+        lines.append(f"Statement balances sum (not net worth): {summary.total_across_statements}")
+
+    return lines

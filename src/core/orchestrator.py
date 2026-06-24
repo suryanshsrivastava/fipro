@@ -1,35 +1,87 @@
 import logging
-import shutil
+import tempfile
 from pathlib import Path
 
 import pandas as pd
 
-from src.core.deduplicator import deduplicate, get_seen_hashes_from_file, save_seen_hashes_to_file
+from src.core.deduplicator import get_seen_hashes_from_file, save_seen_hashes_to_file
 from src.core.ingestion import discover_files
-from src.core.transfer_detector import detect_transfers
+from src.core.pipeline_lifecycle import (
+    move_file_to_failed as _move_file_to_failed,
+)
+from src.core.pipeline_lifecycle import (
+    move_file_to_processed as _move_file_to_processed,
+)
+from src.core.pipeline_lifecycle import (
+    move_processed_files,
+    persist_failed_files,
+)
+from src.core.transaction_consolidation import apply_processing_metrics, consolidate_transactions
 from src.exporters.goodbudget import export_to_goodbudget
 from src.exporters.hub_csv import export_hub_csv
-from src.exporters.report import build_hub_summary, generate_report
-from src.models.result import PipelineRun, ProcessingResult
+from src.exporters.report import generate_report
+from src.models.result import HubSummary, PipelineRun, ProcessingResult
 from src.models.transactions import Transaction
 from src.parsers.axis import AxisParser
 from src.parsers.base import BankParser
 from src.parsers.hdfc import HDFCParser
 from src.parsers.sbi import SBIParser
-from src.utils.report_helpers import filter_transactions_for_export
+from src.utils.report_helpers import include_internal_transfers_from_config
 
 logger = logging.getLogger("fipro.orchestrator")
 
+_EXPORT_ARTIFACTS = (
+    "goodbudget_export.csv",
+    "hub_summary.csv",
+    "processing_report.json",
+)
 
-def _empty_hub_summary() -> dict:
-    return {
-        "date_range": {"earliest": None, "latest": None},
-        "cash_flow": None,
-        "net_worth_proxy": {
-            "total_across_statements": None,
-            "reason_if_no_total": "no_input_files",
-        },
-    }
+
+def _commit_export_artifacts(staging_dir: Path, output_dir: Path) -> None:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    for name in _EXPORT_ARTIFACTS:
+        (output_dir / name).write_bytes((staging_dir / name).read_bytes())
+
+
+def _run_export_phase(
+    config: dict,
+    export_transactions: list[Transaction],
+    results: list[ProcessingResult],
+    deduplicated_transactions: list[Transaction],
+    duplicates_skipped: int,
+    output_path: str,
+) -> tuple[str, str, str, HubSummary]:
+    """
+    Write exports to a staging directory, then publish all artifacts together.
+
+    On failure before commit, nothing is written to the final output directory.
+    """
+    output_dir = Path(output_path)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    with tempfile.TemporaryDirectory(prefix=".fipro_export_", dir=output_dir) as staging_name:
+        staging_dir = Path(staging_name)
+        csv_staging = staging_dir / "goodbudget_export.csv"
+        hub_staging = staging_dir / "hub_summary.csv"
+        report_staging = staging_dir / "processing_report.json"
+
+        export_to_goodbudget(export_transactions, str(csv_staging), config)
+        export_hub_csv(export_transactions, str(hub_staging))
+        _, hub_summary = generate_report(
+            results,
+            str(report_staging),
+            config=config,
+            duplicates_skipped=duplicates_skipped,
+            transactions=deduplicated_transactions,
+        )
+        _commit_export_artifacts(staging_dir, output_dir)
+
+    return (
+        str(output_dir / "goodbudget_export.csv"),
+        str(output_dir / "hub_summary.csv"),
+        str(output_dir / "processing_report.json"),
+        hub_summary,
+    )
 
 
 def process_pipeline(config: dict) -> PipelineRun:
@@ -53,7 +105,7 @@ def process_pipeline(config: dict) -> PipelineRun:
             goodbudget_csv_path="",
             report_json_path="",
             hub_csv_path="",
-            hub_summary=_empty_hub_summary(),
+            hub_summary=HubSummary.empty(),
         )
 
     parsers = [HDFCParser(), SBIParser(), AxisParser()]
@@ -83,7 +135,6 @@ def process_pipeline(config: dict) -> PipelineRun:
             )
         except Exception as e:
             logger.error("Failed processing %s: %s", crawled.filepath, e)
-            move_file_to_failed(crawled.filepath, failed_path, str(e))
             failures.append((crawled.filepath, str(e)))
             results.append(
                 ProcessingResult(
@@ -99,47 +150,39 @@ def process_pipeline(config: dict) -> PipelineRun:
                 )
             )
 
+    if failures:
+        _persist_failures(failures, failed_path)
+
     if failures and fail_on_file_error:
         raise RuntimeError(f"Processing aborted because {len(failures)} file(s) failed to parse")
 
-    deduplicated_transactions, _ = deduplicate(all_transactions, seen_hashes)
-    deduplicated_transactions = detect_transfers(deduplicated_transactions)
-    duplicates_by_source = _count_duplicates_by_source(all_transactions, prior_seen_hashes)
-
-    transactions_by_source: dict[str, list[Transaction]] = {}
-    for transaction in deduplicated_transactions:
-        transactions_by_source.setdefault(transaction.source_file, []).append(transaction)
-
-    for result in results:
-        result.duplicates_skipped = duplicates_by_source.get(result.source_file, 0)
-        result.transactions = transactions_by_source.get(result.source_file, [])
-        result.successful = len(result.transactions)
-
-    skip_internal = config.get("processing", {}).get("skip_internal_transfers", False)
-    include_internal = config.get("processing", {}).get("include_internal_transfers", not skip_internal)
-    export_transactions = filter_transactions_for_export(deduplicated_transactions, include_internal)
-
-    csv_path = f"{output_path}/goodbudget_export.csv"
-    export_to_goodbudget(export_transactions, csv_path, config)
-
-    hub_path = f"{output_path}/hub_summary.csv"
-    export_hub_csv(export_transactions, hub_path)
-
-    report_path = f"{output_path}/processing_report.json"
-    report = generate_report(
-        results,
-        report_path,
-        exported_transactions=len(export_transactions),
-        config=config,
-        duplicates_skipped=sum(result.duplicates_skipped for result in results),
-        transactions=deduplicated_transactions,
+    consolidation = consolidate_transactions(
+        all_transactions,
+        seen_hashes=seen_hashes,
+        prior_seen_hashes=prior_seen_hashes,
+        include_internal_transfers=include_internal_transfers_from_config(config),
     )
-    hub_summary = build_hub_summary(report)
+    deduplicated_transactions = consolidation.deduplicated_transactions
+    export_transactions = consolidation.export_transactions
+    apply_processing_metrics(
+        results,
+        duplicates_by_source=consolidation.duplicates_by_source,
+        transactions_by_source=consolidation.transactions_by_source,
+    )
+    duplicates_skipped = sum(consolidation.duplicates_by_source.values())
+
+    csv_path, hub_path, report_path, hub_summary = _run_export_phase(
+        config,
+        export_transactions,
+        results,
+        deduplicated_transactions,
+        duplicates_skipped,
+        output_path,
+    )
 
     save_seen_hashes_to_file(seen_hashes, str(seen_hashes_path))
 
-    for filepath in processed_files:
-        move_file_to_processed(filepath, processed_path)
+    move_processed_files(processed_files, processed_path, mover=move_file_to_processed)
 
     logger.info("Pipeline complete. %d transactions exported to %s", len(export_transactions), csv_path)
     return PipelineRun(
@@ -201,41 +244,12 @@ def route_file_to_parser(filename: str, df: pd.DataFrame, parsers: list[BankPars
 
 
 def move_file_to_processed(source_path: str, dest_dir: str) -> str:
-    dest = Path(dest_dir)
-    dest.mkdir(parents=True, exist_ok=True)
-    dst = _unique_destination(dest / Path(source_path).name)
-    shutil.move(source_path, dst)
-    return str(dst)
+    return _move_file_to_processed(source_path, dest_dir)
 
 
 def move_file_to_failed(source_path: str, dest_dir: str, error: str) -> str:
-    dest = Path(dest_dir)
-    dest.mkdir(parents=True, exist_ok=True)
-    dst = _unique_destination(dest / Path(source_path).name)
-    shutil.move(source_path, dst)
-    error_log = dst.with_name(dst.name + ".error.txt")
-    error_log.write_text(error)
-    return str(dst)
+    return _move_file_to_failed(source_path, dest_dir, error)
 
 
-def _unique_destination(path: Path) -> Path:
-    candidate = path
-    counter = 1
-    while candidate.exists():
-        candidate = path.with_name(f"{path.stem}_{counter}{path.suffix}")
-        counter += 1
-    return candidate
-
-
-def _count_duplicates_by_source(
-    transactions: list[Transaction],
-    prior_seen_hashes: set[str],
-) -> dict[str, int]:
-    duplicates_by_source: dict[str, int] = {}
-    session_seen = set(prior_seen_hashes)
-    for transaction in transactions:
-        if transaction.hash in session_seen:
-            duplicates_by_source[transaction.source_file] = duplicates_by_source.get(transaction.source_file, 0) + 1
-            continue
-        session_seen.add(transaction.hash)
-    return duplicates_by_source
+def _persist_failures(failures: list[tuple[str, str]], failed_path: str) -> None:
+    persist_failed_files(failures, failed_path, mover=move_file_to_failed)

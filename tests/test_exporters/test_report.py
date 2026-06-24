@@ -7,9 +7,21 @@ from decimal import Decimal
 from src.exporters.report import generate_report
 from src.models.result import ProcessingResult
 from src.models.transactions import Transaction, TransactionStatus, TransactionType
+from src.utils.report_helpers import include_internal_transfers_from_config
 
 
-def test_generate_report_uses_actual_exported_transaction_count(tmp_path):
+def test_include_internal_transfers_from_config_defaults_to_true():
+    assert include_internal_transfers_from_config(None) is True
+    assert include_internal_transfers_from_config({}) is True
+
+
+def test_include_internal_transfers_from_config_honors_explicit_flags():
+    assert include_internal_transfers_from_config({"processing": {"include_internal_transfers": False}}) is False
+    assert include_internal_transfers_from_config({"processing": {"skip_internal_transfers": True}}) is False
+    assert include_internal_transfers_from_config({"processing": {"skip_internal_transfers": False}}) is True
+
+
+def test_exported_count_excludes_transfers_when_config_excludes_them(tmp_path):
     transfer = Transaction(
         transaction_date=date(2025, 1, 5),
         description="Transfer to SBI",
@@ -32,12 +44,18 @@ def test_generate_report_uses_actual_exported_transaction_count(tmp_path):
     )
 
     report_path = tmp_path / "report.json"
-    report = generate_report([result], str(report_path), exported_transactions=0)
+    report, hub_summary = generate_report(
+        [result],
+        str(report_path),
+        config={"processing": {"include_internal_transfers": False}},
+    )
     written_report = json.loads(report_path.read_text(encoding="utf-8"))
 
     assert report["summary"]["exported_transactions"] == 0
     assert written_report["summary"]["exported_transactions"] == 0
     assert written_report["summary"]["transfers_detected"] == 1
+    assert hub_summary.cash_flow is not None
+    assert hub_summary.cash_flow["net_cash_flow"] == "0"
 
 
 def test_cash_flow_excludes_transfers_when_config_says_so(tmp_path):
@@ -70,7 +88,7 @@ def test_cash_flow_excludes_transfers_when_config_says_so(tmp_path):
         warnings=[],
     )
     report_path = tmp_path / "report.json"
-    report = generate_report(
+    report, _ = generate_report(
         [result],
         str(report_path),
         config={"processing": {"include_internal_transfers": False}},
@@ -104,11 +122,12 @@ def test_net_worth_proxy_null_when_balances_missing(tmp_path):
         warnings=[],
     )
     report_path = tmp_path / "report.json"
-    report = generate_report([result], str(report_path))
+    report, hub_summary = generate_report([result], str(report_path))
     assert report["net_worth_proxy"]["total_across_statements"] is None
     assert report["net_worth_proxy"]["reason_if_no_total"] == (
         "missing_balance_on_one_or_more_statements_not_a_full_net_worth_view"
     )
+    assert hub_summary.total_across_statements is None
 
 
 def test_top_descriptions_counts_normalized_strings(tmp_path):
@@ -140,6 +159,34 @@ def test_top_descriptions_counts_normalized_strings(tmp_path):
         warnings=[],
     )
     report_path = tmp_path / "report.json"
-    report = generate_report([result], str(report_path))
+    report, _ = generate_report([result], str(report_path))
     assert report["top_descriptions"][0]["description"] == "SWIGGY ORDER"
     assert report["top_descriptions"][0]["count"] == 2
+
+
+def test_generate_report_returns_hub_summary_from_same_scope(tmp_path):
+    debit = Transaction(
+        transaction_date=date(2025, 1, 6),
+        description="Coffee",
+        amount=Decimal("100.00"),
+        transaction_type=TransactionType.DEBIT,
+        source_bank="HDFC",
+        source_file="/data/a.xls",
+        balance=Decimal("900.00"),
+    )
+    result = ProcessingResult(
+        source_file="/data/a.xls",
+        bank="HDFC",
+        total_transactions=1,
+        successful=1,
+        failed=0,
+        duplicates_skipped=0,
+        transactions=[debit],
+        errors=[],
+        warnings=[],
+    )
+    report_path = tmp_path / "report.json"
+    report, hub_summary = generate_report([result], str(report_path))
+    assert hub_summary.earliest == report["date_range"]["earliest"]
+    assert hub_summary.cash_flow == report["cash_flow"]
+    assert hub_summary.total_across_statements == report["net_worth_proxy"]["total_across_statements"]

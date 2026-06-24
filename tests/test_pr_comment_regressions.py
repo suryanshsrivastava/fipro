@@ -13,8 +13,16 @@ from src.core import orchestrator
 from src.core.deduplicator import save_seen_hashes_to_file
 from src.exporters.goodbudget import export_to_goodbudget
 from src.exporters.sheets import export_to_google_sheets
+from src.models.result import HubSummary
 from src.models.transactions import Transaction, TransactionType
 from src.ui import dashboard
+
+
+def _mock_generate_report(_results, output_path, **_kwargs):
+    path = Path(output_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("{}", encoding="utf-8")
+    return {}, HubSummary.empty()
 
 
 class DummyParser:
@@ -156,11 +164,18 @@ def test_process_pipeline_skips_internal_transfers_from_export(monkeypatch: pyte
     monkeypatch.setattr(orchestrator, "get_seen_hashes_from_file", lambda _path: set())
     monkeypatch.setattr(orchestrator, "save_seen_hashes_to_file", lambda *_args: None)
     monkeypatch.setattr(orchestrator, "move_file_to_processed", lambda *_args: None)
-    monkeypatch.setattr(orchestrator, "generate_report", lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(orchestrator, "generate_report", _mock_generate_report)
+
+    def capture_goodbudget(transactions, csv_path, *_args, **_kwargs):
+        exported.setdefault("transactions", list(transactions))
+        path = Path(csv_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("Date\n", encoding="utf-8")
+
     monkeypatch.setattr(
         orchestrator,
         "export_to_goodbudget",
-        lambda transactions, *_args: exported.setdefault("transactions", list(transactions)),
+        capture_goodbudget,
     )
 
     config = {
@@ -191,7 +206,7 @@ def test_process_pipeline_moves_files_only_after_successful_export(monkeypatch: 
     monkeypatch.setattr(orchestrator, "get_seen_hashes_from_file", lambda _path: set())
     monkeypatch.setattr(orchestrator, "save_seen_hashes_to_file", lambda *_args: None)
     monkeypatch.setattr(orchestrator, "move_file_to_processed", lambda source, *_args: processed_moves.append(source))
-    monkeypatch.setattr(orchestrator, "generate_report", lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(orchestrator, "generate_report", _mock_generate_report)
 
     def fail_export(*_args, **_kwargs):
         raise RuntimeError("export failed")
@@ -213,6 +228,8 @@ def test_process_pipeline_moves_files_only_after_successful_export(monkeypatch: 
         orchestrator.process_pipeline(config)
 
     assert processed_moves == []
+    output_dir = tmp_path / "output"
+    assert not output_dir.exists() or not list(output_dir.glob("goodbudget_export.csv"))
 
 
 def test_export_to_google_sheets_uses_batch_update_request_body(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
@@ -408,12 +425,15 @@ def test_export_to_google_sheets_creates_new_when_stored_id_is_stale(tmp_path: P
     assert id_path.read_text(encoding="utf-8") == "fresh-sheet-id"
 
 
-def test_process_pipeline_defers_hash_save_until_exports_complete(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+def test_process_pipeline_export_phase_leaves_no_artifacts_on_hub_failure(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+):
     transaction = make_transaction(source_file="statement.xls")
     parser = DummyParser([transaction])
     crawled = [SimpleNamespace(filepath="statement.xls", filename="statement.xls", metadata={})]
     hash_writes: list[set[str]] = []
     processed_moves: list[str] = []
+    output_dir = tmp_path / "output"
 
     monkeypatch.setattr(orchestrator, "discover_files", lambda _config: crawled)
     monkeypatch.setattr(orchestrator, "load_statement_dataframe", lambda _path: None)
@@ -435,7 +455,7 @@ def test_process_pipeline_defers_hash_save_until_exports_complete(monkeypatch: p
     config = {
         "paths": {
             "input": str(tmp_path / "input"),
-            "output": str(tmp_path / "output"),
+            "output": str(output_dir),
             "processed": str(tmp_path / "processed"),
             "failed": str(tmp_path / "failed"),
         },
@@ -448,6 +468,9 @@ def test_process_pipeline_defers_hash_save_until_exports_complete(monkeypatch: p
 
     assert hash_writes == []
     assert processed_moves == []
+    assert not output_dir.exists() or not list(output_dir.glob("goodbudget_export.csv"))
+    assert not output_dir.exists() or not list(output_dir.glob("hub_summary.csv"))
+    assert not output_dir.exists() or not list(output_dir.glob("processing_report.json"))
 
 
 def test_process_pipeline_accounts_for_prior_seen_hashes_on_rerun(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
@@ -459,7 +482,7 @@ def test_process_pipeline_accounts_for_prior_seen_hashes_on_rerun(monkeypatch: p
     monkeypatch.setattr(orchestrator, "load_statement_dataframe", lambda _path: None)
     monkeypatch.setattr(orchestrator, "route_file_to_parser", lambda *_args: parser)
     monkeypatch.setattr(orchestrator, "move_file_to_processed", lambda *_args: None)
-    monkeypatch.setattr(orchestrator, "generate_report", lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(orchestrator, "generate_report", _mock_generate_report)
 
     config = {
         "paths": {

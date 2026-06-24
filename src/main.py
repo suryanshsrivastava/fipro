@@ -1,11 +1,14 @@
 import argparse
 import sys
-from pathlib import Path
 
 from src.config import load_config
-from src.core.ingestion import discover_files
-from src.core.orchestrator import process_pipeline
-from src.exporters.sheets import export_to_google_sheets
+from src.core.application import (
+    CommandInputError,
+    prepare_dashboard_launch,
+    run_process_command,
+    run_sheets_command,
+    run_status_command,
+)
 from src.ui.dashboard import serve_dashboard
 from src.utils.logger import setup_logging
 
@@ -45,73 +48,43 @@ def main():
 
 def cmd_process(config):
     try:
-        run = process_pipeline(config)
+        lines = run_process_command(config)
     except Exception as exc:
         print(f"Processing failed: {exc}", file=sys.stderr)
         sys.exit(1)
 
-    if not run.results:
-        print("No input files found.")
-        return
-
-    parsed_count = sum(result.total_transactions for result in run.results)
-    exported_count = len(run.deduplicated_transactions)
-    failed = sum(len(result.errors) for result in run.results)
-    print(
-        f"Processed {len(run.results)} file(s): "
-        f"{parsed_count} parsed, {exported_count} exported after dedup, {failed} error(s)."
-    )
-
-    dr = run.hub_summary.get("date_range") or {}
-    earliest, latest = dr.get("earliest"), dr.get("latest")
-    if earliest and latest:
-        print(f"Statement window: {earliest} to {latest}")
-    cf = run.hub_summary.get("cash_flow") or {}
-    if cf.get("net_cash_flow") is not None:
-        print(f"Net cash flow (export scope): {cf['net_cash_flow']}")
-    nw = (run.hub_summary.get("net_worth_proxy") or {}).get("total_across_statements")
-    if nw is not None:
-        print(f"Statement balances sum (not net worth): {nw}")
+    for line in lines:
+        print(line)
 
 
 def cmd_status(config):
-    files = discover_files(config)
-    if not files:
-        print("No files to process.")
-        return
-    by_bank: dict[str, list[str]] = {}
-    for f in files:
-        bank = f.metadata.get("bank", "UNKNOWN")
-        by_bank.setdefault(bank, []).append(f.filename)
-    for bank, names in sorted(by_bank.items()):
-        print(f"{bank}: {len(names)} file(s)")
-        for n in names:
-            print(f"  - {n}")
+    for line in run_status_command(config):
+        print(line)
 
 
 def cmd_dashboard(csv_path: str, port: int, open_browser: bool):
-    p = Path(csv_path)
-    if not p.exists():
-        print(f"CSV not found: {csv_path} — run `fipro process` first.", file=sys.stderr)
+    try:
+        launch = prepare_dashboard_launch(csv_path, port, open_browser)
+    except CommandInputError as exc:
+        print(str(exc), file=sys.stderr)
         sys.exit(1)
-    print(f"Starting dashboard on http://localhost:{port} ...")
-    serve_dashboard(csv_path, port, open_browser=open_browser)
+    for line in launch.lines:
+        print(line)
+    serve_dashboard(launch.csv_path, launch.port, open_browser=launch.open_browser)
 
 
 def cmd_sheets(csv_path: str, creds_path: str, title: str):
-    p = Path(csv_path)
-    if not p.exists():
-        print(f"CSV not found: {csv_path} — run `fipro process` first.", file=sys.stderr)
+    try:
+        result = run_sheets_command(csv_path, creds_path, title)
+    except CommandInputError as exc:
+        print(str(exc), file=sys.stderr)
+        if "Google credentials not found" in str(exc):
+            print("  → Create a service account in Google Cloud Console,", file=sys.stderr)
+            print("    enable the Sheets & Drive API, download the JSON key", file=sys.stderr)
+            print("    and save it to config/google_credentials.json", file=sys.stderr)
         sys.exit(1)
-    c = Path(creds_path)
-    if not c.exists():
-        print(f"Google credentials not found: {creds_path}", file=sys.stderr)
-        print("  → Create a service account in Google Cloud Console,", file=sys.stderr)
-        print("    enable the Sheets & Drive API, download the JSON key", file=sys.stderr)
-        print("    and save it to config/google_credentials.json", file=sys.stderr)
-        sys.exit(1)
-    url = export_to_google_sheets(csv_path, creds_path, title)
-    print(f"Done. Open: {url}")
+    for line in result.lines:
+        print(line)
 
 
 if __name__ == "__main__":

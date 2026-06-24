@@ -25,6 +25,16 @@ def normalize_description_key(description: str) -> str:
     return _WHITESPACE_RE.sub(" ", s)
 
 
+def include_internal_transfers_from_config(config: dict | None) -> bool:
+    """Resolve export/report transfer inclusion from processing config."""
+    if config is None:
+        return True
+    processing = config.get("processing", {})
+    if "include_internal_transfers" in processing:
+        return bool(processing["include_internal_transfers"])
+    return not processing.get("skip_internal_transfers", False)
+
+
 def filter_transactions_for_export(
     transactions: list[Transaction],
     include_internal_transfers: bool,

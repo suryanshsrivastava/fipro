@@ -63,4 +63,4 @@ def test_raw_monthly_exports_pipeline(tmp_path):
     assert report["summary"]["total_files"] == 3
     assert report["cash_flow"]["net_cash_flow"] is not None
     assert report["date_range"]["earliest"] is not None
-    assert run.hub_summary["cash_flow"] is not None
+    assert run.hub_summary.cash_flow is not None
