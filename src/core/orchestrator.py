@@ -6,6 +6,7 @@ from pathlib import Path
 import pandas as pd
 
 from src.core.deduplicator import get_seen_hashes_from_file, save_seen_hashes_to_file
+from src.core.external_account_detector import detect_external_account_payments
 from src.core.ingestion import discover_files
 from src.core.pipeline_lifecycle import (
     move_file_to_failed as _move_file_to_failed,
@@ -164,6 +165,7 @@ def process_pipeline(config: dict) -> PipelineRun:
         prior_seen_hashes=prior_seen_hashes,
         include_internal_transfers=include_internal_transfers_from_config(config),
     )
+    detect_external_account_payments(consolidation.deduplicated_transactions, config)
     deduplicated_transactions = consolidation.deduplicated_transactions
     export_transactions = consolidation.export_transactions
     apply_processing_metrics(

@@ -73,6 +73,7 @@ class Transaction:
     balance: Decimal | None = None
     category: str | None = None
     envelope: str | None = None
+    external_account_name: str | None = None
     status: TransactionStatus = TransactionStatus.PENDING
     notes: str | None = None
     raw_data: dict | None = None

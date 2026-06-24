@@ -26,7 +26,18 @@ def format_goodbudget_row(transaction: Transaction, config: dict, max_len: int =
         "Envelope": transaction.envelope or envelope,
         "Account": transaction.source_bank,
         "Name": transaction.description[:max_len],
-        "Notes": transaction.notes or "",
+        "Notes": build_goodbudget_notes(transaction),
         "Amount": str(transaction.signed_amount),
         "Status": txn_status,
     }
+
+
+def build_goodbudget_notes(transaction: Transaction) -> str:
+    notes: list[str] = []
+    if transaction.notes:
+        notes.append(transaction.notes)
+    if transaction.status == TransactionStatus.TRANSFER:
+        notes.append("Internal transfer detected")
+    if transaction.external_account_name:
+        notes.append(f"External account payment: {transaction.external_account_name}")
+    return " | ".join(notes)

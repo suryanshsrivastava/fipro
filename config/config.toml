@@ -34,3 +34,7 @@ date_format = "%d-%m-%Y"
 default_envelope = "Unallocated"
 default_status = "cleared"
 max_description_length = 50
+
+[external_accounts]
+names = ["CREDIT_CARD"]
+payment_keywords = ["CREDIT CARD", "CC PAYMENT", "CARD PAYMENT", "CRED"]
