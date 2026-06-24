@@ -65,6 +65,7 @@ class PipelineRun:
     goodbudget_csv_path: str
     report_json_path: str
     hub_csv_path: str
+    dashboard_csv_path: str
     hub_summary: HubSummary
 
 

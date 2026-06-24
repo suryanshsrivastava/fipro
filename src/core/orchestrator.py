@@ -19,7 +19,7 @@ from src.core.pipeline_lifecycle import (
     persist_failed_files,
 )
 from src.core.transaction_consolidation import apply_processing_metrics, consolidate_transactions
-from src.exporters.goodbudget import export_to_goodbudget
+from src.exporters.goodbudget import export_dashboard_data, export_to_goodbudget
 from src.exporters.hub_csv import export_hub_csv
 from src.exporters.report import generate_report
 from src.models.result import HubSummary, PipelineRun, ProcessingResult
@@ -34,6 +34,7 @@ logger = logging.getLogger("fipro.orchestrator")
 
 _EXPORT_ARTIFACTS = (
     "goodbudget_export.csv",
+    "dashboard_data.csv",
     "hub_summary.csv",
     "processing_report.json",
 )
@@ -52,7 +53,7 @@ def _run_export_phase(
     deduplicated_transactions: list[Transaction],
     duplicates_skipped: int,
     output_path: str,
-) -> tuple[str, str, str, HubSummary]:
+) -> tuple[str, str, str, str, HubSummary]:
     """
     Write exports to a staging directory, then publish all artifacts together.
 
@@ -64,10 +65,12 @@ def _run_export_phase(
     with tempfile.TemporaryDirectory(prefix=".fipro_export_", dir=output_dir) as staging_name:
         staging_dir = Path(staging_name)
         csv_staging = staging_dir / "goodbudget_export.csv"
+        dashboard_staging = staging_dir / "dashboard_data.csv"
         hub_staging = staging_dir / "hub_summary.csv"
         report_staging = staging_dir / "processing_report.json"
 
         export_to_goodbudget(export_transactions, str(csv_staging), config)
+        export_dashboard_data(deduplicated_transactions, str(dashboard_staging))
         export_hub_csv(export_transactions, str(hub_staging))
         _, hub_summary = generate_report(
             results,
@@ -82,6 +85,7 @@ def _run_export_phase(
         str(output_dir / "goodbudget_export.csv"),
         str(output_dir / "hub_summary.csv"),
         str(output_dir / "processing_report.json"),
+        str(output_dir / "dashboard_data.csv"),
         hub_summary,
     )
 
@@ -107,6 +111,7 @@ def process_pipeline(config: dict) -> PipelineRun:
             goodbudget_csv_path="",
             report_json_path="",
             hub_csv_path="",
+            dashboard_csv_path="",
             hub_summary=HubSummary.empty(),
         )
 
@@ -175,7 +180,7 @@ def process_pipeline(config: dict) -> PipelineRun:
     )
     duplicates_skipped = sum(consolidation.duplicates_by_source.values())
 
-    csv_path, hub_path, report_path, hub_summary = _run_export_phase(
+    csv_path, hub_path, report_path, dashboard_path, hub_summary = _run_export_phase(
         config,
         export_transactions,
         results,
@@ -195,6 +200,7 @@ def process_pipeline(config: dict) -> PipelineRun:
         goodbudget_csv_path=csv_path,
         report_json_path=report_path,
         hub_csv_path=hub_path,
+        dashboard_csv_path=dashboard_path,
         hub_summary=hub_summary,
     )
 

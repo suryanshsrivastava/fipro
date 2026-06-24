@@ -35,6 +35,7 @@ def _run_with_results() -> PipelineRun:
         goodbudget_csv_path="data/output/goodbudget_export.csv",
         report_json_path="data/output/processing_report.json",
         hub_csv_path="data/output/hub_summary.csv",
+        dashboard_csv_path="data/output/dashboard_data.csv",
         hub_summary=HubSummary(
             earliest="2026-01-01",
             latest="2026-01-31",
@@ -52,6 +53,7 @@ def test_summarize_pipeline_run_for_empty_inputs():
         goodbudget_csv_path="",
         report_json_path="",
         hub_csv_path="",
+        dashboard_csv_path="",
         hub_summary=HubSummary.empty(),
     )
 

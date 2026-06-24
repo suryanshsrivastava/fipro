@@ -56,6 +56,7 @@ def test_raw_monthly_exports_pipeline(tmp_path):
     assert not failed_dir.exists() or not list(failed_dir.iterdir())
 
     assert (output_dir / "goodbudget_export.csv").exists()
+    assert (output_dir / "dashboard_data.csv").exists()
     assert (output_dir / "processing_report.json").exists()
     assert (output_dir / "hub_summary.csv").exists()
 

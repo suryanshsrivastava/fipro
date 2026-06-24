@@ -1,9 +1,10 @@
 """Goodbudget exporter tests."""
 
+import csv
 from datetime import date
 from decimal import Decimal
 
-from src.exporters.goodbudget import build_goodbudget_notes, format_goodbudget_row
+from src.exporters.goodbudget import build_goodbudget_notes, export_dashboard_data, format_goodbudget_row
 from src.models.transactions import Transaction, TransactionStatus, TransactionType
 
 
@@ -46,3 +47,28 @@ def test_format_goodbudget_row_uses_built_notes():
     row = format_goodbudget_row(transaction, {}, max_len=50)
 
     assert row["Notes"] == "External account payment: CREDIT_CARD"
+
+
+def test_export_dashboard_data_uses_rich_columns(tmp_path):
+    transaction = _transaction("CREDIT CARD PAYMENT", TransactionType.DEBIT)
+    transaction.external_account_name = "CREDIT_CARD"
+    output = tmp_path / "dashboard_data.csv"
+
+    export_dashboard_data([transaction], str(output))
+
+    with output.open(newline="", encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+
+    assert list(rows[0].keys()) == [
+        "transaction_date",
+        "description",
+        "amount",
+        "transaction_type",
+        "source_bank",
+        "source_file",
+        "status",
+        "notes",
+        "balance",
+    ]
+    assert rows[0]["source_file"] == "sample.xls"
+    assert rows[0]["notes"] == "External account payment: CREDIT_CARD"

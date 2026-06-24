@@ -175,7 +175,7 @@ def load_csv_data(csv_path: str) -> list[dict]:
     return normalized_rows
 
 
-def serve_dashboard(csv_path: str = "data/output/goodbudget_export.csv", port: int = 8080, open_browser: bool = True):
+def serve_dashboard(csv_path: str = "data/output/dashboard_data.csv", port: int = 8080, open_browser: bool = False):
     Path(csv_path).parent.mkdir(parents=True, exist_ok=True)
     rows = load_csv_data(csv_path)
 
@@ -208,7 +208,7 @@ def serve_dashboard(csv_path: str = "data/output/goodbudget_export.csv", port: i
 
 
 def start_dashboard_thread(
-    csv_path: str = "data/output/goodbudget_export.csv", port: int = 8080, open_browser: bool = True
+    csv_path: str = "data/output/dashboard_data.csv", port: int = 8080, open_browser: bool = False
 ):
     t = threading.Thread(target=serve_dashboard, args=(csv_path, port, open_browser), daemon=True)
     t.start()

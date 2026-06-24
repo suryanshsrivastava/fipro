@@ -471,6 +471,7 @@ def test_process_pipeline_export_phase_leaves_no_artifacts_on_hub_failure(
     assert not output_dir.exists() or not list(output_dir.glob("goodbudget_export.csv"))
     assert not output_dir.exists() or not list(output_dir.glob("hub_summary.csv"))
     assert not output_dir.exists() or not list(output_dir.glob("processing_report.json"))
+    assert not output_dir.exists() or not list(output_dir.glob("dashboard_data.csv"))
 
 
 def test_process_pipeline_accounts_for_prior_seen_hashes_on_rerun(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):

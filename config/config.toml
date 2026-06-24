@@ -9,6 +9,7 @@ input = "data/input"
 output = "data/output"
 processed = "data/processed"
 failed = "data/failed"
+dashboard_data = "data/output/dashboard_data.csv"
 
 [processing]
 supported_extensions = ["xls", "xlsx"]

@@ -4,6 +4,17 @@ from pathlib import Path
 from src.models.transactions import Transaction, TransactionStatus
 
 GOODBUDGET_FIELDNAMES = ["Date", "Envelope", "Account", "Name", "Notes", "Amount", "Status"]
+DASHBOARD_FIELDNAMES = [
+    "transaction_date",
+    "description",
+    "amount",
+    "transaction_type",
+    "source_bank",
+    "source_file",
+    "status",
+    "notes",
+    "balance",
+]
 
 
 def export_to_goodbudget(transactions: list[Transaction], output_path: str, config: dict) -> None:
@@ -15,6 +26,27 @@ def export_to_goodbudget(transactions: list[Transaction], output_path: str, conf
         for txn in transactions:
             row = format_goodbudget_row(txn, config, max_len)
             writer.writerow(row)
+
+
+def export_dashboard_data(transactions: list[Transaction], output_path: str) -> None:
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    with open(output_path, "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=DASHBOARD_FIELDNAMES)
+        writer.writeheader()
+        for txn in transactions:
+            writer.writerow(
+                {
+                    "transaction_date": txn.transaction_date.strftime("%Y-%m-%d"),
+                    "description": txn.description,
+                    "amount": str(txn.signed_amount),
+                    "transaction_type": txn.transaction_type.value,
+                    "source_bank": txn.source_bank,
+                    "source_file": Path(txn.source_file).name,
+                    "status": txn.status.value,
+                    "notes": build_goodbudget_notes(txn),
+                    "balance": str(txn.balance) if txn.balance is not None else "",
+                }
+            )
 
 
 def format_goodbudget_row(transaction: Transaction, config: dict, max_len: int = 50) -> dict:

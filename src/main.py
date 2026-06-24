@@ -27,7 +27,7 @@ def main():
     parser = argparse.ArgumentParser(description="Fipro — Bank statement processor")
     parser.add_argument("--config", default="config/config.toml", help="Path to config.toml")
     parser.add_argument("command", nargs="?", default="process", choices=["process", "status", "dashboard", "sheets"])
-    parser.add_argument("--csv", default="data/output/goodbudget_export.csv", help="CSV path for dashboard/sheets")
+    parser.add_argument("--csv", default=None, help="CSV path override for dashboard or sheets")
     parser.add_argument("--port", type=int, default=8080, help="Dashboard port (default: 8080)")
     parser.add_argument(
         "--creds", default="config/google_credentials.json", help="Google service account credentials JSON"
@@ -47,9 +47,11 @@ def main():
     if args.command == "status":
         cmd_status(config)
     elif args.command == "dashboard":
-        cmd_dashboard(args.csv, args.port, args.open)
+        dashboard_csv = args.csv or config.get("paths", {}).get("dashboard_data", "data/output/dashboard_data.csv")
+        cmd_dashboard(dashboard_csv, args.port, args.open)
     elif args.command == "sheets":
-        cmd_sheets(args.csv, args.creds, args.title)
+        sheets_csv = args.csv or f"{config.get('paths', {}).get('output', 'data/output')}/goodbudget_export.csv"
+        cmd_sheets(sheets_csv, args.creds, args.title)
     else:
         cmd_process(config)
 
