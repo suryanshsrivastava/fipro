@@ -11,12 +11,12 @@ from src.exporters.goodbudget import export_to_goodbudget
 from src.exporters.hub_csv import export_hub_csv
 from src.exporters.report import build_hub_summary, generate_report
 from src.models.result import PipelineRun, ProcessingResult
-from src.models.transactions import Transaction, TransactionStatus
-from src.utils.report_helpers import filter_transactions_for_export
+from src.models.transactions import Transaction
 from src.parsers.axis import AxisParser
 from src.parsers.base import BankParser
 from src.parsers.hdfc import HDFCParser
 from src.parsers.sbi import SBIParser
+from src.utils.report_helpers import filter_transactions_for_export
 
 logger = logging.getLogger("fipro.orchestrator")
 
@@ -37,9 +37,10 @@ def process_pipeline(config: dict) -> PipelineRun:
     processed_path = config["paths"].get("processed", "data/processed")
     failed_path = config["paths"].get("failed", "data/failed")
     fail_on_file_error = config.get("processing", {}).get("fail_on_file_error", False)
-
-    seen_hashes_path = Path("data/.seen_hashes")
+    processing_config = config.get("processing", {})
+    seen_hashes_path = Path(processing_config.get("seen_hashes_path", "data/.seen_hashes"))
     seen_hashes = get_seen_hashes_from_file(str(seen_hashes_path))
+    prior_seen_hashes = set(seen_hashes)
 
     files = discover_files(config)
     if not files:
@@ -101,7 +102,7 @@ def process_pipeline(config: dict) -> PipelineRun:
 
     deduplicated_transactions, dups = deduplicate(all_transactions, seen_hashes)
     deduplicated_transactions = detect_transfers(deduplicated_transactions)
-    duplicates_by_source = _count_duplicates_by_source(all_transactions)
+    duplicates_by_source = _count_duplicates_by_source(all_transactions, prior_seen_hashes)
 
     transactions_by_source: dict[str, list[Transaction]] = {}
     for transaction in deduplicated_transactions:
@@ -130,6 +131,7 @@ def process_pipeline(config: dict) -> PipelineRun:
         exported_transactions=len(export_transactions),
         config=config,
         duplicates_skipped=dups,
+        transactions=deduplicated_transactions,
     )
     hub_summary = build_hub_summary(report)
 
@@ -222,14 +224,15 @@ def _unique_destination(path: Path) -> Path:
     return candidate
 
 
-def _count_duplicates_by_source(transactions: list[Transaction]) -> dict[str, int]:
+def _count_duplicates_by_source(
+    transactions: list[Transaction],
+    prior_seen_hashes: set[str],
+) -> dict[str, int]:
     duplicates_by_source: dict[str, int] = {}
-    seen_hashes: set[str] = set()
+    session_seen = set(prior_seen_hashes)
     for transaction in transactions:
-        if transaction.hash in seen_hashes:
-            duplicates_by_source[transaction.source_file] = (
-                duplicates_by_source.get(transaction.source_file, 0) + 1
-            )
+        if transaction.hash in session_seen:
+            duplicates_by_source[transaction.source_file] = duplicates_by_source.get(transaction.source_file, 0) + 1
             continue
-        seen_hashes.add(transaction.hash)
+        session_seen.add(transaction.hash)
     return duplicates_by_source

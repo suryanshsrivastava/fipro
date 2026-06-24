@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from src.models.result import ProcessingResult
@@ -22,9 +22,11 @@ def generate_report(
     exported_transactions: int | None = None,
     config: dict | None = None,
     duplicates_skipped: int = 0,
+    transactions: list[Transaction] | None = None,
 ) -> dict:
     """Generate and write a JSON processing report."""
-    transactions = [transaction for result in results for transaction in result.transactions]
+    if transactions is None:
+        transactions = [transaction for result in results for transaction in result.transactions]
     include_internal_transfers = True
     if config is not None:
         processing = config.get("processing", {})
@@ -50,13 +52,11 @@ def generate_report(
     ending_balances = ending_balances_by_statement(transactions)
 
     report = {
-        "run_id": datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ"),
+        "run_id": datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ"),
         "summary": {
             "total_files": len(results),
             "total_transactions": sum(result.total_transactions for result in results),
-            "exported_transactions": (
-                len(transactions) if exported_transactions is None else exported_transactions
-            ),
+            "exported_transactions": (len(transactions) if exported_transactions is None else exported_transactions),
             "duplicates_skipped": duplicates_skipped,
             "transfers_detected": sum(
                 1 for transaction in transactions if transaction.status == TransactionStatus.TRANSFER
@@ -82,7 +82,7 @@ def generate_report(
                 }
                 for result in results
             ],
-            key=lambda item: item["source_file"],
+            key=lambda item: str(item["source_file"]),
         ),
     }
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)

@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import re
 from collections import Counter
+from collections.abc import Iterable
 from decimal import Decimal
 from pathlib import Path
-from typing import TYPE_CHECKING, Iterable
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from src.models.transactions import Transaction
@@ -33,11 +34,7 @@ def filter_transactions_for_export(
 
     if include_internal_transfers:
         return list(transactions)
-    return [
-        t
-        for t in transactions
-        if t.status != TransactionStatus.TRANSFER
-    ]
+    return [t for t in transactions if t.status != TransactionStatus.TRANSFER]
 
 
 def cash_flow_from_transactions(transactions: Iterable[Transaction]) -> dict:
@@ -124,9 +121,7 @@ def ending_balances_by_statement(transactions: list[Transaction]) -> dict:
         reason = "no_transactions"
     elif missing_balance_files:
         total = None
-        reason = (
-            "missing_balance_on_one_or_more_statements_not_a_full_net_worth_view"
-        )
+        reason = "missing_balance_on_one_or_more_statements_not_a_full_net_worth_view"
     else:
         total = sum(
             (Decimal(item["closing_balance"]) for item in by_statement),

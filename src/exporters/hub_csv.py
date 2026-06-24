@@ -3,13 +3,12 @@
 import csv
 from decimal import Decimal
 from pathlib import Path
-from typing import List
 
 from src.models.transactions import Transaction, TransactionType
 
 
 def export_hub_csv(
-    transactions: List[Transaction],
+    transactions: list[Transaction],
     output_path: str,
 ) -> int:
     """Write per-bank debit/credit/net totals. Returns row count (banks)."""

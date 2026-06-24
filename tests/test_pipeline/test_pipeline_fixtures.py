@@ -8,7 +8,6 @@ from pathlib import Path
 
 from src.core.orchestrator import process_pipeline
 
-
 FIXTURES_ROOT = Path(__file__).resolve().parents[1] / "fixtures"
 
 
@@ -33,6 +32,7 @@ def test_raw_monthly_exports_pipeline(tmp_path):
             "supported_extensions": ["xls", "xlsx"],
             "include_internal_transfers": True,
             "fail_on_file_error": True,
+            "seen_hashes_path": str(tmp_path / ".seen_hashes"),
         },
         "banks": {
             "hdfc": {"patterns": ["*hdfc*"]},

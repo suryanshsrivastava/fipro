@@ -14,7 +14,7 @@ from src.models.transactions import Transaction
 class PipelineRun:
     """Outputs and transactions from a full pipeline run."""
 
-    results: list["ProcessingResult"]
+    results: list[ProcessingResult]
     deduplicated_transactions: list[Transaction]
     goodbudget_csv_path: str
     report_json_path: str

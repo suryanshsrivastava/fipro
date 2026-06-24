@@ -9,7 +9,6 @@ import pytest
 
 from src.core.orchestrator import process_pipeline
 
-
 FIXTURES_ROOT = Path(__file__).resolve().parents[1] / "fixtures"
 
 
@@ -38,6 +37,7 @@ def test_process_pipeline_fails_whole_run_and_moves_only_bad_file(tmp_path):
             "supported_extensions": ["xls", "xlsx"],
             "include_internal_transfers": True,
             "fail_on_file_error": True,
+            "seen_hashes_path": str(tmp_path / ".seen_hashes"),
         },
         "banks": {
             "hdfc": {"patterns": ["*hdfc*"]},
@@ -85,6 +85,7 @@ def test_process_pipeline_continues_and_moves_bad_file_to_failed(tmp_path):
             "supported_extensions": ["xls", "xlsx"],
             "include_internal_transfers": True,
             "fail_on_file_error": False,
+            "seen_hashes_path": str(tmp_path / ".seen_hashes"),
         },
         "banks": {
             "hdfc": {"patterns": ["*hdfc*"]},

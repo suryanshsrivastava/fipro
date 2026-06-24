@@ -1,8 +1,8 @@
 """Hub CSV exporter tests."""
 
+import csv
 from datetime import date
 from decimal import Decimal
-import csv
 
 from src.exporters.hub_csv import export_hub_csv
 from src.models.transactions import Transaction, TransactionType
