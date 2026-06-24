@@ -2,7 +2,6 @@ import csv
 from pathlib import Path
 
 import gspread
-from google.oauth2.service_account import Credentials
 
 from src.exporters.goodbudget import GOODBUDGET_FIELDNAMES
 
@@ -11,16 +10,58 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive.file",
 ]
 
+DEFAULT_SPREADSHEET_ID_PATH = "config/fipro_spreadsheet_id.txt"
+
+
+def _read_spreadsheet_id(path: Path) -> str | None:
+    if not path.exists():
+        return None
+    value = path.read_text(encoding="utf-8").strip()
+    return value or None
+
+
+def _write_spreadsheet_id(path: Path, spreadsheet_id: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(spreadsheet_id, encoding="utf-8")
+
+
+def _open_or_create_spreadsheet(
+    client: gspread.Client,
+    spreadsheet_title: str,
+    spreadsheet_id_path: Path,
+) -> gspread.Spreadsheet:
+    stored_id = _read_spreadsheet_id(spreadsheet_id_path)
+    if stored_id:
+        try:
+            return client.open_by_key(stored_id)
+        except gspread.SpreadsheetNotFound:
+            pass
+
+    try:
+        spreadsheet = client.open(spreadsheet_title)
+    except gspread.SpreadsheetNotFound:
+        spreadsheet = client.create(spreadsheet_title)
+
+    _write_spreadsheet_id(spreadsheet_id_path, spreadsheet.id)
+    return spreadsheet
+
+
+def _trim_leftover_rows(worksheet: gspread.Worksheet, data_row_count: int) -> None:
+    grid_rows = worksheet.row_count
+    if grid_rows > data_row_count:
+        worksheet.batch_clear([f"A{data_row_count + 1}:G{grid_rows}"])
+
 
 def export_to_google_sheets(
     csv_path: str,
     credentials_path: str = "config/google_credentials.json",
     spreadsheet_title: str = "Fipro Transactions",
+    spreadsheet_id_path: str = DEFAULT_SPREADSHEET_ID_PATH,
 ) -> str:
     Path(csv_path).parent.mkdir(parents=True, exist_ok=True)
 
-    creds = Credentials.from_service_account_file(credentials_path, scopes=SCOPES)
-    client = gspread.authorize(creds)
+    client = gspread.service_account(filename=credentials_path, scopes=SCOPES)
+    id_path = Path(spreadsheet_id_path)
 
     with open(csv_path, newline="") as f:
         rows = list(csv.DictReader(f))
@@ -40,10 +81,9 @@ def export_to_google_sheets(
             ]
         )
 
-    spreadsheet = client.create(spreadsheet_title)
+    spreadsheet = _open_or_create_spreadsheet(client, spreadsheet_title, id_path)
     worksheet = spreadsheet.sheet1
 
-    # Write in batches of 1000 rows to avoid API limits
     batch_size = 1000
     for i in range(0, len(data_rows), batch_size):
         batch = data_rows[i : i + batch_size]
@@ -54,7 +94,9 @@ def export_to_google_sheets(
         else:
             worksheet.append_rows(batch, insert_data_option="OVERWRITE")  # type: ignore[arg-type]  # pre-existing, tracked as SHEETS-001
 
-    # Format headers
+    cell_count = len(data_rows)
+    _trim_leftover_rows(worksheet, cell_count)
+
     worksheet.format(
         "A1:G1",
         {
@@ -64,8 +106,6 @@ def export_to_google_sheets(
         },
     )
 
-    # Format amount column
-    cell_count = len(data_rows)
     worksheet.format(
         f"F2:F{cell_count}",
         {
@@ -79,5 +119,5 @@ def export_to_google_sheets(
     spreadsheet.batch_update(resize_request)
 
     spreadsheet_url = spreadsheet.url
-    print(f"Google Sheet created: {spreadsheet_url}")
+    print(f"Google Sheet updated: {spreadsheet_url}")
     return spreadsheet_url

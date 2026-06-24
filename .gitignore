@@ -174,3 +174,4 @@ cython_debug/
 data/
 .envrc
 config/google_credentials.json
+config/fipro_spreadsheet_id.txt
