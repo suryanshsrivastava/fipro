@@ -20,14 +20,16 @@ from src.utils.report_helpers import filter_transactions_for_export
 
 logger = logging.getLogger("fipro.orchestrator")
 
-_EMPTY_HUB_SUMMARY = {
-    "date_range": {"earliest": None, "latest": None},
-    "cash_flow": None,
-    "net_worth_proxy": {
-        "total_across_statements": None,
-        "reason_if_no_total": "no_input_files",
-    },
-}
+
+def _empty_hub_summary() -> dict:
+    return {
+        "date_range": {"earliest": None, "latest": None},
+        "cash_flow": None,
+        "net_worth_proxy": {
+            "total_across_statements": None,
+            "reason_if_no_total": "no_input_files",
+        },
+    }
 
 
 def process_pipeline(config: dict) -> PipelineRun:
@@ -51,7 +53,7 @@ def process_pipeline(config: dict) -> PipelineRun:
             goodbudget_csv_path="",
             report_json_path="",
             hub_csv_path="",
-            hub_summary=_EMPTY_HUB_SUMMARY,
+            hub_summary=_empty_hub_summary(),
         )
 
     parsers = [HDFCParser(), SBIParser(), AxisParser()]
@@ -100,7 +102,7 @@ def process_pipeline(config: dict) -> PipelineRun:
     if failures and fail_on_file_error:
         raise RuntimeError(f"Processing aborted because {len(failures)} file(s) failed to parse")
 
-    deduplicated_transactions, dups = deduplicate(all_transactions, seen_hashes)
+    deduplicated_transactions, _ = deduplicate(all_transactions, seen_hashes)
     deduplicated_transactions = detect_transfers(deduplicated_transactions)
     duplicates_by_source = _count_duplicates_by_source(all_transactions, prior_seen_hashes)
 
@@ -130,7 +132,7 @@ def process_pipeline(config: dict) -> PipelineRun:
         report_path,
         exported_transactions=len(export_transactions),
         config=config,
-        duplicates_skipped=dups,
+        duplicates_skipped=sum(result.duplicates_skipped for result in results),
         transactions=deduplicated_transactions,
     )
     hub_summary = build_hub_summary(report)
