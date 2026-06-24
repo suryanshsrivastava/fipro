@@ -44,10 +44,30 @@ def main():
 
 
 def cmd_process(config):
-    results = process_pipeline(config)
-    total = sum(r.successful for r in results)
-    failed = sum(len(r.errors) for r in results)
-    print(f"Processed {len(results)} files. {total} transactions. {failed} errors.")
+    try:
+        run = process_pipeline(config)
+    except Exception as exc:
+        print(f"Processing failed: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+    if not run.results:
+        print("No input files found.")
+        return
+
+    transaction_count = sum(len(result.transactions) for result in run.results)
+    failed = sum(len(result.errors) for result in run.results)
+    print(f"Processed {len(run.results)} file(s), {transaction_count} transaction(s), {failed} error(s).")
+
+    dr = run.hub_summary.get("date_range") or {}
+    earliest, latest = dr.get("earliest"), dr.get("latest")
+    if earliest and latest:
+        print(f"Statement window: {earliest} to {latest}")
+    cf = run.hub_summary.get("cash_flow") or {}
+    if cf.get("net_cash_flow") is not None:
+        print(f"Net cash flow (export scope): {cf['net_cash_flow']}")
+    nw = (run.hub_summary.get("net_worth_proxy") or {}).get("total_across_statements")
+    if nw is not None:
+        print(f"Balances sum (statements with closing balance): {nw}")
 
 
 def cmd_status(config):
