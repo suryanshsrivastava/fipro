@@ -346,3 +346,136 @@ def test_export_to_google_sheets_reuses_existing_spreadsheet_by_id(tmp_path: Pat
     assert created_titles == []
     assert opened_keys == ["existing-sheet-id"]
     assert cleared_ranges == ["A3:G5"]
+
+
+def test_export_to_google_sheets_creates_new_when_stored_id_is_stale(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    csv_path = tmp_path / "goodbudget.csv"
+    csv_path.write_text(
+        "Date,Envelope,Account,Name,Notes,Amount,Status\n2025-08-01,Unallocated,HDFC,Groceries,, -100.00,cleared\n"
+    )
+    id_path = tmp_path / "sheet_id.txt"
+    id_path.write_text("deleted-sheet-id", encoding="utf-8")
+
+    created_titles: list[str] = []
+
+    class FakeWorksheet:
+        row_count = 2
+
+        def update(self, *_args, **_kwargs):
+            return None
+
+        def append_rows(self, *_args, **_kwargs):
+            return None
+
+        def format(self, *_args, **_kwargs):
+            return None
+
+        def batch_clear(self, *_args, **_kwargs):
+            return None
+
+    class FakeSpreadsheet:
+        def __init__(self):
+            self.sheet1 = FakeWorksheet()
+            self.id = "fresh-sheet-id"
+            self.url = "https://example.test/fresh"
+
+        def batch_update(self, _request_body):
+            return None
+
+    class FakeClient:
+        def open_by_key(self, _key: str):
+            raise gspread.SpreadsheetNotFound
+
+        def open(self, title: str):
+            raise AssertionError(f"should not open by title when id is stale, got {title}")
+
+        def create(self, title: str):
+            created_titles.append(title)
+            return FakeSpreadsheet()
+
+    monkeypatch.setattr(
+        "src.exporters.sheets.gspread.service_account",
+        lambda **_kwargs: FakeClient(),
+    )
+
+    export_to_google_sheets(
+        str(csv_path),
+        credentials_path=str(tmp_path / "creds.json"),
+        spreadsheet_id_path=str(id_path),
+    )
+
+    assert created_titles == ["Fipro Transactions"]
+    assert id_path.read_text(encoding="utf-8") == "fresh-sheet-id"
+
+
+def test_process_pipeline_defers_hash_save_until_exports_complete(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+    transaction = make_transaction(source_file="statement.xls")
+    parser = DummyParser([transaction])
+    crawled = [SimpleNamespace(filepath="statement.xls", filename="statement.xls", metadata={})]
+    hash_writes: list[set[str]] = []
+    processed_moves: list[str] = []
+
+    monkeypatch.setattr(orchestrator, "discover_files", lambda _config: crawled)
+    monkeypatch.setattr(orchestrator, "load_statement_dataframe", lambda _path: None)
+    monkeypatch.setattr(orchestrator, "route_file_to_parser", lambda *_args: parser)
+    monkeypatch.setattr(orchestrator, "get_seen_hashes_from_file", lambda _path: set())
+    monkeypatch.setattr(
+        orchestrator,
+        "save_seen_hashes_to_file",
+        lambda hashes, _path: hash_writes.append(set(hashes)),
+    )
+    monkeypatch.setattr(orchestrator, "move_file_to_processed", lambda source, *_args: processed_moves.append(source))
+    monkeypatch.setattr(orchestrator, "export_to_goodbudget", lambda *_args, **_kwargs: None)
+
+    def fail_hub(*_args, **_kwargs):
+        raise RuntimeError("hub export failed")
+
+    monkeypatch.setattr(orchestrator, "export_hub_csv", fail_hub)
+
+    config = {
+        "paths": {
+            "input": str(tmp_path / "input"),
+            "output": str(tmp_path / "output"),
+            "processed": str(tmp_path / "processed"),
+            "failed": str(tmp_path / "failed"),
+        },
+        "processing": {"skip_internal_transfers": False, "seen_hashes_path": str(tmp_path / ".seen_hashes")},
+        "export": {"goodbudget": {}},
+    }
+
+    with pytest.raises(RuntimeError, match="hub export failed"):
+        orchestrator.process_pipeline(config)
+
+    assert hash_writes == []
+    assert processed_moves == []
+
+
+def test_process_pipeline_accounts_for_prior_seen_hashes_on_rerun(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+    transaction = make_transaction(source_file="statement.xls")
+    parser = DummyParser([transaction])
+    crawled = [SimpleNamespace(filepath="statement.xls", filename="statement.xls", metadata={})]
+
+    monkeypatch.setattr(orchestrator, "discover_files", lambda _config: crawled)
+    monkeypatch.setattr(orchestrator, "load_statement_dataframe", lambda _path: None)
+    monkeypatch.setattr(orchestrator, "route_file_to_parser", lambda *_args: parser)
+    monkeypatch.setattr(orchestrator, "move_file_to_processed", lambda *_args: None)
+    monkeypatch.setattr(orchestrator, "generate_report", lambda *_args, **_kwargs: {})
+
+    config = {
+        "paths": {
+            "input": str(tmp_path / "input"),
+            "output": str(tmp_path / "output"),
+            "processed": str(tmp_path / "processed"),
+            "failed": str(tmp_path / "failed"),
+        },
+        "processing": {"skip_internal_transfers": False, "seen_hashes_path": str(tmp_path / ".seen_hashes")},
+        "export": {"goodbudget": {}},
+    }
+
+    run1 = orchestrator.process_pipeline(config)
+    assert run1.results[0].successful == 1
+    assert run1.results[0].duplicates_skipped == 0
+
+    run2 = orchestrator.process_pipeline(config)
+    assert run2.results[0].successful == 0
+    assert run2.results[0].duplicates_skipped == 1

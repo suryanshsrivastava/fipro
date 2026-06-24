@@ -37,7 +37,7 @@ def generate_report(
     transactions_for_metrics = filter_transactions_for_export(transactions, include_internal_transfers)
 
     by_bank: dict[str, dict[str, int]] = {}
-    for transaction in transactions:
+    for transaction in transactions_for_metrics:
         bank_bucket = by_bank.setdefault(
             transaction.source_bank,
             {"transactions": 0, "debits": 0, "credits": 0},
@@ -48,15 +48,17 @@ def generate_report(
         else:
             bank_bucket["credits"] += 1
 
-    date_range = calculate_date_range(transactions)
-    ending_balances = ending_balances_by_statement(transactions)
+    date_range = calculate_date_range(transactions_for_metrics)
+    ending_balances = ending_balances_by_statement(transactions_for_metrics)
 
     report = {
         "run_id": datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ"),
         "summary": {
             "total_files": len(results),
             "total_transactions": sum(result.total_transactions for result in results),
-            "exported_transactions": (len(transactions) if exported_transactions is None else exported_transactions),
+            "exported_transactions": (
+                len(transactions_for_metrics) if exported_transactions is None else exported_transactions
+            ),
             "duplicates_skipped": duplicates_skipped,
             "transfers_detected": sum(
                 1 for transaction in transactions if transaction.status == TransactionStatus.TRANSFER

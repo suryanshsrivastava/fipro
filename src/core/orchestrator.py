@@ -121,7 +121,6 @@ def process_pipeline(config: dict) -> PipelineRun:
 
     csv_path = f"{output_path}/goodbudget_export.csv"
     export_to_goodbudget(export_transactions, csv_path, config)
-    save_seen_hashes_to_file(seen_hashes, str(seen_hashes_path))
 
     hub_path = f"{output_path}/hub_summary.csv"
     export_hub_csv(export_transactions, hub_path)
@@ -136,6 +135,8 @@ def process_pipeline(config: dict) -> PipelineRun:
         transactions=deduplicated_transactions,
     )
     hub_summary = build_hub_summary(report)
+
+    save_seen_hashes_to_file(seen_hashes, str(seen_hashes_path))
 
     for filepath in processed_files:
         move_file_to_processed(filepath, processed_path)

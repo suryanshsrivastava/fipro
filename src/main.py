@@ -54,9 +54,13 @@ def cmd_process(config):
         print("No input files found.")
         return
 
-    transaction_count = sum(len(result.transactions) for result in run.results)
+    parsed_count = sum(result.total_transactions for result in run.results)
+    exported_count = len(run.deduplicated_transactions)
     failed = sum(len(result.errors) for result in run.results)
-    print(f"Processed {len(run.results)} file(s), {transaction_count} transaction(s), {failed} error(s).")
+    print(
+        f"Processed {len(run.results)} file(s): "
+        f"{parsed_count} parsed, {exported_count} exported after dedup, {failed} error(s)."
+    )
 
     dr = run.hub_summary.get("date_range") or {}
     earliest, latest = dr.get("earliest"), dr.get("latest")
@@ -67,7 +71,7 @@ def cmd_process(config):
         print(f"Net cash flow (export scope): {cf['net_cash_flow']}")
     nw = (run.hub_summary.get("net_worth_proxy") or {}).get("total_across_statements")
     if nw is not None:
-        print(f"Balances sum (statements with closing balance): {nw}")
+        print(f"Statement balances sum (not net worth): {nw}")
 
 
 def cmd_status(config):

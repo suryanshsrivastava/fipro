@@ -78,6 +78,8 @@ def test_cash_flow_excludes_transfers_when_config_says_so(tmp_path):
     assert report["cash_flow"]["total_debits"] == "100.00"
     assert report["cash_flow"]["total_credits"] == "0"
     assert report["cash_flow"]["net_cash_flow"] == "-100.00"
+    assert report["by_bank"]["HDFC"]["transactions"] == 1
+    assert report["by_bank"]["HDFC"]["debits"] == 1
 
 
 def test_net_worth_proxy_null_when_balances_missing(tmp_path):

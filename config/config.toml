@@ -13,6 +13,7 @@ failed = "data/failed"
 [processing]
 supported_extensions = ["xls", "xlsx"]
 skip_internal_transfers = false
+seen_hashes_path = "data/.seen_hashes"
 
 [banks.hdfc]
 name = "HDFC"

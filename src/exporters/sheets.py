@@ -35,7 +35,9 @@ def _open_or_create_spreadsheet(
         try:
             return client.open_by_key(stored_id)
         except gspread.SpreadsheetNotFound:
-            pass
+            spreadsheet = client.create(spreadsheet_title)
+            _write_spreadsheet_id(spreadsheet_id_path, spreadsheet.id)
+            return spreadsheet
 
     try:
         spreadsheet = client.open(spreadsheet_title)
@@ -44,6 +46,35 @@ def _open_or_create_spreadsheet(
 
     _write_spreadsheet_id(spreadsheet_id_path, spreadsheet.id)
     return spreadsheet
+
+
+def _apply_sheet_formatting(
+    worksheet: gspread.Worksheet,
+    spreadsheet: gspread.Spreadsheet,
+    cell_count: int,
+) -> None:
+    worksheet.format(
+        "A1:G1",
+        {
+            "textFormat": {"bold": True},
+            "backgroundColor": {"red": 0.12, "green": 0.14, "blue": 0.22},
+            "textFormatForegroundColor": {"red": 0.9, "green": 0.92, "blue": 0.95},
+        },
+    )
+    if cell_count > 1:
+        worksheet.format(
+            f"F2:F{cell_count}",
+            {
+                "numberFormat": {"type": "NUMBER", "pattern": "#,##0.00"},
+            },
+        )
+    spreadsheet.batch_update(
+        {
+            "requests": [
+                {"autoResizeDimensions": {"dimensions": {"dimension": "COLUMNS", "startIndex": 0, "endIndex": 7}}}
+            ]
+        }
+    )
 
 
 def _trim_leftover_rows(worksheet: gspread.Worksheet, data_row_count: int) -> None:
@@ -96,27 +127,7 @@ def export_to_google_sheets(
 
     cell_count = len(data_rows)
     _trim_leftover_rows(worksheet, cell_count)
-
-    worksheet.format(
-        "A1:G1",
-        {
-            "textFormat": {"bold": True},
-            "backgroundColor": {"red": 0.12, "green": 0.14, "blue": 0.22},
-            "textFormatForegroundColor": {"red": 0.9, "green": 0.92, "blue": 0.95},
-        },
-    )
-
-    worksheet.format(
-        f"F2:F{cell_count}",
-        {
-            "numberFormat": {"type": "NUMBER", "pattern": "#,##0.00"},
-        },
-    )
-
-    resize_request = {
-        "requests": [{"autoResizeDimensions": {"dimensions": {"dimension": "COLUMNS", "startIndex": 0, "endIndex": 7}}}]
-    }
-    spreadsheet.batch_update(resize_request)
+    _apply_sheet_formatting(worksheet, spreadsheet, cell_count)
 
     spreadsheet_url = spreadsheet.url
     print(f"Google Sheet updated: {spreadsheet_url}")
