@@ -127,4 +127,10 @@ def summarize_pipeline_run(run: PipelineRun) -> list[str]:
     if summary.total_across_statements is not None:
         lines.append(f"Statement balances sum (not net worth): {summary.total_across_statements}")
 
+    if run.locked_files:
+        lines.append(
+            f"{len(run.locked_files)} password-protected file(s) left in input; unlock them in `fipro dashboard`:"
+        )
+        lines.extend(f"  - {Path(path).name}" for path in run.locked_files)
+
     return lines

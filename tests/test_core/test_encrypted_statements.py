@@ -1,16 +1,23 @@
-"""Password-protected statements and bank detection from folder names."""
+"""Password-protected statements: bank detection from folders, decryption, and the dashboard unlock flow."""
 
 from __future__ import annotations
 
+import json
+import threading
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 import pytest
 from msoffcrypto.format.ooxml import OOXMLFile
 from openpyxl import Workbook
 
+from src.connectors.gmail import PasswordHint, save_password_hints
 from src.core.ingestion import get_bank_from_path
 from src.core.orchestrator import load_statement_dataframe, process_pipeline
+from src.exporters.report import summarize_pipeline_run
 from src.parsers.sbi import SBIParser
+from src.ui.dashboard import build_server
 
 SBI_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "parsers" / "sbi" / "raw_monthly_export" / "input.xls"
 PASSWORD = "test-password"
@@ -88,25 +95,105 @@ def test_process_pipeline_decrypts_statement_in_bank_folder(tmp_path, monkeypatc
     assert (tmp_path / "processed" / encrypted_statement.name).exists()
 
 
-def test_process_pipeline_fails_encrypted_statement_without_password(tmp_path, encrypted_statement):
+def test_process_pipeline_uses_password_passed_in_for_this_run(tmp_path, encrypted_statement):
+    run = process_pipeline(_config(tmp_path), passwords={"SBI": PASSWORD})
+
+    assert run.locked_files == []
+    assert run.results[0].total_transactions > 0
+    assert (tmp_path / "processed" / encrypted_statement.name).exists()
+
+
+def test_locked_statement_stays_in_input_and_previous_exports_survive(tmp_path, encrypted_statement):
+    previous_export = tmp_path / "output" / "dashboard_data.csv"
+    previous_export.parent.mkdir()
+    previous_export.write_text("previous run\n")
+
     run = process_pipeline(_config(tmp_path))
 
+    assert run.locked_files == [str(encrypted_statement)]
     [result] = run.results
-    assert "set FIPRO_SBI_STATEMENT_PASSWORD or FIPRO_STATEMENT_PASSWORD" in result.errors[0]
-    assert (tmp_path / "failed" / encrypted_statement.name).exists()
+    assert result.errors == []
+    assert "set FIPRO_SBI_STATEMENT_PASSWORD or FIPRO_STATEMENT_PASSWORD" in result.warnings[0]
+    assert encrypted_statement.exists()
+    assert not (tmp_path / "failed").exists()
+    assert previous_export.read_text() == "previous run\n"
+    assert "unlock them in `fipro dashboard`" in "\n".join(summarize_pipeline_run(run))
 
 
-def test_process_pipeline_reports_wrong_password_without_leaking_it(tmp_path, monkeypatch, encrypted_statement):
+def test_wrong_password_keeps_file_locked_without_leaking_password(tmp_path, monkeypatch, encrypted_statement):
     monkeypatch.setenv("FIPRO_SBI_STATEMENT_PASSWORD", "not-the-password")
 
     run = process_pipeline(_config(tmp_path))
 
     [result] = run.results
-    assert result.errors == [
+    assert result.warnings == [
         f"Could not decrypt {encrypted_statement.name}: wrong password in FIPRO_SBI_STATEMENT_PASSWORD"
     ]
-    error_log = tmp_path / "failed" / f"{encrypted_statement.name}.error.txt"
-    assert "not-the-password" not in error_log.read_text()
+    assert run.locked_files == [str(encrypted_statement)]
+    assert encrypted_statement.exists()
+
+
+@pytest.fixture
+def dashboard_url(tmp_path, encrypted_statement):
+    config = _config(tmp_path) | {
+        "paths": _config(tmp_path)["paths"] | {"password_hints": str(tmp_path / "hints.json")}
+    }
+    save_password_hints(
+        [
+            PasswordHint(
+                "SBI", "Password is the last 5 digits of your mobile </script><b>", "Statement", "2026-07-15", "m1"
+            )
+        ],
+        config["paths"]["password_hints"],
+    )
+    server = build_server(str(tmp_path / "output" / "dashboard_data.csv"), 0, config)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    yield f"http://127.0.0.1:{server.server_address[1]}"
+    server.shutdown()
+
+
+def _post(url: str, body: dict, headers: dict[str, str]) -> tuple[int, dict]:
+    request = urllib.request.Request(url, data=json.dumps(body).encode(), headers=headers, method="POST")
+    try:
+        with urllib.request.urlopen(request) as response:
+            return response.status, json.loads(response.read())
+    except urllib.error.HTTPError as error:
+        return error.code, json.loads(error.read())
+
+
+def test_dashboard_shows_locked_statement_with_escaped_gmail_hint(dashboard_url, encrypted_statement):
+    html = urllib.request.urlopen(dashboard_url).read().decode()
+
+    assert encrypted_statement.name in html
+    assert "last 5 digits of your mobile" in html
+    assert "</script><b>" not in html
+
+
+def test_dashboard_unlock_processes_statement_with_entered_password(dashboard_url, tmp_path, encrypted_statement):
+    status, out = _post(
+        f"{dashboard_url}/unlock", {"passwords": {"SBI": PASSWORD}}, {"Content-Type": "application/json"}
+    )
+
+    assert status == 200
+    assert out["locked"] == []
+    assert out["lines"][0].startswith("Processed 1 file(s)")
+    assert (tmp_path / "processed" / encrypted_statement.name).exists()
+
+
+@pytest.mark.parametrize(
+    ("headers", "expected_status"),
+    [
+        ({"Content-Type": "text/plain"}, 415),
+        ({"Content-Type": "application/json", "Origin": "http://evil.example"}, 403),
+        ({"Content-Type": "application/json", "Host": "evil.example:8080"}, 403),
+    ],
+)
+def test_dashboard_unlock_refuses_cross_site_requests(dashboard_url, encrypted_statement, headers, expected_status):
+    status, _ = _post(f"{dashboard_url}/unlock", {"passwords": {"SBI": PASSWORD}}, headers)
+
+    assert status == expected_status
+    assert encrypted_statement.exists()
 
 
 def test_decrypt_legacy_xls_does_not_pass_verify_password(tmp_path, monkeypatch):
@@ -129,4 +216,4 @@ def test_decrypt_legacy_xls_does_not_pass_verify_password(tmp_path, monkeypatch)
     monkeypatch.setenv("FIPRO_SBI_STATEMENT_PASSWORD", PASSWORD)
     monkeypatch.setattr(orchestrator.msoffcrypto, "OfficeFile", FakeXls97File)
 
-    assert orchestrator._decrypt_statement(str(statement), "SBI").read() == b"decrypted"
+    assert orchestrator._decrypt_statement(str(statement), "SBI", {}).read() == b"decrypted"

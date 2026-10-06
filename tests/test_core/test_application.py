@@ -37,9 +37,9 @@ def test_run_status_command_with_no_files():
     assert run_status_command({}, discoverer=lambda _config: []) == ["No files to process."]
 
 
-def test_prepare_dashboard_launch_requires_existing_csv():
-    with pytest.raises(CommandInputError, match="CSV not found"):
-        prepare_dashboard_launch("missing.csv", 8080, False, path_exists=lambda _path: False)
+def test_prepare_dashboard_launch_starts_without_csv_so_locked_files_can_be_unlocked():
+    launch = prepare_dashboard_launch("missing.csv", 8080, False, path_exists=lambda _path: False)
+    assert launch.lines[-1] == "No transactions yet (missing.csv not found); showing locked statements only."
 
 
 def test_run_sheets_command_requires_credentials():

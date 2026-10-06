@@ -48,6 +48,10 @@ _OLE_MAGIC = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
 _DEFAULT_PASSWORD_ENV_VAR = "FIPRO_STATEMENT_PASSWORD"
 
 
+class StatementLockedError(ValueError):
+    """A password-protected statement had no usable password; the file is left in the input folder."""
+
+
 def _commit_export_artifacts(staging_dir: Path, output_dir: Path) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     for name in _EXPORT_ARTIFACTS:
@@ -98,7 +102,8 @@ def _run_export_phase(
     )
 
 
-def process_pipeline(config: dict) -> PipelineRun:
+def process_pipeline(config: dict, passwords: dict[str, str] | None = None) -> PipelineRun:
+    """Run the full pipeline. ``passwords`` maps bank (e.g. "SBI") to a statement password for this run only."""
     results: list[ProcessingResult] = []
     input_path = config["paths"]["input"]
     output_path = config["paths"].get("output", "data/output")
@@ -127,10 +132,11 @@ def process_pipeline(config: dict) -> PipelineRun:
     all_transactions: list[Transaction] = []
     processed_files: list[str] = []
     failures: list[tuple[str, str]] = []
+    locked_files: list[str] = []
 
     for crawled in files:
         try:
-            df = load_statement_dataframe(crawled.filepath, bank=crawled.metadata.get("bank"))
+            df = load_statement_dataframe(crawled.filepath, bank=crawled.metadata.get("bank"), passwords=passwords)
             # Route on the input-relative path so a bank folder (e.g. SBI/AccountStatement.xlsx) counts as a hint.
             parser = route_file_to_parser(os.path.relpath(crawled.filepath, input_path), df, parsers)
             txns = parser.extract_transactions(df, crawled.filepath)
@@ -147,6 +153,22 @@ def process_pipeline(config: dict) -> PipelineRun:
                     transactions=txns,
                     errors=[],
                     warnings=[],
+                )
+            )
+        except StatementLockedError as e:
+            logger.warning("Skipping %s: %s", crawled.filepath, e)
+            locked_files.append(crawled.filepath)
+            results.append(
+                ProcessingResult(
+                    source_file=crawled.filepath,
+                    bank=crawled.metadata.get("bank", "UNKNOWN"),
+                    total_transactions=0,
+                    successful=0,
+                    failed=0,
+                    duplicates_skipped=0,
+                    transactions=[],
+                    errors=[],
+                    warnings=[str(e)],
                 )
             )
         except Exception as e:
@@ -172,6 +194,20 @@ def process_pipeline(config: dict) -> PipelineRun:
 
     if failures and fail_on_file_error:
         raise RuntimeError(f"Processing aborted because {len(failures)} file(s) failed to parse")
+
+    if not processed_files:
+        # Nothing parsed (all locked or failed): keep the previous exports instead of overwriting them with empty files.
+        logger.info("No statements were processed; leaving existing exports in %s untouched", output_path)
+        return PipelineRun(
+            results=results,
+            deduplicated_transactions=[],
+            goodbudget_csv_path="",
+            report_json_path="",
+            hub_csv_path="",
+            dashboard_csv_path="",
+            hub_summary=HubSummary.empty("no_files_processed"),
+            locked_files=locked_files,
+        )
 
     consolidation = consolidate_transactions(
         all_transactions,
@@ -211,6 +247,7 @@ def process_pipeline(config: dict) -> PipelineRun:
         hub_csv_path=hub_path,
         dashboard_csv_path=dashboard_path,
         hub_summary=hub_summary,
+        locked_files=locked_files,
     )
 
 
@@ -241,11 +278,13 @@ def extract_raw_dataframe(filepaths: list[str]) -> pd.DataFrame:
     return pd.DataFrame.from_records(records)
 
 
-def load_statement_dataframe(filepath: str, bank: str | None = None) -> pd.DataFrame:
+def load_statement_dataframe(
+    filepath: str, bank: str | None = None, passwords: dict[str, str] | None = None
+) -> pd.DataFrame:
     path = Path(filepath)
     suffix = path.suffix.lower()
-    if _is_encrypted_office_file(filepath):
-        return pd.read_excel(_decrypt_statement(filepath, bank or "UNKNOWN"), header=None)
+    if is_encrypted_statement(filepath):
+        return pd.read_excel(_decrypt_statement(filepath, bank or "UNKNOWN", passwords or {}), header=None)
     if bank == "SBI" or "sbi" in path.name.lower():
         df = SBIParser.load_sbi_file(filepath)
         if df is None:
@@ -257,7 +296,7 @@ def load_statement_dataframe(filepath: str, bank: str | None = None) -> pd.DataF
     return pd.read_excel(filepath, engine=engine, header=None)
 
 
-def _is_encrypted_office_file(filepath: str) -> bool:
+def is_encrypted_statement(filepath: str) -> bool:
     """Password-protected .xls/.xlsx files are OLE containers flagged as encrypted."""
     with open(filepath, "rb") as f:
         if f.read(len(_OLE_MAGIC)) != _OLE_MAGIC:
@@ -269,14 +308,23 @@ def _is_encrypted_office_file(filepath: str) -> bool:
             return False
 
 
-def _decrypt_statement(filepath: str, bank: str) -> io.BytesIO:
-    """Decrypt a password-protected statement in memory; the decrypted bytes never touch disk."""
+def _decrypt_statement(filepath: str, bank: str, passwords: dict[str, str]) -> io.BytesIO:
+    """Decrypt a password-protected statement in memory; the decrypted bytes never touch disk.
+
+    The password comes from ``passwords[bank]`` (entered in the dashboard), else the
+    ``FIPRO_<BANK>_STATEMENT_PASSWORD`` / ``FIPRO_STATEMENT_PASSWORD`` environment variables.
+    """
     name = Path(filepath).name
     bank_env_var = f"FIPRO_{bank}_STATEMENT_PASSWORD"
-    env_var = bank_env_var if os.environ.get(bank_env_var) else _DEFAULT_PASSWORD_ENV_VAR
-    password = os.environ.get(env_var)
+    if passwords.get(bank):
+        source, password = "the password entered for " + bank, passwords[bank]
+    else:
+        source = bank_env_var if os.environ.get(bank_env_var) else _DEFAULT_PASSWORD_ENV_VAR
+        password = os.environ.get(source, "")
     if not password:
-        raise ValueError(f"{name} is password-protected; set {bank_env_var} or {_DEFAULT_PASSWORD_ENV_VAR}")
+        raise StatementLockedError(
+            f"{name} is password-protected; unlock it in `fipro dashboard` or set {bank_env_var} or {_DEFAULT_PASSWORD_ENV_VAR}"
+        )
 
     decrypted = io.BytesIO()
     with open(filepath, "rb") as f:
@@ -287,7 +335,7 @@ def _decrypt_statement(filepath: str, bank: str) -> io.BytesIO:
             office_file.load_key(password=password, **kwargs)
             office_file.decrypt(decrypted)
         except (InvalidKeyError, DecryptionError) as exc:
-            raise ValueError(f"Could not decrypt {name}: wrong password in {env_var}") from exc
+            raise StatementLockedError(f"Could not decrypt {name}: wrong password in {source}") from exc
     decrypted.seek(0)
     return decrypted
 

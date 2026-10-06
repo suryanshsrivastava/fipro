@@ -6,14 +6,25 @@ Operational procedures for running and maintaining Fipro. Living document; appen
 
 1. Download latest monthly `.xls` exports from HDFC, SBI, and Axis portals.
 2. Drop them into `data/input/`. Subfolders are fine; a bank-named folder (e.g. `data/input/2026-07-15/SBI/AccountStatement_….xlsx`) identifies the bank when the filename doesn't.
-3. If any statement is password-protected, export its password first (decryption happens in memory; nothing decrypted is written to disk):
-   `export FIPRO_SBI_STATEMENT_PASSWORD=…` (per bank: `FIPRO_<HDFC|SBI|AXIS>_STATEMENT_PASSWORD`, or `FIPRO_STATEMENT_PASSWORD` for all).
-   Without it, the file is moved to `data/failed/` with an `.error.txt` naming the variable to set.
-4. Run `uv run fipro status` to confirm each file is attributed to the right bank (not `UNKNOWN`), then `uv run fipro process`.
+3. Run `uv run fipro status` to confirm each file is attributed to the right bank (not `UNKNOWN`), then `uv run fipro process`.
+4. Password-protected statements are skipped and left in `data/input/` (the summary lists them). Unlock them either way:
+   - **Dashboard:** `uv run fipro gmail` (saves each bank's password *hint* from its email), then `uv run fipro dashboard --open`, type the password next to the hint, and click **Unlock & process**. The password is used for that run only and is never stored.
+   - **Shell:** `export FIPRO_SBI_STATEMENT_PASSWORD=…` (per bank: `FIPRO_<HDFC|SBI|AXIS>_STATEMENT_PASSWORD`, or `FIPRO_STATEMENT_PASSWORD` for all), then `uv run fipro process`.
+   Decryption happens in memory; nothing decrypted is written to disk.
 5. Check `data/output/goodbudget_export.csv` for the consolidated transactions.
 6. If anything failed, inspect `data/failed/` for the offending files and their `.error.txt` logs.
 7. Review internal transfer flags in the output CSV (Status column = `internal_transfer`).
 8. Import CSV into Goodbudget.
+
+## One-time: Gmail Access for Password Hints
+
+`fipro gmail` uses read-only Gmail access (`gmail.readonly`) to find the email that explains each bank's statement password rule. It saves only that sentence to `data/password_hints.json`.
+
+1. In Google Cloud Console, enable the **Gmail API** and create an OAuth client of type **Desktop app** (an existing Desktop client works too). Download its JSON to `config/gmail_credentials.json` (gitignored).
+2. Run `uv run fipro gmail`. A browser opens for consent; sign in with the Gmail account that receives the bank statements. The token is saved to `config/gmail_token.json` (gitignored, mode 0600) and refreshed automatically.
+3. If a bank shows "no password hint found", adjust its Gmail search under `[gmail.queries]` in `config/config.toml`.
+
+In the OAuth consent screen's Testing mode, Google expires refresh tokens after 7 days; `fipro gmail` then reopens the consent page.
 
 ## Monthly: Refreshing Test Fixtures
 
