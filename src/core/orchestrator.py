@@ -1,9 +1,13 @@
+import io
 import logging
+import os
 import shutil
 import tempfile
 from pathlib import Path
 
+import msoffcrypto
 import pandas as pd
+from msoffcrypto.exceptions import DecryptionError, FileFormatError, InvalidKeyError
 
 from src.core.deduplicator import get_seen_hashes_from_file, save_seen_hashes_to_file
 from src.core.external_account_detector import detect_external_account_payments
@@ -38,6 +42,9 @@ _EXPORT_ARTIFACTS = (
     "hub_summary.csv",
     "processing_report.json",
 )
+
+_OLE_MAGIC = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
+_DEFAULT_PASSWORD_ENV_VAR = "FIPRO_STATEMENT_PASSWORD"
 
 
 def _commit_export_artifacts(staging_dir: Path, output_dir: Path) -> None:
@@ -122,8 +129,9 @@ def process_pipeline(config: dict) -> PipelineRun:
 
     for crawled in files:
         try:
-            df = load_statement_dataframe(crawled.filepath)
-            parser = route_file_to_parser(crawled.filename, df, parsers)
+            df = load_statement_dataframe(crawled.filepath, bank=crawled.metadata.get("bank"))
+            # Route on the input-relative path so a bank folder (e.g. SBI/AccountStatement.xlsx) counts as a hint.
+            parser = route_file_to_parser(os.path.relpath(crawled.filepath, input_path), df, parsers)
             txns = parser.extract_transactions(df, crawled.filepath)
             all_transactions.extend(txns)
             processed_files.append(crawled.filepath)
@@ -232,10 +240,12 @@ def extract_raw_dataframe(filepaths: list[str]) -> pd.DataFrame:
     return pd.DataFrame.from_records(records)
 
 
-def load_statement_dataframe(filepath: str) -> pd.DataFrame:
+def load_statement_dataframe(filepath: str, bank: str | None = None) -> pd.DataFrame:
     path = Path(filepath)
     suffix = path.suffix.lower()
-    if "sbi" in path.name.lower():
+    if _is_encrypted_office_file(filepath):
+        return pd.read_excel(_decrypt_statement(filepath, bank or "UNKNOWN"), header=None)
+    if bank == "SBI" or "sbi" in path.name.lower():
         df = SBIParser.load_sbi_file(filepath)
         if df is None:
             raise ValueError(f"Unable to load SBI statement: {filepath}")
@@ -244,6 +254,39 @@ def load_statement_dataframe(filepath: str) -> pd.DataFrame:
         raise ValueError(f"Unsupported format: {filepath}")
     engine = "xlrd" if suffix == ".xls" else "openpyxl"
     return pd.read_excel(filepath, engine=engine, header=None)
+
+
+def _is_encrypted_office_file(filepath: str) -> bool:
+    """Password-protected .xls/.xlsx files are OLE containers flagged as encrypted."""
+    with open(filepath, "rb") as f:
+        if f.read(len(_OLE_MAGIC)) != _OLE_MAGIC:
+            return False
+        f.seek(0)
+        try:
+            return bool(msoffcrypto.OfficeFile(f).is_encrypted())
+        except FileFormatError:
+            return False
+
+
+def _decrypt_statement(filepath: str, bank: str) -> io.BytesIO:
+    """Decrypt a password-protected statement in memory; the decrypted bytes never touch disk."""
+    name = Path(filepath).name
+    bank_env_var = f"FIPRO_{bank}_STATEMENT_PASSWORD"
+    env_var = bank_env_var if os.environ.get(bank_env_var) else _DEFAULT_PASSWORD_ENV_VAR
+    password = os.environ.get(env_var)
+    if not password:
+        raise ValueError(f"{name} is password-protected; set {bank_env_var} or {_DEFAULT_PASSWORD_ENV_VAR}")
+
+    decrypted = io.BytesIO()
+    with open(filepath, "rb") as f:
+        try:
+            office_file = msoffcrypto.OfficeFile(f)
+            office_file.load_key(password=password, verify_password=True)
+            office_file.decrypt(decrypted)
+        except (InvalidKeyError, DecryptionError) as exc:
+            raise ValueError(f"Could not decrypt {name}: wrong password in {env_var}") from exc
+    decrypted.seek(0)
+    return decrypted
 
 
 def route_file_to_parser(filename: str, df: pd.DataFrame, parsers: list[BankParser]) -> BankParser:

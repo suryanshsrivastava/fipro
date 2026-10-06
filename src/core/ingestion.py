@@ -2,6 +2,7 @@
 
 import os
 from datetime import UTC, datetime
+from pathlib import Path
 
 from src.models.account import CrawledFile
 
@@ -29,7 +30,7 @@ def discover_files(config: dict) -> list[CrawledFile]:
                 continue
 
             size = os.path.getsize(full_path)
-            metadata = {"bank": get_bank_from_filename(fname)}
+            metadata = {"bank": get_bank_from_path(os.path.relpath(full_path, input_path))}
             discovered.append(
                 CrawledFile(
                     filepath=full_path,
@@ -50,6 +51,15 @@ def validate_file(filepath: str) -> bool:
     if not os.access(filepath, os.R_OK):
         return False
     return not os.path.getsize(filepath) <= 0
+
+
+def get_bank_from_path(relative_path: str) -> str:
+    """Infer bank from the filename, falling back to the nearest parent folder (e.g. ``SBI/statement.xlsx``)."""
+    for part in reversed(Path(relative_path).parts):
+        bank = get_bank_from_filename(part)
+        if bank != "UNKNOWN":
+            return bank
+    return "UNKNOWN"
 
 
 def get_bank_from_filename(filename: str) -> str:

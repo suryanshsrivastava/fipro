@@ -5,12 +5,15 @@ Operational procedures for running and maintaining Fipro. Living document; appen
 ## Monthly: Processing Bank Statements
 
 1. Download latest monthly `.xls` exports from HDFC, SBI, and Axis portals.
-2. Drop them into `data/input/`.
-3. Run `uv run fipro process`.
-4. Check `data/output/goodbudget_export.csv` for the consolidated transactions.
-5. If anything failed, inspect `data/failed/` for the offending files and their `.error.txt` logs.
-6. Review internal transfer flags in the output CSV (Status column = `internal_transfer`).
-7. Import CSV into Goodbudget.
+2. Drop them into `data/input/`. Subfolders are fine; a bank-named folder (e.g. `data/input/2026-07-15/SBI/AccountStatement_….xlsx`) identifies the bank when the filename doesn't.
+3. If any statement is password-protected, export its password first (decryption happens in memory; nothing decrypted is written to disk):
+   `export FIPRO_SBI_STATEMENT_PASSWORD=…` (per bank: `FIPRO_<HDFC|SBI|AXIS>_STATEMENT_PASSWORD`, or `FIPRO_STATEMENT_PASSWORD` for all).
+   Without it, the file is moved to `data/failed/` with an `.error.txt` naming the variable to set.
+4. Run `uv run fipro status` to confirm each file is attributed to the right bank (not `UNKNOWN`), then `uv run fipro process`.
+5. Check `data/output/goodbudget_export.csv` for the consolidated transactions.
+6. If anything failed, inspect `data/failed/` for the offending files and their `.error.txt` logs.
+7. Review internal transfer flags in the output CSV (Status column = `internal_transfer`).
+8. Import CSV into Goodbudget.
 
 ## Monthly: Refreshing Test Fixtures
 
