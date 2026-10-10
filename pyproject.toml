@@ -12,6 +12,7 @@ dependencies = [
   "openpyxl>=3.0.9",
   "numpy>=1.24.2",
   "tomli>=2.0.1",
+  "msoffcrypto-tool>=5.4",
 ]
 
 [project.scripts]
