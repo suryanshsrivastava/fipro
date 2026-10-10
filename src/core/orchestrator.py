@@ -8,6 +8,7 @@ from pathlib import Path
 import msoffcrypto
 import pandas as pd
 from msoffcrypto.exceptions import DecryptionError, FileFormatError, InvalidKeyError
+from msoffcrypto.format.ooxml import OOXMLFile
 
 from src.core.deduplicator import get_seen_hashes_from_file, save_seen_hashes_to_file
 from src.core.external_account_detector import detect_external_account_payments
@@ -281,7 +282,9 @@ def _decrypt_statement(filepath: str, bank: str) -> io.BytesIO:
     with open(filepath, "rb") as f:
         try:
             office_file = msoffcrypto.OfficeFile(f)
-            office_file.load_key(password=password, verify_password=True)
+            # Only OOXML's load_key accepts verify_password; legacy .xls verifies on its own.
+            kwargs = {"verify_password": True} if isinstance(office_file, OOXMLFile) else {}
+            office_file.load_key(password=password, **kwargs)
             office_file.decrypt(decrypted)
         except (InvalidKeyError, DecryptionError) as exc:
             raise ValueError(f"Could not decrypt {name}: wrong password in {env_var}") from exc

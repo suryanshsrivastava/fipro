@@ -107,3 +107,26 @@ def test_process_pipeline_reports_wrong_password_without_leaking_it(tmp_path, mo
     ]
     error_log = tmp_path / "failed" / f"{encrypted_statement.name}.error.txt"
     assert "not-the-password" not in error_log.read_text()
+
+
+def test_decrypt_legacy_xls_does_not_pass_verify_password(tmp_path, monkeypatch):
+    """Xls97File.load_key(password=None) has no verify_password parameter."""
+    from src.core import orchestrator
+
+    class FakeXls97File:
+        def __init__(self, _file):
+            pass
+
+        def load_key(self, password=None):
+            assert password == PASSWORD
+
+        def decrypt(self, outfile):
+            outfile.write(b"decrypted")
+
+    statement = tmp_path / "SBI" / "old.xls"
+    statement.parent.mkdir()
+    statement.write_bytes(b"x")
+    monkeypatch.setenv("FIPRO_SBI_STATEMENT_PASSWORD", PASSWORD)
+    monkeypatch.setattr(orchestrator.msoffcrypto, "OfficeFile", FakeXls97File)
+
+    assert orchestrator._decrypt_statement(str(statement), "SBI").read() == b"decrypted"
