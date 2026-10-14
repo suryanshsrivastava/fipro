@@ -12,8 +12,7 @@ class ConsolidationResult:
     deduplicated_transactions: list[Transaction]
     export_transactions: list[Transaction]
     exported_count: int
-    duplicates_by_source: dict[str, int]
-    transactions_by_source: dict[str, list[Transaction]]
+    duplicates_skipped: int
 
 
 def _count_duplicates_by_source(
@@ -43,28 +42,21 @@ def consolidate_transactions(
     seen_hashes: set[str],
     prior_seen_hashes: set[str],
     include_internal_transfers: bool,
+    results: list[ProcessingResult],
 ) -> ConsolidationResult:
+    """Dedupe, detect transfers and filter for export; also updates ``results`` with per-file metrics."""
     deduplicated_transactions, _ = deduplicate(all_transactions, seen_hashes)
     deduplicated_transactions = detect_transfers(deduplicated_transactions)
     duplicates_by_source = _count_duplicates_by_source(all_transactions, prior_seen_hashes)
     transactions_by_source = _group_transactions_by_source(deduplicated_transactions)
     export_transactions = filter_transactions_for_export(deduplicated_transactions, include_internal_transfers)
-    return ConsolidationResult(
-        deduplicated_transactions=deduplicated_transactions,
-        export_transactions=export_transactions,
-        exported_count=len(export_transactions),
-        duplicates_by_source=duplicates_by_source,
-        transactions_by_source=transactions_by_source,
-    )
-
-
-def apply_processing_metrics(
-    results: list[ProcessingResult],
-    *,
-    duplicates_by_source: dict[str, int],
-    transactions_by_source: dict[str, list[Transaction]],
-) -> None:
     for result in results:
         result.duplicates_skipped = duplicates_by_source.get(result.source_file, 0)
         result.transactions = transactions_by_source.get(result.source_file, [])
         result.successful = len(result.transactions)
+    return ConsolidationResult(
+        deduplicated_transactions=deduplicated_transactions,
+        export_transactions=export_transactions,
+        exported_count=len(export_transactions),
+        duplicates_skipped=sum(duplicates_by_source.values()),
+    )

@@ -1,7 +1,7 @@
 from datetime import date
 from decimal import Decimal
 
-from src.core.transaction_consolidation import apply_processing_metrics, consolidate_transactions
+from src.core.transaction_consolidation import consolidate_transactions
 from src.models.result import ProcessingResult
 from src.models.transactions import Transaction, TransactionType
 
@@ -24,28 +24,9 @@ def _txn(
     )
 
 
-def test_consolidate_transactions_sets_export_and_source_metrics():
-    debit = _txn(source_file="one.xls", amount="500.00", transaction_type=TransactionType.DEBIT, source_bank="HDFC")
-    credit = _txn(source_file="two.xls", amount="500.00", transaction_type=TransactionType.CREDIT, source_bank="SBI")
-    seen_hashes: set[str] = set()
-
-    result = consolidate_transactions(
-        [debit, credit],
-        seen_hashes=seen_hashes,
-        prior_seen_hashes=set(),
-        include_internal_transfers=False,
-    )
-
-    assert len(result.deduplicated_transactions) == 2
-    assert result.export_transactions == []
-    assert result.exported_count == 0
-    assert result.duplicates_by_source == {}
-    assert set(result.transactions_by_source.keys()) == {"one.xls", "two.xls"}
-
-
-def test_apply_processing_metrics_updates_processing_results():
-    processing_result = ProcessingResult(
-        source_file="one.xls",
+def _result(source_file: str) -> ProcessingResult:
+    return ProcessingResult(
+        source_file=source_file,
         bank="HDFC",
         total_transactions=1,
         successful=1,
@@ -55,14 +36,40 @@ def test_apply_processing_metrics_updates_processing_results():
         errors=[],
         warnings=[],
     )
-    transaction = _txn(source_file="one.xls", amount="100.00", transaction_type=TransactionType.DEBIT)
 
-    apply_processing_metrics(
-        [processing_result],
-        duplicates_by_source={"one.xls": 2},
-        transactions_by_source={"one.xls": [transaction]},
+
+def test_consolidate_transactions_sets_export_and_source_metrics():
+    debit = _txn(source_file="one.xls", amount="500.00", transaction_type=TransactionType.DEBIT, source_bank="HDFC")
+    credit = _txn(source_file="two.xls", amount="500.00", transaction_type=TransactionType.CREDIT, source_bank="SBI")
+    results = [_result("one.xls"), _result("two.xls")]
+
+    consolidated = consolidate_transactions(
+        [debit, credit],
+        seen_hashes=set(),
+        prior_seen_hashes=set(),
+        include_internal_transfers=False,
+        results=results,
     )
 
-    assert processing_result.duplicates_skipped == 2
-    assert processing_result.transactions == [transaction]
-    assert processing_result.successful == 1
+    assert len(consolidated.deduplicated_transactions) == 2
+    assert consolidated.export_transactions == []
+    assert consolidated.exported_count == 0
+    assert consolidated.duplicates_skipped == 0
+    assert [r.transactions for r in results] == [[debit], [credit]]
+
+
+def test_consolidate_transactions_counts_prior_duplicates_per_file():
+    txn = _txn(source_file="one.xls", amount="100.00", transaction_type=TransactionType.DEBIT)
+    results = [_result("one.xls")]
+
+    consolidated = consolidate_transactions(
+        [txn],
+        seen_hashes={txn.hash},
+        prior_seen_hashes={txn.hash},
+        include_internal_transfers=True,
+        results=results,
+    )
+
+    assert consolidated.duplicates_skipped == 1
+    assert results[0].duplicates_skipped == 1
+    assert results[0].successful == 0

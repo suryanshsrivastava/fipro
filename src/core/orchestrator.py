@@ -9,18 +9,9 @@ from src.core.deduplicator import get_seen_hashes_from_file, save_seen_hashes_to
 from src.core.external_account_detector import detect_external_account_payments
 from src.core.ingestion import discover_files
 from src.core.parser_registry import get_default_parser_registry
-from src.core.pipeline_lifecycle import (
-    move_file_to_failed as _move_file_to_failed,
-)
-from src.core.pipeline_lifecycle import (
-    move_file_to_processed as _move_file_to_processed,
-)
-from src.core.pipeline_lifecycle import (
-    move_processed_files,
-    persist_failed_files,
-)
+from src.core.pipeline_lifecycle import move_processed_files, persist_failed_files
 from src.core.statement_extraction import extract_from_crawled_files
-from src.core.transaction_consolidation import apply_processing_metrics, consolidate_transactions
+from src.core.transaction_consolidation import ConsolidationResult, consolidate_transactions
 from src.exporters.goodbudget import export_dashboard_data, export_to_goodbudget
 from src.exporters.hub_csv import export_hub_csv
 from src.exporters.report import generate_report
@@ -46,11 +37,8 @@ def _commit_export_artifacts(staging_dir: Path, output_dir: Path) -> None:
 
 def _run_export_phase(
     config: dict,
-    export_transactions: list[Transaction],
-    exported_count: int,
+    consolidation: ConsolidationResult,
     results: list[ProcessingResult],
-    deduplicated_transactions: list[Transaction],
-    duplicates_skipped: int,
     output_path: str,
 ) -> tuple[str, str, str, str, HubSummary]:
     """
@@ -58,6 +46,8 @@ def _run_export_phase(
 
     On failure before commit, nothing is written to the final output directory.
     """
+    export_transactions = consolidation.export_transactions
+    deduplicated_transactions = consolidation.deduplicated_transactions
     output_dir = Path(output_path)
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -75,10 +65,10 @@ def _run_export_phase(
             results,
             str(report_staging),
             config=config,
-            duplicates_skipped=duplicates_skipped,
+            duplicates_skipped=consolidation.duplicates_skipped,
             transactions=deduplicated_transactions,
             export_transactions=export_transactions,
-            exported_transactions=exported_count,
+            exported_transactions=consolidation.exported_count,
         )
         _commit_export_artifacts(staging_dir, output_dir)
 
@@ -132,7 +122,7 @@ def process_pipeline(config: dict, passwords: dict[str, str] | None = None) -> P
     locked_files = extraction.locked_files
 
     if failures:
-        persist_failed_files(failures, failed_path, mover=move_file_to_failed)
+        persist_failed_files(failures, failed_path)
 
     if failures and fail_on_file_error:
         raise RuntimeError(f"Processing aborted because {len(failures)} file(s) failed to parse")
@@ -158,32 +148,23 @@ def process_pipeline(config: dict, passwords: dict[str, str] | None = None) -> P
         seen_hashes=seen_hashes,
         prior_seen_hashes=prior_seen_hashes,
         include_internal_transfers=include_internal_transfers_from_config(config),
+        results=results,
     )
     detect_external_account_payments(consolidation.deduplicated_transactions, config)
     deduplicated_transactions = consolidation.deduplicated_transactions
     export_transactions = consolidation.export_transactions
     exported_count = consolidation.exported_count
-    exported_count = consolidation.exported_count
-    apply_processing_metrics(
-        results,
-        duplicates_by_source=consolidation.duplicates_by_source,
-        transactions_by_source=consolidation.transactions_by_source,
-    )
-    duplicates_skipped = sum(consolidation.duplicates_by_source.values())
 
     csv_path, hub_path, report_path, dashboard_path, hub_summary = _run_export_phase(
         config,
-        export_transactions,
-        exported_count,
+        consolidation,
         results,
-        deduplicated_transactions,
-        duplicates_skipped,
         output_path,
     )
 
     save_seen_hashes_to_file(seen_hashes, str(seen_hashes_path))
 
-    move_processed_files(processed_files, processed_path, mover=move_file_to_processed)
+    move_processed_files(processed_files, processed_path)
 
     logger.info("Pipeline complete. %d transactions exported to %s", exported_count, csv_path)
     return PipelineRun(
@@ -223,11 +204,3 @@ def extract_raw_dataframe(filepaths: list[str]) -> pd.DataFrame:
         for t in transactions
     ]
     return pd.DataFrame.from_records(records)
-
-
-def move_file_to_processed(source_path: str, dest_dir: str) -> str:
-    return _move_file_to_processed(source_path, dest_dir)
-
-
-def move_file_to_failed(source_path: str, dest_dir: str, error: str) -> str:
-    return _move_file_to_failed(source_path, dest_dir, error)

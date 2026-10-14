@@ -9,7 +9,7 @@ from types import SimpleNamespace
 import gspread
 import pytest
 
-from src.core import orchestrator
+from src.core import orchestrator, pipeline_lifecycle
 from src.core.deduplicator import save_seen_hashes_to_file
 from src.core.parser_registry import ExtractedStatement
 from src.exporters.goodbudget import export_to_goodbudget
@@ -103,7 +103,7 @@ def test_move_file_to_processed_avoids_overwriting_existing_archive(tmp_path: Pa
     existing = processed_dir / "hdfc.xls"
     existing.write_text("old statement")
 
-    dest = orchestrator.move_file_to_processed(str(source), str(processed_dir))
+    dest = pipeline_lifecycle.move_file_to_processed(str(source), str(processed_dir))
 
     assert dest == str(processed_dir / "hdfc_1.xls")
     assert not source.exists()
@@ -173,7 +173,7 @@ def test_process_pipeline_skips_internal_transfers_from_export(monkeypatch: pyte
     _mock_parser_registry(monkeypatch, parser)
     monkeypatch.setattr(orchestrator, "get_seen_hashes_from_file", lambda _path: set())
     monkeypatch.setattr(orchestrator, "save_seen_hashes_to_file", lambda *_args: None)
-    monkeypatch.setattr(orchestrator, "move_file_to_processed", lambda *_args: None)
+    monkeypatch.setattr(pipeline_lifecycle, "move_file_to_processed", lambda *_args: None)
     monkeypatch.setattr(orchestrator, "generate_report", _mock_generate_report)
 
     def capture_goodbudget(transactions, csv_path, *_args, **_kwargs):
@@ -214,7 +214,9 @@ def test_process_pipeline_moves_files_only_after_successful_export(monkeypatch: 
     _mock_parser_registry(monkeypatch, parser)
     monkeypatch.setattr(orchestrator, "get_seen_hashes_from_file", lambda _path: set())
     monkeypatch.setattr(orchestrator, "save_seen_hashes_to_file", lambda *_args: None)
-    monkeypatch.setattr(orchestrator, "move_file_to_processed", lambda source, *_args: processed_moves.append(source))
+    monkeypatch.setattr(
+        pipeline_lifecycle, "move_file_to_processed", lambda source, *_args: processed_moves.append(source)
+    )
     monkeypatch.setattr(orchestrator, "generate_report", _mock_generate_report)
 
     def fail_export(*_args, **_kwargs):
@@ -452,7 +454,9 @@ def test_process_pipeline_export_phase_leaves_no_artifacts_on_hub_failure(
         "save_seen_hashes_to_file",
         lambda hashes, _path: hash_writes.append(set(hashes)),
     )
-    monkeypatch.setattr(orchestrator, "move_file_to_processed", lambda source, *_args: processed_moves.append(source))
+    monkeypatch.setattr(
+        pipeline_lifecycle, "move_file_to_processed", lambda source, *_args: processed_moves.append(source)
+    )
     monkeypatch.setattr(orchestrator, "export_to_goodbudget", lambda *_args, **_kwargs: None)
 
     def fail_hub(*_args, **_kwargs):
@@ -489,7 +493,7 @@ def test_process_pipeline_accounts_for_prior_seen_hashes_on_rerun(monkeypatch: p
 
     monkeypatch.setattr(orchestrator, "discover_files", lambda _config: crawled)
     _mock_parser_registry(monkeypatch, parser)
-    monkeypatch.setattr(orchestrator, "move_file_to_processed", lambda *_args: None)
+    monkeypatch.setattr(pipeline_lifecycle, "move_file_to_processed", lambda *_args: None)
     monkeypatch.setattr(orchestrator, "generate_report", _mock_generate_report)
 
     config = {
