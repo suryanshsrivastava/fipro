@@ -11,7 +11,7 @@ from src.core.ingestion import discover_files
 from src.core.parser_registry import get_default_parser_registry
 from src.core.pipeline_lifecycle import move_processed_files, persist_failed_files
 from src.core.statement_extraction import extract_from_crawled_files
-from src.core.transaction_consolidation import ConsolidationResult, consolidate_transactions
+from src.core.transaction_consolidation import ConsolidationResult, apply_processing_metrics, consolidate_transactions
 from src.exporters.goodbudget import export_dashboard_data, export_to_goodbudget
 from src.exporters.hub_csv import export_hub_csv
 from src.exporters.report import generate_report
@@ -83,7 +83,6 @@ def _run_export_phase(
 
 def process_pipeline(config: dict, passwords: dict[str, str] | None = None) -> PipelineRun:
     """Run the full pipeline. ``passwords`` maps bank (e.g. "SBI") to a statement password for this run only."""
-    results: list[ProcessingResult] = []
     input_path = config["paths"]["input"]
     output_path = config["paths"].get("output", "data/output")
     processed_path = config["paths"].get("processed", "data/processed")
@@ -92,7 +91,6 @@ def process_pipeline(config: dict, passwords: dict[str, str] | None = None) -> P
     processing_config = config.get("processing", {})
     seen_hashes_path = Path(processing_config.get("seen_hashes_path", "data/.seen_hashes"))
     seen_hashes = get_seen_hashes_from_file(str(seen_hashes_path))
-    prior_seen_hashes = set(seen_hashes)
 
     files = discover_files(config)
     if not files:
@@ -115,23 +113,18 @@ def process_pipeline(config: dict, passwords: dict[str, str] | None = None) -> P
         input_path=input_path,
         passwords=passwords,
     )
-    results = extraction.results
-    all_transactions = extraction.all_transactions
-    processed_files = extraction.processed_files
-    failures = extraction.failures
-    locked_files = extraction.locked_files
 
-    if failures:
-        persist_failed_files(failures, failed_path)
+    if extraction.failures:
+        persist_failed_files(extraction.failures, failed_path)
 
-    if failures and fail_on_file_error:
-        raise RuntimeError(f"Processing aborted because {len(failures)} file(s) failed to parse")
+    if extraction.failures and fail_on_file_error:
+        raise RuntimeError(f"Processing aborted because {len(extraction.failures)} file(s) failed to parse")
 
-    if not processed_files:
+    if not extraction.processed_files:
         # Nothing parsed (all locked or failed): keep the previous exports instead of overwriting them with empty files.
         logger.info("No statements were processed; leaving existing exports in %s untouched", output_path)
         return PipelineRun(
-            results=results,
+            results=extraction.results,
             deduplicated_transactions=[],
             export_transactions=[],
             exported_count=0,
@@ -140,44 +133,40 @@ def process_pipeline(config: dict, passwords: dict[str, str] | None = None) -> P
             hub_csv_path="",
             dashboard_csv_path="",
             hub_summary=HubSummary.empty("no_files_processed"),
-            locked_files=locked_files,
+            locked_files=extraction.locked_files,
         )
 
     consolidation = consolidate_transactions(
-        all_transactions,
+        extraction.all_transactions,
         seen_hashes=seen_hashes,
-        prior_seen_hashes=prior_seen_hashes,
         include_internal_transfers=include_internal_transfers_from_config(config),
-        results=results,
     )
     detect_external_account_payments(consolidation.deduplicated_transactions, config)
-    deduplicated_transactions = consolidation.deduplicated_transactions
-    export_transactions = consolidation.export_transactions
-    exported_count = consolidation.exported_count
+    apply_processing_metrics(extraction.results, consolidation)
 
     csv_path, hub_path, report_path, dashboard_path, hub_summary = _run_export_phase(
         config,
         consolidation,
-        results,
+        extraction.results,
         output_path,
     )
 
     save_seen_hashes_to_file(seen_hashes, str(seen_hashes_path))
 
-    move_processed_files(processed_files, processed_path)
+    move_processed_files(extraction.processed_files, processed_path)
 
-    logger.info("Pipeline complete. %d transactions exported to %s", exported_count, csv_path)
+    logger.info("Pipeline complete. %d transactions exported to %s", consolidation.exported_count, csv_path)
     return PipelineRun(
-        results=results,
-        deduplicated_transactions=deduplicated_transactions,
-        export_transactions=export_transactions,
-        exported_count=exported_count,
+        results=extraction.results,
+        deduplicated_transactions=consolidation.deduplicated_transactions,
+        export_transactions=consolidation.export_transactions,
+        exported_count=consolidation.exported_count,
         goodbudget_csv_path=csv_path,
         report_json_path=report_path,
         hub_csv_path=hub_path,
         dashboard_csv_path=dashboard_path,
         hub_summary=hub_summary,
-        locked_files=locked_files,
+        locked_files=extraction.locked_files,
     )
 
 

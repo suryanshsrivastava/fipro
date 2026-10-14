@@ -49,7 +49,6 @@ Wire the tools AGENTS.md promises, add pre-commit feedback, make setup reproduci
 Current coverage is 51% across 40 tests. The 80% PRD target is aspirational. The `fail_under` gate is set at 50% so future commits cannot regress. Raise the gate incrementally as tests are added. Never lower it.
 
 Recommended next targets:
-- Add tests for `src/core/transformer.py` (0% today) → +5% overall
 - Add tests for `src/utils/utils.py` (0% today) → +2% overall
 - Add tests for `src/config.py` (0% today) → +3% overall
 - Add integration tests for `src/core/orchestrator.py` → +5% overall

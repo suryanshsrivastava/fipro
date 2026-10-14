@@ -1,7 +1,7 @@
 from datetime import date
 from decimal import Decimal
 
-from src.core.transaction_consolidation import consolidate_transactions
+from src.core.transaction_consolidation import apply_processing_metrics, consolidate_transactions
 from src.models.result import ProcessingResult
 from src.models.transactions import Transaction, TransactionType
 
@@ -46,10 +46,9 @@ def test_consolidate_transactions_sets_export_and_source_metrics():
     consolidated = consolidate_transactions(
         [debit, credit],
         seen_hashes=set(),
-        prior_seen_hashes=set(),
         include_internal_transfers=False,
-        results=results,
     )
+    apply_processing_metrics(results, consolidated)
 
     assert len(consolidated.deduplicated_transactions) == 2
     assert consolidated.export_transactions == []
@@ -65,10 +64,9 @@ def test_consolidate_transactions_counts_prior_duplicates_per_file():
     consolidated = consolidate_transactions(
         [txn],
         seen_hashes={txn.hash},
-        prior_seen_hashes={txn.hash},
         include_internal_transfers=True,
-        results=results,
     )
+    apply_processing_metrics(results, consolidated)
 
     assert consolidated.duplicates_skipped == 1
     assert results[0].duplicates_skipped == 1

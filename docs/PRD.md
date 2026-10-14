@@ -549,7 +549,6 @@ fipro/
 │   │   ├── __init__.py
 │   │   ├── orchestrator.py        # Main processing controller
 │   │   ├── ingestion.py           # File discovery
-│   │   ├── transformer.py         # Data cleaning/standardization
 │   │   ├── deduplicator.py        # Hash-based deduplication
 │   │   └── transfer_detector.py   # Internal transfer detection
 │   │
@@ -669,7 +668,7 @@ fipro/
   - [ ] Scan directory for supported files
   - [ ] Identify bank from filename
   - [ ] Create `CrawledFile` [[objects]]
-- [ ] **3.2** Implement `transformer.py`
+- [x] **3.2** ~~Implement `transformer.py`~~ superseded: date/amount/description cleaning lives in each bank parser and `src/utils`
   - [ ] Date standardization
   - [ ] Amount parsing (handle commas, symbols)
   - [ ] Description cleaning
