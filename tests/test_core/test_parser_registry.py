@@ -20,9 +20,6 @@ class _DummyParser(BankParser):
     def can_parse(self, filename: str, df: pd.DataFrame) -> bool:
         return filename.endswith(".dummy")
 
-    def find_header_row(self, df: pd.DataFrame) -> int:
-        return 0
-
     def extract_transactions(self, df: pd.DataFrame, source_file: str) -> list[Transaction]:
         return [
             Transaction(
@@ -34,9 +31,6 @@ class _DummyParser(BankParser):
                 source_file=source_file,
             )
         ]
-
-    def get_column_mapping(self) -> dict:
-        return {}
 
 
 def test_infer_bank_from_filename_uses_registered_markers():
