@@ -5,7 +5,7 @@ from collections import defaultdict
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
-from src.config import setting
+from src.config import Settings
 from src.connectors.gmail import load_password_hints
 from src.core.ingestion import discover_files
 from src.core.orchestrator import process_pipeline
@@ -225,7 +225,7 @@ def locked_statements(config: dict) -> list[dict]:
     for crawled in discover_files(config):
         if is_encrypted_statement(crawled.filepath):
             by_bank[crawled.metadata.get("bank", "UNKNOWN")].append(crawled.filename)
-    hints = load_password_hints(setting(config, "paths.password_hints"))
+    hints = load_password_hints(Settings.from_config(config).password_hints)
     return [
         {
             "bank": bank,

@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from src.config import setting
+from src.config import Settings
 from src.connectors.gmail import authorize, fetch_password_hints, gmail_service, save_password_hints
 from src.core.ingestion import discover_files
 from src.core.orchestrator import process_pipeline
@@ -82,18 +82,19 @@ def prepare_dashboard_launch(
 
 def run_gmail_command(config: dict, *, service: Any = None) -> list[str]:
     """Fetch statement password hints from Gmail and save them for the dashboard."""
-    queries = setting(config, "gmail.queries")
+    settings = Settings.from_config(config)
+    queries = settings.gmail_queries
     if not queries:
         raise CommandInputError("No Gmail search queries configured under [gmail.queries] in config.toml")
     if service is None:
         creds = authorize(
-            setting(config, "gmail.credentials"),
-            setting(config, "gmail.token"),
+            settings.gmail_credentials,
+            settings.gmail_token,
         )
         service = gmail_service(creds)
 
-    hints = fetch_password_hints(service, queries, max_messages=setting(config, "gmail.max_messages"))
-    hints_path = setting(config, "paths.password_hints")
+    hints = fetch_password_hints(service, queries, max_messages=settings.gmail_max_messages)
+    hints_path = settings.password_hints
     save_password_hints(hints, hints_path)
 
     found = {hint.bank: hint for hint in hints}

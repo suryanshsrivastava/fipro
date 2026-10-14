@@ -3,7 +3,7 @@ import shutil
 import tempfile
 from pathlib import Path
 
-from src.config import setting
+from src.config import Settings
 from src.core.deduplicator import get_seen_hashes_from_file, save_seen_hashes_to_file
 from src.core.external_account_detector import detect_external_account_payments
 from src.core.ingestion import discover_files
@@ -61,11 +61,12 @@ def _run_export_phase(
 def process_pipeline(config: dict, passwords: dict[str, str] | None = None) -> PipelineRun:
     """Run the full pipeline. ``passwords`` maps bank (e.g. "SBI") to a statement password for this run only."""
     input_path = config["paths"]["input"]
-    output_path = setting(config, "paths.output")
-    processed_path = setting(config, "paths.processed")
-    failed_path = setting(config, "paths.failed")
-    fail_on_file_error = setting(config, "processing.fail_on_file_error")
-    seen_hashes_path = Path(setting(config, "processing.seen_hashes_path"))
+    settings = Settings.from_config(config)
+    output_path = settings.output
+    processed_path = settings.processed
+    failed_path = settings.failed
+    fail_on_file_error = settings.fail_on_file_error
+    seen_hashes_path = Path(settings.seen_hashes_path)
     seen_hashes = get_seen_hashes_from_file(str(seen_hashes_path))
 
     files = discover_files(config)

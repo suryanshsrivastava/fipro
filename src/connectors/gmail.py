@@ -14,6 +14,7 @@ from __future__ import annotations
 import base64
 import json
 import re
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from html.parser import HTMLParser
@@ -78,7 +79,7 @@ def gmail_service(creds):
     return build("gmail", "v1", credentials=creds, cache_discovery=False)
 
 
-def fetch_password_hints(service: Any, queries: dict[str, str], max_messages: int = 10) -> list[PasswordHint]:
+def fetch_password_hints(service: Any, queries: Mapping[str, str], max_messages: int = 10) -> list[PasswordHint]:
     """For each bank, return the hint from the newest message matching its Gmail search query."""
     messages = service.users().messages()
     hints: list[PasswordHint] = []
