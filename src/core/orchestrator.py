@@ -3,97 +3,62 @@ import shutil
 import tempfile
 from pathlib import Path
 
-import pandas as pd
-
 from src.core.deduplicator import get_seen_hashes_from_file, save_seen_hashes_to_file
 from src.core.external_account_detector import detect_external_account_payments
 from src.core.ingestion import discover_files
 from src.core.parser_registry import get_default_parser_registry
-from src.core.pipeline_lifecycle import (
-    move_file_to_failed as _move_file_to_failed,
-)
-from src.core.pipeline_lifecycle import (
-    move_file_to_processed as _move_file_to_processed,
-)
-from src.core.pipeline_lifecycle import (
-    move_processed_files,
-    persist_failed_files,
-)
+from src.core.pipeline_lifecycle import move_processed_files, persist_failed_files
 from src.core.statement_extraction import extract_from_crawled_files
-from src.core.transaction_consolidation import apply_processing_metrics, consolidate_transactions
+from src.core.transaction_consolidation import ConsolidationResult, apply_processing_metrics, consolidate_transactions
 from src.exporters.goodbudget import export_dashboard_data, export_to_goodbudget
 from src.exporters.hub_csv import export_hub_csv
 from src.exporters.report import generate_report
 from src.models.result import HubSummary, PipelineRun, ProcessingResult
-from src.models.transactions import Transaction
 from src.utils.report_helpers import include_internal_transfers_from_config
 
 logger = logging.getLogger("fipro.orchestrator")
 
-_EXPORT_ARTIFACTS = (
-    "goodbudget_export.csv",
-    "dashboard_data.csv",
-    "hub_summary.csv",
-    "processing_report.json",
-)
-
-
-def _commit_export_artifacts(staging_dir: Path, output_dir: Path) -> None:
-    output_dir.mkdir(parents=True, exist_ok=True)
-    for name in _EXPORT_ARTIFACTS:
-        shutil.copy2(staging_dir / name, output_dir / name)
+GOODBUDGET_CSV = "goodbudget_export.csv"
+DASHBOARD_CSV = "dashboard_data.csv"
+HUB_CSV = "hub_summary.csv"
+REPORT_JSON = "processing_report.json"
+_EXPORT_ARTIFACTS = (GOODBUDGET_CSV, DASHBOARD_CSV, HUB_CSV, REPORT_JSON)
 
 
 def _run_export_phase(
     config: dict,
-    export_transactions: list[Transaction],
-    exported_count: int,
+    consolidation: ConsolidationResult,
     results: list[ProcessingResult],
-    deduplicated_transactions: list[Transaction],
-    duplicates_skipped: int,
-    output_path: str,
-) -> tuple[str, str, str, str, HubSummary]:
+    output_dir: Path,
+) -> HubSummary:
     """
-    Write exports to a staging directory, then publish all artifacts together.
+    Write exports to a staging directory, then publish all artifacts to ``output_dir`` together.
 
     On failure before commit, nothing is written to the final output directory.
     """
-    output_dir = Path(output_path)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     with tempfile.TemporaryDirectory(prefix=".fipro_export_", dir=output_dir) as staging_name:
         staging_dir = Path(staging_name)
-        csv_staging = staging_dir / "goodbudget_export.csv"
-        dashboard_staging = staging_dir / "dashboard_data.csv"
-        hub_staging = staging_dir / "hub_summary.csv"
-        report_staging = staging_dir / "processing_report.json"
-
-        export_to_goodbudget(export_transactions, str(csv_staging), config)
-        export_dashboard_data(deduplicated_transactions, str(dashboard_staging))
-        export_hub_csv(export_transactions, str(hub_staging))
+        export_to_goodbudget(consolidation.export_transactions, str(staging_dir / GOODBUDGET_CSV), config)
+        export_dashboard_data(consolidation.deduplicated_transactions, str(staging_dir / DASHBOARD_CSV))
+        export_hub_csv(consolidation.export_transactions, str(staging_dir / HUB_CSV))
         _, hub_summary = generate_report(
             results,
-            str(report_staging),
+            str(staging_dir / REPORT_JSON),
             config=config,
-            duplicates_skipped=duplicates_skipped,
-            transactions=deduplicated_transactions,
-            export_transactions=export_transactions,
-            exported_transactions=exported_count,
+            duplicates_skipped=consolidation.duplicates_skipped,
+            transactions=consolidation.deduplicated_transactions,
+            export_transactions=consolidation.export_transactions,
         )
-        _commit_export_artifacts(staging_dir, output_dir)
+        for name in _EXPORT_ARTIFACTS:
+            shutil.copy2(staging_dir / name, output_dir / name)
 
-    return (
-        str(output_dir / "goodbudget_export.csv"),
-        str(output_dir / "hub_summary.csv"),
-        str(output_dir / "processing_report.json"),
-        str(output_dir / "dashboard_data.csv"),
-        hub_summary,
-    )
+    return hub_summary
 
 
 def process_pipeline(config: dict, passwords: dict[str, str] | None = None) -> PipelineRun:
     """Run the full pipeline. ``passwords`` maps bank (e.g. "SBI") to a statement password for this run only."""
-    results: list[ProcessingResult] = []
     input_path = config["paths"]["input"]
     output_path = config["paths"].get("output", "data/output")
     processed_path = config["paths"].get("processed", "data/processed")
@@ -102,22 +67,11 @@ def process_pipeline(config: dict, passwords: dict[str, str] | None = None) -> P
     processing_config = config.get("processing", {})
     seen_hashes_path = Path(processing_config.get("seen_hashes_path", "data/.seen_hashes"))
     seen_hashes = get_seen_hashes_from_file(str(seen_hashes_path))
-    prior_seen_hashes = set(seen_hashes)
 
     files = discover_files(config)
     if not files:
         logger.info("No files found in %s", input_path)
-        return PipelineRun(
-            results=[],
-            deduplicated_transactions=[],
-            export_transactions=[],
-            exported_count=0,
-            goodbudget_csv_path="",
-            report_json_path="",
-            hub_csv_path="",
-            dashboard_csv_path="",
-            hub_summary=HubSummary.empty(),
-        )
+        return PipelineRun.without_exports("no_input_files")
 
     extraction = extract_from_crawled_files(
         files,
@@ -125,109 +79,46 @@ def process_pipeline(config: dict, passwords: dict[str, str] | None = None) -> P
         input_path=input_path,
         passwords=passwords,
     )
-    results = extraction.results
-    all_transactions = extraction.all_transactions
-    processed_files = extraction.processed_files
-    failures = extraction.failures
-    locked_files = extraction.locked_files
 
-    if failures:
-        persist_failed_files(failures, failed_path, mover=move_file_to_failed)
+    if extraction.failures:
+        persist_failed_files(extraction.failures, failed_path)
 
-    if failures and fail_on_file_error:
-        raise RuntimeError(f"Processing aborted because {len(failures)} file(s) failed to parse")
+    if extraction.failures and fail_on_file_error:
+        raise RuntimeError(f"Processing aborted because {len(extraction.failures)} file(s) failed to parse")
 
-    if not processed_files:
+    if not extraction.processed_files:
         # Nothing parsed (all locked or failed): keep the previous exports instead of overwriting them with empty files.
         logger.info("No statements were processed; leaving existing exports in %s untouched", output_path)
-        return PipelineRun(
-            results=results,
-            deduplicated_transactions=[],
-            export_transactions=[],
-            exported_count=0,
-            goodbudget_csv_path="",
-            report_json_path="",
-            hub_csv_path="",
-            dashboard_csv_path="",
-            hub_summary=HubSummary.empty("no_files_processed"),
-            locked_files=locked_files,
+        return PipelineRun.without_exports(
+            "no_files_processed", results=extraction.results, locked_files=extraction.locked_files
         )
 
     consolidation = consolidate_transactions(
-        all_transactions,
+        extraction.all_transactions,
         seen_hashes=seen_hashes,
-        prior_seen_hashes=prior_seen_hashes,
         include_internal_transfers=include_internal_transfers_from_config(config),
     )
     detect_external_account_payments(consolidation.deduplicated_transactions, config)
-    deduplicated_transactions = consolidation.deduplicated_transactions
-    export_transactions = consolidation.export_transactions
-    exported_count = consolidation.exported_count
-    exported_count = consolidation.exported_count
-    apply_processing_metrics(
-        results,
-        duplicates_by_source=consolidation.duplicates_by_source,
-        transactions_by_source=consolidation.transactions_by_source,
-    )
-    duplicates_skipped = sum(consolidation.duplicates_by_source.values())
+    apply_processing_metrics(extraction.results, consolidation)
 
-    csv_path, hub_path, report_path, dashboard_path, hub_summary = _run_export_phase(
-        config,
-        export_transactions,
-        exported_count,
-        results,
-        deduplicated_transactions,
-        duplicates_skipped,
-        output_path,
-    )
+    output_dir = Path(output_path)
+    hub_summary = _run_export_phase(config, consolidation, extraction.results, output_dir)
 
+    # Record hashes before archiving: if archiving fails, the exports are already published, so a retry
+    # must treat the still-pending file as duplicates rather than export (and double-import) it again.
     save_seen_hashes_to_file(seen_hashes, str(seen_hashes_path))
+    move_processed_files(extraction.processed_files, processed_path)
 
-    move_processed_files(processed_files, processed_path, mover=move_file_to_processed)
-
-    logger.info("Pipeline complete. %d transactions exported to %s", exported_count, csv_path)
+    logger.info("Pipeline complete. %d transactions exported to %s", consolidation.exported_count, output_dir)
     return PipelineRun(
-        results=results,
-        deduplicated_transactions=deduplicated_transactions,
-        export_transactions=export_transactions,
-        exported_count=exported_count,
-        goodbudget_csv_path=csv_path,
-        report_json_path=report_path,
-        hub_csv_path=hub_path,
-        dashboard_csv_path=dashboard_path,
+        results=extraction.results,
+        deduplicated_transactions=consolidation.deduplicated_transactions,
+        export_transactions=consolidation.export_transactions,
+        exported_count=consolidation.exported_count,
+        goodbudget_csv_path=str(output_dir / GOODBUDGET_CSV),
+        report_json_path=str(output_dir / REPORT_JSON),
+        hub_csv_path=str(output_dir / HUB_CSV),
+        dashboard_csv_path=str(output_dir / DASHBOARD_CSV),
         hub_summary=hub_summary,
-        locked_files=locked_files,
+        locked_files=extraction.locked_files,
     )
-
-
-def extract_raw_transactions(filepaths: list[str]) -> list[Transaction]:
-    registry = get_default_parser_registry()
-    transactions: list[Transaction] = []
-    for filepath in sorted(filepaths):
-        transactions.extend(registry.extract_transactions(filepath).transactions)
-    return transactions
-
-
-def extract_raw_dataframe(filepaths: list[str]) -> pd.DataFrame:
-    transactions = extract_raw_transactions(filepaths)
-    records = [
-        {
-            "transaction_date": t.transaction_date,
-            "description": t.description,
-            "amount": t.amount,
-            "transaction_type": t.transaction_type.value,
-            "source_bank": t.source_bank,
-            "source_file": t.source_file,
-            "balance": t.balance,
-        }
-        for t in transactions
-    ]
-    return pd.DataFrame.from_records(records)
-
-
-def move_file_to_processed(source_path: str, dest_dir: str) -> str:
-    return _move_file_to_processed(source_path, dest_dir)
-
-
-def move_file_to_failed(source_path: str, dest_dir: str, error: str) -> str:
-    return _move_file_to_failed(source_path, dest_dir, error)

@@ -8,7 +8,6 @@ from typing import Any
 
 import pandas as pd
 
-from src.core.orchestrator import extract_raw_dataframe
 from src.core.parser_registry import get_default_parser_registry
 
 FIXTURES_ROOT = Path(__file__).resolve().parents[1] / "fixtures"
@@ -20,8 +19,25 @@ def load_case_json(path: Path) -> dict[str, Any]:
 
 def extract_case_dataframe(case_dir: Path) -> pd.DataFrame:
     input_dir = case_dir / "input"
-    filepaths = [str(path) for path in sorted(input_dir.iterdir()) if path.is_file()]
-    return extract_raw_dataframe(filepaths)
+    registry = get_default_parser_registry()
+    transactions = []
+    for path in sorted(input_dir.iterdir()):
+        if path.is_file():
+            transactions.extend(registry.extract_transactions(str(path)).transactions)
+    return pd.DataFrame.from_records(
+        [
+            {
+                "transaction_date": t.transaction_date,
+                "description": t.description,
+                "amount": t.amount,
+                "transaction_type": t.transaction_type.value,
+                "source_bank": t.source_bank,
+                "source_file": t.source_file,
+                "balance": t.balance,
+            }
+            for t in transactions
+        ]
+    )
 
 
 def extract_single_input_dataframe(case_dir: Path) -> pd.DataFrame:

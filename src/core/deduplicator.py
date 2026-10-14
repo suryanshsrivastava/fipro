@@ -3,18 +3,24 @@ from pathlib import Path
 from src.models.transactions import Transaction
 
 
-def deduplicate(transactions: list[Transaction], seen_hashes: set[str] | None = None) -> tuple[list[Transaction], int]:
+def deduplicate(
+    transactions: list[Transaction], seen_hashes: set[str] | None = None
+) -> tuple[list[Transaction], dict[str, int]]:
+    """Drop transactions whose hash is already in ``seen_hashes`` (which is updated in place).
+
+    Returns the unique transactions and the number of duplicates dropped per source file.
+    """
     if seen_hashes is None:
         seen_hashes = set()
     unique: list[Transaction] = []
-    skipped = 0
+    duplicates_by_source: dict[str, int] = {}
     for txn in transactions:
         if txn.hash in seen_hashes:
-            skipped += 1
+            duplicates_by_source[txn.source_file] = duplicates_by_source.get(txn.source_file, 0) + 1
         else:
             seen_hashes.add(txn.hash)
             unique.append(txn)
-    return unique, skipped
+    return unique, duplicates_by_source
 
 
 def get_seen_hashes_from_file(filepath: str) -> set[str]:

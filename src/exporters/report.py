@@ -24,16 +24,17 @@ def generate_report(
     duplicates_skipped: int = 0,
     transactions: list[Transaction] | None = None,
     export_transactions: list[Transaction] | None = None,
-    exported_transactions: int | None = None,
-    return_hub_summary: bool = True,
-) -> dict | tuple[dict, HubSummary]:
-    """Generate and write a JSON processing report."""
+) -> tuple[dict, HubSummary]:
+    """Generate and write a JSON processing report; returns the report and its hub summary.
+
+    ``transactions`` and ``export_transactions`` default to the results' transactions and
+    their ``config``-based export filter respectively.
+    """
     if transactions is None:
         transactions = [transaction for result in results for transaction in result.transactions]
     if export_transactions is None:
         include_internal_transfers = include_internal_transfers_from_config(config)
         export_transactions = filter_transactions_for_export(transactions, include_internal_transfers)
-    exported_count = exported_transactions if exported_transactions is not None else len(export_transactions)
 
     by_bank: dict[str, dict[str, int]] = {}
     for transaction in export_transactions:
@@ -55,7 +56,7 @@ def generate_report(
         "summary": {
             "total_files": len(results),
             "total_transactions": sum(result.total_transactions for result in results),
-            "exported_transactions": exported_count,
+            "exported_transactions": len(export_transactions),
             "duplicates_skipped": duplicates_skipped,
             "transfers_detected": sum(
                 1 for transaction in transactions if transaction.status == TransactionStatus.TRANSFER
@@ -87,9 +88,7 @@ def generate_report(
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "w") as f:
         json.dump(report, f, indent=2, default=str)
-    if return_hub_summary:
-        return report, HubSummary.from_report(report)
-    return report
+    return report, HubSummary.from_report(report)
 
 
 def calculate_date_range(transactions: list[Transaction]) -> dict:

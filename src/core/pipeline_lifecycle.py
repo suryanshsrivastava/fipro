@@ -1,5 +1,4 @@
 import shutil
-from collections.abc import Callable
 from pathlib import Path
 
 
@@ -30,21 +29,11 @@ def move_file_to_failed(source_path: str, dest_dir: str, error: str) -> str:
     return str(dst)
 
 
-def move_processed_files(
-    processed_files: list[str],
-    processed_dir: str,
-    *,
-    mover: Callable[[str, str], str] = move_file_to_processed,
-) -> None:
+def move_processed_files(processed_files: list[str], processed_dir: str) -> None:
     for filepath in processed_files:
-        mover(filepath, processed_dir)
+        move_file_to_processed(filepath, processed_dir)
 
 
-def persist_failed_files(
-    failures: list[tuple[str, str]],
-    failed_dir: str,
-    *,
-    mover: Callable[[str, str, str], str] = move_file_to_failed,
-) -> None:
+def persist_failed_files(failures: list[tuple[str, str]], failed_dir: str) -> None:
     for filepath, error in failures:
-        mover(filepath, failed_dir, error)
+        move_file_to_failed(filepath, failed_dir, error)
