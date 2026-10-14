@@ -516,7 +516,9 @@ def test_process_pipeline_accounts_for_prior_seen_hashes_on_rerun(monkeypatch: p
     assert run2.results[0].duplicates_skipped == 1
 
 
-def test_process_pipeline_does_not_record_hashes_when_archiving_fails(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+def test_process_pipeline_records_hashes_before_archiving_so_retry_skips_exported_rows(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+):
     parser = DummyParser([make_transaction(source_file="statement.xls")])
     crawled = [SimpleNamespace(filepath="statement.xls", filename="statement.xls", metadata={})]
     hashes_path = tmp_path / ".seen_hashes"
@@ -544,4 +546,4 @@ def test_process_pipeline_does_not_record_hashes_when_archiving_fails(monkeypatc
     with pytest.raises(OSError, match="disk full"):
         orchestrator.process_pipeline(config)
 
-    assert not hashes_path.exists()
+    assert hashes_path.read_text().split() == [parser._transactions[0].hash]

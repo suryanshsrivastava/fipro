@@ -104,10 +104,10 @@ def process_pipeline(config: dict, passwords: dict[str, str] | None = None) -> P
     output_dir = Path(output_path)
     hub_summary = _run_export_phase(config, consolidation, extraction.results, output_dir)
 
-    # Hashes are recorded only after the statements were archived, so a failed move can't leave
-    # a still-pending file whose transactions would all be skipped as duplicates on the next run.
-    move_processed_files(extraction.processed_files, processed_path)
+    # Record hashes before archiving: if archiving fails, the exports are already published, so a retry
+    # must treat the still-pending file as duplicates rather than export (and double-import) it again.
     save_seen_hashes_to_file(seen_hashes, str(seen_hashes_path))
+    move_processed_files(extraction.processed_files, processed_path)
 
     logger.info("Pipeline complete. %d transactions exported to %s", consolidation.exported_count, output_dir)
     return PipelineRun(
