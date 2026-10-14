@@ -5,7 +5,7 @@ This module defines data structures for tracking processing results and pipeline
 outputs. Used by the orchestrator to report on file processing status.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from src.models.transactions import Transaction
 
@@ -67,6 +67,7 @@ class PipelineRun:
     hub_csv_path: str
     dashboard_csv_path: str
     hub_summary: HubSummary
+    locked_files: list[str] = field(default_factory=list)
 
 
 @dataclass

@@ -10,6 +10,7 @@ output = "data/output"
 processed = "data/processed"
 failed = "data/failed"
 dashboard_data = "data/output/dashboard_data.csv"
+password_hints = "data/password_hints.json"
 
 [processing]
 supported_extensions = ["xls", "xlsx"]
@@ -39,3 +40,16 @@ max_description_length = 50
 [external_accounts]
 names = ["CREDIT_CARD"]
 payment_keywords = ["CREDIT CARD", "CC PAYMENT", "CARD PAYMENT", "CRED"]
+
+# `fipro gmail`: read-only Gmail search for the email that explains each bank's
+# statement password rule. Only the hint sentence is saved (paths.password_hints).
+[gmail]
+credentials = "config/gmail_credentials.json"   # OAuth "Desktop app" client JSON (gitignored)
+token = "config/gmail_token.json"               # created on first consent (gitignored)
+max_messages = 10
+
+[gmail.queries]
+# Gmail search syntax; adjust if your bank's sender differs.
+SBI = "from:sbi.co.in password"
+HDFC = "from:hdfcbank.net password"
+AXIS = "from:axisbank.com password"

@@ -5,6 +5,7 @@ from src.config import load_config
 from src.core.application import (
     CommandInputError,
     prepare_dashboard_launch,
+    run_gmail_command,
     run_process_command,
     run_sheets_command,
     run_status_command,
@@ -26,7 +27,9 @@ def _exit_with_error(message: str) -> None:
 def main():
     parser = argparse.ArgumentParser(description="Fipro — Bank statement processor")
     parser.add_argument("--config", default="config/config.toml", help="Path to config.toml")
-    parser.add_argument("command", nargs="?", default="process", choices=["process", "status", "dashboard", "sheets"])
+    parser.add_argument(
+        "command", nargs="?", default="process", choices=["process", "status", "dashboard", "sheets", "gmail"]
+    )
     parser.add_argument("--csv", default=None, help="CSV path override for dashboard or sheets")
     parser.add_argument("--port", type=int, default=8080, help="Dashboard port (default: 8080)")
     parser.add_argument(
@@ -48,10 +51,12 @@ def main():
         cmd_status(config)
     elif args.command == "dashboard":
         dashboard_csv = args.csv or config.get("paths", {}).get("dashboard_data", "data/output/dashboard_data.csv")
-        cmd_dashboard(dashboard_csv, args.port, args.open)
+        cmd_dashboard(config, dashboard_csv, args.port, args.open)
     elif args.command == "sheets":
         sheets_csv = args.csv or f"{config.get('paths', {}).get('output', 'data/output')}/goodbudget_export.csv"
         cmd_sheets(sheets_csv, args.creds, args.title)
+    elif args.command == "gmail":
+        cmd_gmail(config)
     else:
         cmd_process(config)
 
@@ -68,13 +73,13 @@ def cmd_status(config):
     _print_lines(run_status_command(config))
 
 
-def cmd_dashboard(csv_path: str, port: int, open_browser: bool):
+def cmd_dashboard(config: dict, csv_path: str, port: int, open_browser: bool):
     try:
         launch = prepare_dashboard_launch(csv_path, port, open_browser)
     except CommandInputError as exc:
         _exit_with_error(str(exc))
     _print_lines(launch.lines)
-    serve_dashboard(launch.csv_path, launch.port, open_browser=launch.open_browser)
+    serve_dashboard(launch.csv_path, launch.port, open_browser=launch.open_browser, config=config)
 
 
 def cmd_sheets(csv_path: str, creds_path: str, title: str):
@@ -89,6 +94,19 @@ def cmd_sheets(csv_path: str, creds_path: str, title: str):
             print("    and save it to config/google_credentials.json", file=sys.stderr)
         sys.exit(1)
     _print_lines(result.lines)
+
+
+def cmd_gmail(config: dict):
+    try:
+        lines = run_gmail_command(config)
+    except (CommandInputError, FileNotFoundError) as exc:
+        print(exc, file=sys.stderr)
+        if isinstance(exc, FileNotFoundError):
+            print("  → In Google Cloud Console: enable the Gmail API, create an OAuth client", file=sys.stderr)
+            print("    of type 'Desktop app', download its JSON and save it as", file=sys.stderr)
+            print("    config/gmail_credentials.json (path set by [gmail].credentials).", file=sys.stderr)
+        sys.exit(1)
+    _print_lines(lines)
 
 
 if __name__ == "__main__":
