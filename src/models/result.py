@@ -71,6 +71,27 @@ class PipelineRun:
     hub_summary: HubSummary
     locked_files: list[str] = field(default_factory=list)
 
+    @classmethod
+    def without_exports(
+        cls,
+        reason: str,
+        results: list[ProcessingResult] | None = None,
+        locked_files: list[str] | None = None,
+    ) -> PipelineRun:
+        """A run that produced no export artifacts (nothing found, or nothing could be parsed)."""
+        return cls(
+            results=results or [],
+            deduplicated_transactions=[],
+            export_transactions=[],
+            exported_count=0,
+            goodbudget_csv_path="",
+            report_json_path="",
+            hub_csv_path="",
+            dashboard_csv_path="",
+            hub_summary=HubSummary.empty(reason),
+            locked_files=locked_files or [],
+        )
+
 
 @dataclass
 class ProcessingResult:

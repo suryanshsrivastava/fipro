@@ -514,3 +514,34 @@ def test_process_pipeline_accounts_for_prior_seen_hashes_on_rerun(monkeypatch: p
     run2 = orchestrator.process_pipeline(config)
     assert run2.results[0].successful == 0
     assert run2.results[0].duplicates_skipped == 1
+
+
+def test_process_pipeline_does_not_record_hashes_when_archiving_fails(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+    parser = DummyParser([make_transaction(source_file="statement.xls")])
+    crawled = [SimpleNamespace(filepath="statement.xls", filename="statement.xls", metadata={})]
+    hashes_path = tmp_path / ".seen_hashes"
+
+    monkeypatch.setattr(orchestrator, "discover_files", lambda _config: crawled)
+    _mock_parser_registry(monkeypatch, parser)
+    monkeypatch.setattr(orchestrator, "generate_report", _mock_generate_report)
+
+    def failing_move(*_args):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(orchestrator, "move_processed_files", failing_move)
+
+    config = {
+        "paths": {
+            "input": str(tmp_path / "input"),
+            "output": str(tmp_path / "output"),
+            "processed": str(tmp_path / "processed"),
+            "failed": str(tmp_path / "failed"),
+        },
+        "processing": {"skip_internal_transfers": False, "seen_hashes_path": str(hashes_path)},
+        "export": {"goodbudget": {}},
+    }
+
+    with pytest.raises(OSError, match="disk full"):
+        orchestrator.process_pipeline(config)
+
+    assert not hashes_path.exists()

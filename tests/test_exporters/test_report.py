@@ -227,7 +227,6 @@ def test_generate_report_prefers_explicit_export_scope(tmp_path):
         str(report_path),
         transactions=[transfer, debit],
         export_transactions=[debit],
-        exported_transactions=1,
     )
     assert report["summary"]["exported_transactions"] == 1
     assert report["cash_flow"]["total_debits"] == "100.00"
