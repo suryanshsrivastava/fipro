@@ -1,7 +1,7 @@
 import argparse
 import sys
 
-from src.config import load_config
+from src.config import load_config, setting
 from src.core.application import (
     CommandInputError,
     prepare_dashboard_launch,
@@ -41,7 +41,7 @@ def main():
 
     try:
         config = load_config(args.config)
-        setup_logging(config.get("fipro", {}).get("log_level", "INFO"))
+        setup_logging(setting(config, "fipro.log_level"))
     except FileNotFoundError as e:
         _exit_with_error(f"Error: {e}")
     except ValueError as e:
@@ -50,10 +50,10 @@ def main():
     if args.command == "status":
         cmd_status(config)
     elif args.command == "dashboard":
-        dashboard_csv = args.csv or config.get("paths", {}).get("dashboard_data", "data/output/dashboard_data.csv")
+        dashboard_csv = args.csv or setting(config, "paths.dashboard_data")
         cmd_dashboard(config, dashboard_csv, args.port, args.open)
     elif args.command == "sheets":
-        sheets_csv = args.csv or f"{config.get('paths', {}).get('output', 'data/output')}/goodbudget_export.csv"
+        sheets_csv = args.csv or f"{setting(config, 'paths.output')}/goodbudget_export.csv"
         cmd_sheets(sheets_csv, args.creds, args.title)
     elif args.command == "gmail":
         cmd_gmail(config)

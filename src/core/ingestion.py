@@ -4,6 +4,7 @@ import os
 from datetime import UTC, datetime
 from pathlib import Path
 
+from src.config import setting
 from src.core.parser_registry import get_default_parser_registry
 from src.models.account import CrawledFile
 
@@ -14,7 +15,7 @@ def discover_files(config: dict) -> list[CrawledFile]:
     if not input_path:
         raise ValueError("Input path not configured under paths.input")
 
-    supported_exts = config.get("processing", {}).get("supported_extensions", [])
+    supported_exts = setting(config, "processing.supported_extensions")
     if not supported_exts:
         supported_exts = ["xls", "xlsx"]
 

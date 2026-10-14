@@ -8,6 +8,37 @@ Provides a single source of configuration for the entire application.
 import tomllib
 from pathlib import Path
 
+# Single source of fallback values. Callers may pass partial config dicts (tests, library use),
+# so defaults are applied at read time through ``setting`` rather than only at load time.
+DEFAULTS: dict[str, object] = {
+    "fipro.log_level": "INFO",
+    "paths.output": "data/output",
+    "paths.processed": "data/processed",
+    "paths.failed": "data/failed",
+    "paths.dashboard_data": "data/output/dashboard_data.csv",
+    "paths.password_hints": "data/password_hints.json",
+    "processing.supported_extensions": ["xls", "xlsx"],
+    "processing.fail_on_file_error": False,
+    "processing.seen_hashes_path": "data/.seen_hashes",
+    "export.goodbudget.max_description_length": 50,
+    "export.goodbudget.default_envelope": "Unallocated",
+    "export.goodbudget.default_status": "cleared",
+    "gmail.credentials": "config/gmail_credentials.json",
+    "gmail.token": "config/gmail_token.json",
+    "gmail.max_messages": 10,
+    "gmail.queries": {},
+}
+
+
+def setting(config: dict, dotted_key: str):
+    """Read ``section.key`` (or deeper) from ``config``, falling back to DEFAULTS."""
+    value: object = config
+    for part in dotted_key.split("."):
+        if not isinstance(value, dict) or part not in value:
+            return DEFAULTS[dotted_key]
+        value = value[part]
+    return value
+
 
 def load_config(config_path: str = "config/config.toml") -> dict:
     """
