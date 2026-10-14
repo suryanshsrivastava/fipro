@@ -12,7 +12,7 @@ from src.core.orchestrator import process_pipeline
 FIXTURES_ROOT = Path(__file__).resolve().parents[1] / "fixtures"
 
 
-def test_process_pipeline_fails_whole_run_and_moves_only_bad_file(tmp_path):
+def test_process_pipeline_fails_whole_run_and_moves_only_bad_file(tmp_path, pipeline_config_factory):
     input_dir = tmp_path / "input"
     output_dir = tmp_path / "output"
     processed_dir = tmp_path / "processed"
@@ -25,30 +25,14 @@ def test_process_pipeline_fails_whole_run_and_moves_only_bad_file(tmp_path):
     )
     (input_dir / "bad_axis.xlsx").write_text("not an excel file", encoding="utf-8")
 
-    config = {
-        "fipro": {"version": "0.1.0", "log_level": "INFO"},
-        "paths": {
-            "input": str(input_dir),
-            "output": str(output_dir),
-            "processed": str(processed_dir),
-            "failed": str(failed_dir),
-        },
-        "processing": {
-            "supported_extensions": ["xls", "xlsx"],
-            "include_internal_transfers": True,
-            "fail_on_file_error": True,
-            "seen_hashes_path": str(tmp_path / ".seen_hashes"),
-        },
-        "banks": {
-            "hdfc": {"patterns": ["*hdfc*"]},
-            "sbi": {"patterns": ["*sbi*"]},
-            "axis": {"patterns": ["*axis*"]},
-        },
-        "external_accounts": {
-            "names": ["CREDIT_CARD"],
-            "payment_keywords": ["CREDIT CARD", "CRED"],
-        },
-    }
+    config = pipeline_config_factory(
+        input_dir=input_dir,
+        output_dir=output_dir,
+        processed_dir=processed_dir,
+        failed_dir=failed_dir,
+        fail_on_file_error=True,
+    )
+    config["external_accounts"] = {"names": ["CREDIT_CARD"], "payment_keywords": ["CREDIT CARD", "CRED"]}
 
     with pytest.raises(RuntimeError, match="failed to parse"):
         process_pipeline(config)
@@ -60,7 +44,7 @@ def test_process_pipeline_fails_whole_run_and_moves_only_bad_file(tmp_path):
     assert (failed_dir / "bad_axis.xlsx.error.txt").exists()
 
 
-def test_process_pipeline_continues_and_moves_bad_file_to_failed(tmp_path):
+def test_process_pipeline_continues_and_moves_bad_file_to_failed(tmp_path, pipeline_config_factory):
     input_dir = tmp_path / "input"
     output_dir = tmp_path / "output"
     processed_dir = tmp_path / "processed"
@@ -73,30 +57,14 @@ def test_process_pipeline_continues_and_moves_bad_file_to_failed(tmp_path):
     )
     (input_dir / "bad_axis.xlsx").write_text("not an excel file", encoding="utf-8")
 
-    config = {
-        "fipro": {"version": "0.1.0", "log_level": "INFO"},
-        "paths": {
-            "input": str(input_dir),
-            "output": str(output_dir),
-            "processed": str(processed_dir),
-            "failed": str(failed_dir),
-        },
-        "processing": {
-            "supported_extensions": ["xls", "xlsx"],
-            "include_internal_transfers": True,
-            "fail_on_file_error": False,
-            "seen_hashes_path": str(tmp_path / ".seen_hashes"),
-        },
-        "banks": {
-            "hdfc": {"patterns": ["*hdfc*"]},
-            "sbi": {"patterns": ["*sbi*"]},
-            "axis": {"patterns": ["*axis*"]},
-        },
-        "external_accounts": {
-            "names": ["CREDIT_CARD"],
-            "payment_keywords": ["CREDIT CARD", "CRED"],
-        },
-    }
+    config = pipeline_config_factory(
+        input_dir=input_dir,
+        output_dir=output_dir,
+        processed_dir=processed_dir,
+        failed_dir=failed_dir,
+        fail_on_file_error=False,
+    )
+    config["external_accounts"] = {"names": ["CREDIT_CARD"], "payment_keywords": ["CREDIT CARD", "CRED"]}
 
     run = process_pipeline(config)
 

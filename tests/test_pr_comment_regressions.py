@@ -11,6 +11,7 @@ import pytest
 
 from src.core import orchestrator
 from src.core.deduplicator import save_seen_hashes_to_file
+from src.core.parser_registry import ExtractedStatement
 from src.exporters.goodbudget import export_to_goodbudget
 from src.exporters.sheets import export_to_google_sheets
 from src.models.result import HubSummary
@@ -33,6 +34,16 @@ class DummyParser:
 
     def extract_transactions(self, _df, _source_file: str) -> list[Transaction]:
         return list(self._transactions)
+
+
+def _mock_parser_registry(monkeypatch: pytest.MonkeyPatch, parser: DummyParser) -> None:
+    class FakeRegistry:
+        def extract_transactions(self, filepath, **_kwargs):
+            return ExtractedStatement(
+                parser=parser, dataframe=None, transactions=parser.extract_transactions(None, filepath)
+            )
+
+    monkeypatch.setattr(orchestrator, "get_default_parser_registry", lambda: FakeRegistry())
 
 
 def make_transaction(
@@ -159,8 +170,7 @@ def test_process_pipeline_skips_internal_transfers_from_export(monkeypatch: pyte
     exported: dict[str, list[Transaction]] = {}
 
     monkeypatch.setattr(orchestrator, "discover_files", lambda _config: crawled)
-    monkeypatch.setattr(orchestrator, "load_statement_dataframe", lambda _path, **_kwargs: None)
-    monkeypatch.setattr(orchestrator, "route_file_to_parser", lambda *_args: parser)
+    _mock_parser_registry(monkeypatch, parser)
     monkeypatch.setattr(orchestrator, "get_seen_hashes_from_file", lambda _path: set())
     monkeypatch.setattr(orchestrator, "save_seen_hashes_to_file", lambda *_args: None)
     monkeypatch.setattr(orchestrator, "move_file_to_processed", lambda *_args: None)
@@ -201,8 +211,7 @@ def test_process_pipeline_moves_files_only_after_successful_export(monkeypatch: 
     processed_moves: list[str] = []
 
     monkeypatch.setattr(orchestrator, "discover_files", lambda _config: crawled)
-    monkeypatch.setattr(orchestrator, "load_statement_dataframe", lambda _path, **_kwargs: None)
-    monkeypatch.setattr(orchestrator, "route_file_to_parser", lambda *_args: parser)
+    _mock_parser_registry(monkeypatch, parser)
     monkeypatch.setattr(orchestrator, "get_seen_hashes_from_file", lambda _path: set())
     monkeypatch.setattr(orchestrator, "save_seen_hashes_to_file", lambda *_args: None)
     monkeypatch.setattr(orchestrator, "move_file_to_processed", lambda source, *_args: processed_moves.append(source))
@@ -436,8 +445,7 @@ def test_process_pipeline_export_phase_leaves_no_artifacts_on_hub_failure(
     output_dir = tmp_path / "output"
 
     monkeypatch.setattr(orchestrator, "discover_files", lambda _config: crawled)
-    monkeypatch.setattr(orchestrator, "load_statement_dataframe", lambda _path, **_kwargs: None)
-    monkeypatch.setattr(orchestrator, "route_file_to_parser", lambda *_args: parser)
+    _mock_parser_registry(monkeypatch, parser)
     monkeypatch.setattr(orchestrator, "get_seen_hashes_from_file", lambda _path: set())
     monkeypatch.setattr(
         orchestrator,
@@ -480,8 +488,7 @@ def test_process_pipeline_accounts_for_prior_seen_hashes_on_rerun(monkeypatch: p
     crawled = [SimpleNamespace(filepath="statement.xls", filename="statement.xls", metadata={})]
 
     monkeypatch.setattr(orchestrator, "discover_files", lambda _config: crawled)
-    monkeypatch.setattr(orchestrator, "load_statement_dataframe", lambda _path, **_kwargs: None)
-    monkeypatch.setattr(orchestrator, "route_file_to_parser", lambda *_args: parser)
+    _mock_parser_registry(monkeypatch, parser)
     monkeypatch.setattr(orchestrator, "move_file_to_processed", lambda *_args: None)
     monkeypatch.setattr(orchestrator, "generate_report", _mock_generate_report)
 

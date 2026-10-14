@@ -11,6 +11,7 @@ from src.utils.report_helpers import filter_transactions_for_export
 class ConsolidationResult:
     deduplicated_transactions: list[Transaction]
     export_transactions: list[Transaction]
+    exported_count: int
     duplicates_by_source: dict[str, int]
     transactions_by_source: dict[str, list[Transaction]]
 
@@ -51,6 +52,7 @@ def consolidate_transactions(
     return ConsolidationResult(
         deduplicated_transactions=deduplicated_transactions,
         export_transactions=export_transactions,
+        exported_count=len(export_transactions),
         duplicates_by_source=duplicates_by_source,
         transactions_by_source=transactions_by_source,
     )

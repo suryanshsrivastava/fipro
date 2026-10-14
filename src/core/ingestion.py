@@ -4,6 +4,7 @@ import os
 from datetime import UTC, datetime
 from pathlib import Path
 
+from src.core.parser_registry import get_default_parser_registry
 from src.models.account import CrawledFile
 
 
@@ -64,11 +65,5 @@ def get_bank_from_path(relative_path: str) -> str:
 
 def get_bank_from_filename(filename: str) -> str:
     """Infer bank label (HDFC, SBI, AXIS, UNKNOWN) from the filename."""
-    name = filename.lower()
-    if "hdfc" in name:
-        return "HDFC"
-    if "sbi" in name:
-        return "SBI"
-    if "axis" in name:
-        return "AXIS"
-    return "UNKNOWN"
+    parser_registry = get_default_parser_registry()
+    return parser_registry.infer_bank_from_filename(filename)

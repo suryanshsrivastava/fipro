@@ -190,3 +190,44 @@ def test_generate_report_returns_hub_summary_from_same_scope(tmp_path):
     assert hub_summary.earliest == report["date_range"]["earliest"]
     assert hub_summary.cash_flow == report["cash_flow"]
     assert hub_summary.total_across_statements == report["net_worth_proxy"]["total_across_statements"]
+
+
+def test_generate_report_prefers_explicit_export_scope(tmp_path):
+    transfer = Transaction(
+        transaction_date=date(2025, 1, 5),
+        description="Transfer to SBI",
+        amount=Decimal("500.00"),
+        transaction_type=TransactionType.DEBIT,
+        source_bank="HDFC",
+        source_file="sample.xls",
+        status=TransactionStatus.TRANSFER,
+    )
+    debit = Transaction(
+        transaction_date=date(2025, 1, 6),
+        description="Coffee",
+        amount=Decimal("100.00"),
+        transaction_type=TransactionType.DEBIT,
+        source_bank="HDFC",
+        source_file="sample.xls",
+    )
+    result = ProcessingResult(
+        source_file="sample.xls",
+        bank="HDFC",
+        total_transactions=2,
+        successful=2,
+        failed=0,
+        duplicates_skipped=0,
+        transactions=[transfer, debit],
+        errors=[],
+        warnings=[],
+    )
+    report_path = tmp_path / "report.json"
+    report, _ = generate_report(
+        [result],
+        str(report_path),
+        transactions=[transfer, debit],
+        export_transactions=[debit],
+        exported_transactions=1,
+    )
+    assert report["summary"]["exported_transactions"] == 1
+    assert report["cash_flow"]["total_debits"] == "100.00"

@@ -32,6 +32,8 @@ def _run_with_results() -> PipelineRun:
     return PipelineRun(
         results=[result],
         deduplicated_transactions=[_transaction()],
+        export_transactions=[_transaction()],
+        exported_count=1,
         goodbudget_csv_path="data/output/goodbudget_export.csv",
         report_json_path="data/output/processing_report.json",
         hub_csv_path="data/output/hub_summary.csv",
@@ -50,6 +52,8 @@ def test_summarize_pipeline_run_for_empty_inputs():
     run = PipelineRun(
         results=[],
         deduplicated_transactions=[],
+        export_transactions=[],
+        exported_count=0,
         goodbudget_csv_path="",
         report_json_path="",
         hub_csv_path="",

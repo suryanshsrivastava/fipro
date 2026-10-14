@@ -1,18 +1,14 @@
-import io
 import logging
-import os
 import shutil
 import tempfile
 from pathlib import Path
 
-import msoffcrypto
 import pandas as pd
-from msoffcrypto.exceptions import DecryptionError, FileFormatError, InvalidKeyError
-from msoffcrypto.format.ooxml import OOXMLFile
 
 from src.core.deduplicator import get_seen_hashes_from_file, save_seen_hashes_to_file
 from src.core.external_account_detector import detect_external_account_payments
 from src.core.ingestion import discover_files
+from src.core.parser_registry import get_default_parser_registry
 from src.core.pipeline_lifecycle import (
     move_file_to_failed as _move_file_to_failed,
 )
@@ -23,16 +19,13 @@ from src.core.pipeline_lifecycle import (
     move_processed_files,
     persist_failed_files,
 )
+from src.core.statement_extraction import extract_from_crawled_files
 from src.core.transaction_consolidation import apply_processing_metrics, consolidate_transactions
 from src.exporters.goodbudget import export_dashboard_data, export_to_goodbudget
 from src.exporters.hub_csv import export_hub_csv
 from src.exporters.report import generate_report
 from src.models.result import HubSummary, PipelineRun, ProcessingResult
 from src.models.transactions import Transaction
-from src.parsers.axis import AxisParser
-from src.parsers.base import BankParser
-from src.parsers.hdfc import HDFCParser
-from src.parsers.sbi import SBIParser
 from src.utils.report_helpers import include_internal_transfers_from_config
 
 logger = logging.getLogger("fipro.orchestrator")
@@ -44,13 +37,6 @@ _EXPORT_ARTIFACTS = (
     "processing_report.json",
 )
 
-_OLE_MAGIC = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
-_DEFAULT_PASSWORD_ENV_VAR = "FIPRO_STATEMENT_PASSWORD"
-
-
-class StatementLockedError(ValueError):
-    """A password-protected statement had no usable password; the file is left in the input folder."""
-
 
 def _commit_export_artifacts(staging_dir: Path, output_dir: Path) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -61,6 +47,7 @@ def _commit_export_artifacts(staging_dir: Path, output_dir: Path) -> None:
 def _run_export_phase(
     config: dict,
     export_transactions: list[Transaction],
+    exported_count: int,
     results: list[ProcessingResult],
     deduplicated_transactions: list[Transaction],
     duplicates_skipped: int,
@@ -90,6 +77,8 @@ def _run_export_phase(
             config=config,
             duplicates_skipped=duplicates_skipped,
             transactions=deduplicated_transactions,
+            export_transactions=export_transactions,
+            exported_transactions=exported_count,
         )
         _commit_export_artifacts(staging_dir, output_dir)
 
@@ -121,6 +110,8 @@ def process_pipeline(config: dict, passwords: dict[str, str] | None = None) -> P
         return PipelineRun(
             results=[],
             deduplicated_transactions=[],
+            export_transactions=[],
+            exported_count=0,
             goodbudget_csv_path="",
             report_json_path="",
             hub_csv_path="",
@@ -128,66 +119,17 @@ def process_pipeline(config: dict, passwords: dict[str, str] | None = None) -> P
             hub_summary=HubSummary.empty(),
         )
 
-    parsers = [HDFCParser(), SBIParser(), AxisParser()]
-    all_transactions: list[Transaction] = []
-    processed_files: list[str] = []
-    failures: list[tuple[str, str]] = []
-    locked_files: list[str] = []
-
-    for crawled in files:
-        try:
-            df = load_statement_dataframe(crawled.filepath, bank=crawled.metadata.get("bank"), passwords=passwords)
-            # Route on the input-relative path so a bank folder (e.g. SBI/AccountStatement.xlsx) counts as a hint.
-            parser = route_file_to_parser(os.path.relpath(crawled.filepath, input_path), df, parsers)
-            txns = parser.extract_transactions(df, crawled.filepath)
-            all_transactions.extend(txns)
-            processed_files.append(crawled.filepath)
-            results.append(
-                ProcessingResult(
-                    source_file=crawled.filepath,
-                    bank=parser.bank_name,
-                    total_transactions=len(txns),
-                    successful=len(txns),
-                    failed=0,
-                    duplicates_skipped=0,
-                    transactions=txns,
-                    errors=[],
-                    warnings=[],
-                )
-            )
-        except StatementLockedError as e:
-            logger.warning("Skipping %s: %s", crawled.filepath, e)
-            locked_files.append(crawled.filepath)
-            results.append(
-                ProcessingResult(
-                    source_file=crawled.filepath,
-                    bank=crawled.metadata.get("bank", "UNKNOWN"),
-                    total_transactions=0,
-                    successful=0,
-                    failed=0,
-                    duplicates_skipped=0,
-                    transactions=[],
-                    errors=[],
-                    warnings=[str(e)],
-                )
-            )
-        except Exception as e:
-            error = str(e)
-            logger.error("Failed processing %s: %s", crawled.filepath, error)
-            failures.append((crawled.filepath, error))
-            results.append(
-                ProcessingResult(
-                    source_file=crawled.filepath,
-                    bank=crawled.metadata.get("bank", "UNKNOWN"),
-                    total_transactions=0,
-                    successful=0,
-                    failed=1,
-                    duplicates_skipped=0,
-                    transactions=[],
-                    errors=[error],
-                    warnings=[],
-                )
-            )
+    extraction = extract_from_crawled_files(
+        files,
+        parser_registry=get_default_parser_registry(),
+        input_path=input_path,
+        passwords=passwords,
+    )
+    results = extraction.results
+    all_transactions = extraction.all_transactions
+    processed_files = extraction.processed_files
+    failures = extraction.failures
+    locked_files = extraction.locked_files
 
     if failures:
         persist_failed_files(failures, failed_path, mover=move_file_to_failed)
@@ -201,6 +143,8 @@ def process_pipeline(config: dict, passwords: dict[str, str] | None = None) -> P
         return PipelineRun(
             results=results,
             deduplicated_transactions=[],
+            export_transactions=[],
+            exported_count=0,
             goodbudget_csv_path="",
             report_json_path="",
             hub_csv_path="",
@@ -218,6 +162,8 @@ def process_pipeline(config: dict, passwords: dict[str, str] | None = None) -> P
     detect_external_account_payments(consolidation.deduplicated_transactions, config)
     deduplicated_transactions = consolidation.deduplicated_transactions
     export_transactions = consolidation.export_transactions
+    exported_count = consolidation.exported_count
+    exported_count = consolidation.exported_count
     apply_processing_metrics(
         results,
         duplicates_by_source=consolidation.duplicates_by_source,
@@ -228,6 +174,7 @@ def process_pipeline(config: dict, passwords: dict[str, str] | None = None) -> P
     csv_path, hub_path, report_path, dashboard_path, hub_summary = _run_export_phase(
         config,
         export_transactions,
+        exported_count,
         results,
         deduplicated_transactions,
         duplicates_skipped,
@@ -238,10 +185,12 @@ def process_pipeline(config: dict, passwords: dict[str, str] | None = None) -> P
 
     move_processed_files(processed_files, processed_path, mover=move_file_to_processed)
 
-    logger.info("Pipeline complete. %d transactions exported to %s", len(export_transactions), csv_path)
+    logger.info("Pipeline complete. %d transactions exported to %s", exported_count, csv_path)
     return PipelineRun(
         results=results,
         deduplicated_transactions=deduplicated_transactions,
+        export_transactions=export_transactions,
+        exported_count=exported_count,
         goodbudget_csv_path=csv_path,
         report_json_path=report_path,
         hub_csv_path=hub_path,
@@ -252,12 +201,10 @@ def process_pipeline(config: dict, passwords: dict[str, str] | None = None) -> P
 
 
 def extract_raw_transactions(filepaths: list[str]) -> list[Transaction]:
-    parsers = [HDFCParser(), SBIParser(), AxisParser()]
+    registry = get_default_parser_registry()
     transactions: list[Transaction] = []
     for filepath in sorted(filepaths):
-        df = load_statement_dataframe(filepath)
-        parser = route_file_to_parser(Path(filepath).name, df, parsers)
-        transactions.extend(parser.extract_transactions(df, filepath))
+        transactions.extend(registry.extract_transactions(filepath).transactions)
     return transactions
 
 
@@ -276,75 +223,6 @@ def extract_raw_dataframe(filepaths: list[str]) -> pd.DataFrame:
         for t in transactions
     ]
     return pd.DataFrame.from_records(records)
-
-
-def load_statement_dataframe(
-    filepath: str, bank: str | None = None, passwords: dict[str, str] | None = None
-) -> pd.DataFrame:
-    path = Path(filepath)
-    suffix = path.suffix.lower()
-    if is_encrypted_statement(filepath):
-        return pd.read_excel(_decrypt_statement(filepath, bank or "UNKNOWN", passwords or {}), header=None)
-    if bank == "SBI" or "sbi" in path.name.lower():
-        df = SBIParser.load_sbi_file(filepath)
-        if df is None:
-            raise ValueError(f"Unable to load SBI statement: {filepath}")
-        return df
-    if suffix not in {".xls", ".xlsx"}:
-        raise ValueError(f"Unsupported format: {filepath}")
-    engine = "xlrd" if suffix == ".xls" else "openpyxl"
-    return pd.read_excel(filepath, engine=engine, header=None)
-
-
-def is_encrypted_statement(filepath: str) -> bool:
-    """Password-protected .xls/.xlsx files are OLE containers flagged as encrypted."""
-    with open(filepath, "rb") as f:
-        if f.read(len(_OLE_MAGIC)) != _OLE_MAGIC:
-            return False
-        f.seek(0)
-        try:
-            return bool(msoffcrypto.OfficeFile(f).is_encrypted())
-        except FileFormatError:
-            return False
-
-
-def _decrypt_statement(filepath: str, bank: str, passwords: dict[str, str]) -> io.BytesIO:
-    """Decrypt a password-protected statement in memory; the decrypted bytes never touch disk.
-
-    The password comes from ``passwords[bank]`` (entered in the dashboard), else the
-    ``FIPRO_<BANK>_STATEMENT_PASSWORD`` / ``FIPRO_STATEMENT_PASSWORD`` environment variables.
-    """
-    name = Path(filepath).name
-    bank_env_var = f"FIPRO_{bank}_STATEMENT_PASSWORD"
-    if passwords.get(bank):
-        source, password = "the password entered for " + bank, passwords[bank]
-    else:
-        source = bank_env_var if os.environ.get(bank_env_var) else _DEFAULT_PASSWORD_ENV_VAR
-        password = os.environ.get(source, "")
-    if not password:
-        raise StatementLockedError(
-            f"{name} is password-protected; unlock it in `fipro dashboard` or set {bank_env_var} or {_DEFAULT_PASSWORD_ENV_VAR}"
-        )
-
-    decrypted = io.BytesIO()
-    with open(filepath, "rb") as f:
-        try:
-            office_file = msoffcrypto.OfficeFile(f)
-            # Only OOXML's load_key accepts verify_password; legacy .xls verifies on its own.
-            kwargs = {"verify_password": True} if isinstance(office_file, OOXMLFile) else {}
-            office_file.load_key(password=password, **kwargs)
-            office_file.decrypt(decrypted)
-        except (InvalidKeyError, DecryptionError) as exc:
-            raise StatementLockedError(f"Could not decrypt {name}: wrong password in {source}") from exc
-    decrypted.seek(0)
-    return decrypted
-
-
-def route_file_to_parser(filename: str, df: pd.DataFrame, parsers: list[BankParser]) -> BankParser:
-    for parser in parsers:
-        if parser.can_parse(filename, df):
-            return parser
-    raise ValueError(f"No parser available for {filename}")
 
 
 def move_file_to_processed(source_path: str, dest_dir: str) -> str:

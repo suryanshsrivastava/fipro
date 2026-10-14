@@ -1,4 +1,3 @@
-import csv
 import json
 import threading
 import webbrowser
@@ -8,8 +7,10 @@ from pathlib import Path
 
 from src.connectors.gmail import load_password_hints
 from src.core.ingestion import discover_files
-from src.core.orchestrator import is_encrypted_statement, process_pipeline
+from src.core.orchestrator import process_pipeline
+from src.core.parser_registry import is_encrypted_statement
 from src.exporters.report import summarize_pipeline_run
+from src.ui.dashboard_data import load_csv_data as _load_csv_data
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -213,29 +214,8 @@ init();
 
 
 def load_csv_data(csv_path: str) -> list[dict]:
-    with open(csv_path, newline="") as f:
-        rows = list(csv.DictReader(f))
-
-    normalized_rows: list[dict] = []
-    for row in rows:
-        amount = row.get("amount") or row.get("Amount") or ""
-        try:
-            signed_amount = float(amount)
-        except (TypeError, ValueError):  # fmt: skip
-            signed_amount = 0.0
-        normalized_rows.append(
-            {
-                "transaction_date": row.get("transaction_date") or row.get("Date") or "",
-                "description": row.get("description") or row.get("Name") or "",
-                "amount": amount,
-                "transaction_type": row.get("transaction_type") or ("debit" if signed_amount < 0 else "credit"),
-                "source_bank": row.get("source_bank") or row.get("Account") or "",
-                "source_file": row.get("source_file") or "",
-                "status": row.get("status") or row.get("Status") or "",
-                "notes": row.get("notes") or row.get("Notes") or "",
-            }
-        )
-    return normalized_rows
+    """Compatibility wrapper around normalized dashboard data loader."""
+    return _load_csv_data(csv_path)
 
 
 def locked_statements(config: dict) -> list[dict]:

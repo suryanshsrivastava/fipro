@@ -9,9 +9,7 @@ from typing import Any
 import pandas as pd
 
 from src.core.orchestrator import extract_raw_dataframe
-from src.parsers.axis import AxisParser
-from src.parsers.hdfc import HDFCParser
-from src.parsers.sbi import SBIParser
+from src.core.parser_registry import get_default_parser_registry
 
 FIXTURES_ROOT = Path(__file__).resolve().parents[1] / "fixtures"
 
@@ -80,20 +78,11 @@ def _decimal_to_string(value: Any) -> str | None:
 
 def _parser_for_case(case_dir: Path):
     bank = case_dir.parent.name
-    parsers = {
-        "hdfc": HDFCParser(),
-        "axis": AxisParser(),
-        "sbi": SBIParser(),
-    }
-    return parsers[bank]
+    parser_registry = get_default_parser_registry()
+    return parser_registry.parser_for_bank(bank)
 
 
 def _load_case_dataframe(case_dir: Path, input_path: Path) -> pd.DataFrame:
     bank = case_dir.parent.name
-    if bank == "sbi":
-        dataframe = SBIParser.load_sbi_file(str(input_path))
-        assert dataframe is not None
-        return dataframe
-
-    engine = "xlrd" if input_path.suffix.lower() == ".xls" else "openpyxl"
-    return pd.read_excel(input_path, engine=engine, header=None)
+    parser_registry = get_default_parser_registry()
+    return parser_registry.load_dataframe(str(input_path), bank_hint=bank)
