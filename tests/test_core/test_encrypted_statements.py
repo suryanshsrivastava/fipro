@@ -14,7 +14,8 @@ from openpyxl import Workbook
 
 from src.connectors.gmail import PasswordHint, save_password_hints
 from src.core.ingestion import get_bank_from_path
-from src.core.orchestrator import load_statement_dataframe, process_pipeline
+from src.core.orchestrator import process_pipeline
+from src.core.parser_registry import get_default_parser_registry
 from src.exporters.report import summarize_pipeline_run
 from src.parsers.sbi import SBIParser
 from src.ui.dashboard import build_server
@@ -80,7 +81,7 @@ def test_get_bank_from_path_prefers_filename_then_nearest_folder(relative_path, 
 def test_process_pipeline_decrypts_statement_in_bank_folder(tmp_path, monkeypatch, encrypted_statement, env_var):
     monkeypatch.setenv(env_var, PASSWORD)
     expected = SBIParser().extract_transactions(
-        load_statement_dataframe(str(SBI_FIXTURE), bank="SBI"), str(SBI_FIXTURE)
+        get_default_parser_registry().load_dataframe(str(SBI_FIXTURE), bank_hint="SBI"), str(SBI_FIXTURE)
     )
 
     run = process_pipeline(_config(tmp_path))
@@ -198,7 +199,7 @@ def test_dashboard_unlock_refuses_cross_site_requests(dashboard_url, encrypted_s
 
 def test_decrypt_legacy_xls_does_not_pass_verify_password(tmp_path, monkeypatch):
     """Xls97File.load_key(password=None) has no verify_password parameter."""
-    from src.core import orchestrator
+    from src.core import parser_registry as orchestrator
 
     class FakeXls97File:
         def __init__(self, _file):

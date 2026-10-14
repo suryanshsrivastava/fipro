@@ -38,6 +38,7 @@ def test_consolidate_transactions_sets_export_and_source_metrics():
 
     assert len(result.deduplicated_transactions) == 2
     assert result.export_transactions == []
+    assert result.exported_count == 0
     assert result.duplicates_by_source == {}
     assert set(result.transactions_by_source.keys()) == {"one.xls", "two.xls"}
 

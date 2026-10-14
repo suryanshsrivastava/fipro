@@ -23,18 +23,20 @@ def generate_report(
     config: dict | None = None,
     duplicates_skipped: int = 0,
     transactions: list[Transaction] | None = None,
+    export_transactions: list[Transaction] | None = None,
     exported_transactions: int | None = None,
     return_hub_summary: bool = True,
 ) -> dict | tuple[dict, HubSummary]:
     """Generate and write a JSON processing report."""
     if transactions is None:
         transactions = [transaction for result in results for transaction in result.transactions]
-    include_internal_transfers = include_internal_transfers_from_config(config)
-    transactions_for_metrics = filter_transactions_for_export(transactions, include_internal_transfers)
-    exported_count = exported_transactions if exported_transactions is not None else len(transactions_for_metrics)
+    if export_transactions is None:
+        include_internal_transfers = include_internal_transfers_from_config(config)
+        export_transactions = filter_transactions_for_export(transactions, include_internal_transfers)
+    exported_count = exported_transactions if exported_transactions is not None else len(export_transactions)
 
     by_bank: dict[str, dict[str, int]] = {}
-    for transaction in transactions_for_metrics:
+    for transaction in export_transactions:
         bank_bucket = by_bank.setdefault(
             transaction.source_bank,
             {"transactions": 0, "debits": 0, "credits": 0},
@@ -45,8 +47,8 @@ def generate_report(
         else:
             bank_bucket["credits"] += 1
 
-    date_range = calculate_date_range(transactions_for_metrics)
-    ending_balances = ending_balances_by_statement(transactions_for_metrics)
+    date_range = calculate_date_range(export_transactions)
+    ending_balances = ending_balances_by_statement(export_transactions)
 
     report = {
         "run_id": datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ"),
@@ -62,9 +64,9 @@ def generate_report(
         },
         "by_bank": by_bank,
         "date_range": date_range,
-        "cash_flow": cash_flow_from_transactions(transactions_for_metrics),
+        "cash_flow": cash_flow_from_transactions(export_transactions),
         "net_worth_proxy": ending_balances,
-        "top_descriptions": top_descriptions(transactions_for_metrics),
+        "top_descriptions": top_descriptions(export_transactions),
         "files": sorted(
             [
                 {
@@ -108,7 +110,7 @@ def summarize_pipeline_run(run: PipelineRun) -> list[str]:
         return ["No input files found."]
 
     parsed_count = sum(result.total_transactions for result in run.results)
-    exported_count = len(run.deduplicated_transactions)
+    exported_count = run.exported_count
     failed = sum(len(result.errors) for result in run.results)
     lines = [
         (

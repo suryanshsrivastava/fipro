@@ -1,32 +1,27 @@
-"""End-to-end integration test: parsers -> dedup -> transfer detection.
-
-Runs the actual pipeline stages against the combined extraction fixture and asserts
-each stage produces sensible output. Marked `integration` so it can be opted into or
-out of with `uv run pytest -m integration` / `-m "not integration"`.
-"""
+"""End-to-end integration test against the production pipeline seam."""
 
 import pytest
 
-from src.core.deduplicator import deduplicate
-from src.core.orchestrator import extract_raw_transactions
-from src.core.transfer_detector import detect_transfers
+from src.core.orchestrator import process_pipeline
 from src.models.transactions import Transaction
 from tests.test_extraction.helpers import FIXTURES_ROOT
 
 
 @pytest.mark.integration
-def test_full_pipeline_end_to_end():
-    case_dir = FIXTURES_ROOT / "extraction" / "raw_monthly_exports_2025_08_27" / "input"
-    filepaths = [str(p) for p in sorted(case_dir.iterdir()) if p.is_file()]
+def test_full_pipeline_end_to_end(tmp_path, fixture_input_loader, pipeline_config_factory):
+    fixture_input = FIXTURES_ROOT / "extraction" / "raw_monthly_exports_2025_08_27" / "input"
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "output"
+    processed_dir = tmp_path / "processed"
 
-    transactions = extract_raw_transactions(filepaths)
-    assert len(transactions) > 0, "extraction produced no transactions"
-    assert all(isinstance(t, Transaction) for t in transactions)
+    fixture_input_loader(fixture_input, input_dir)
+    config = pipeline_config_factory(input_dir=input_dir, output_dir=output_dir, processed_dir=processed_dir)
 
-    deduped, skipped = deduplicate(transactions)
-    assert len(deduped) <= len(transactions)
-    assert len(deduped) + skipped == len(transactions)
+    run = process_pipeline(config)
 
-    flagged = detect_transfers(deduped)
-    assert len(flagged) == len(deduped), "transfer detection must not drop transactions"
-    assert all(isinstance(t, Transaction) for t in flagged)
+    assert len(run.results) == 3
+    assert run.exported_count == len(run.export_transactions)
+    assert run.exported_count <= len(run.deduplicated_transactions)
+    assert all(isinstance(t, Transaction) for t in run.deduplicated_transactions)
+    assert (output_dir / "goodbudget_export.csv").exists()
+    assert sorted(p.name for p in processed_dir.iterdir()) == ["axis.xls", "hdfc.xls", "sbi.xls"]

@@ -62,6 +62,8 @@ class PipelineRun:
 
     results: list[ProcessingResult]
     deduplicated_transactions: list[Transaction]
+    export_transactions: list[Transaction]
+    exported_count: int
     goodbudget_csv_path: str
     report_json_path: str
     hub_csv_path: str
