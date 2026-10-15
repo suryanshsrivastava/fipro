@@ -7,7 +7,7 @@ import json
 
 import pytest
 
-from src.config import Settings
+from src.config import GmailSettings, Settings
 from src.connectors.gmail import (
     PasswordHint,
     authorize,
@@ -116,12 +116,13 @@ def test_save_password_hints_merges_by_bank(tmp_path):
 def test_run_gmail_command_saves_hints_and_reports_each_bank(tmp_path):
     hints_path = tmp_path / "hints.json"
     config = {
-        "paths": {"password_hints": str(hints_path)},
+        "paths": {"input": "in", "password_hints": str(hints_path)},
         "gmail": {"queries": {"SBI": "from:sbi.co.in password", "AXIS": "from:axisbank.com password"}},
     }
     gmail = FakeGmail({"from:sbi.co.in password": ["m1"]}, {"m1": _message("m1", SBI_BODY)})
 
-    lines = run_gmail_command(Settings.from_config(config), service=gmail)
+    settings = Settings.from_config(config)
+    lines = run_gmail_command(settings.gmail, settings.paths.password_hints, service=gmail)
 
     assert lines == [
         "AXIS: no password hint found in Gmail",
@@ -133,7 +134,7 @@ def test_run_gmail_command_saves_hints_and_reports_each_bank(tmp_path):
 
 def test_run_gmail_command_requires_queries():
     with pytest.raises(CommandInputError, match=r"\[gmail.queries\]"):
-        run_gmail_command(Settings(), service=FakeGmail({}, {}))
+        run_gmail_command(GmailSettings(), "hints.json", service=FakeGmail({}, {}))
 
 
 def test_fetch_password_hints_falls_back_to_snippet():

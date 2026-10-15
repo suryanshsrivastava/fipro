@@ -3,7 +3,7 @@
 from datetime import date
 from decimal import Decimal
 
-from src.config import Settings
+from src.config import ExternalAccountSettings
 from src.core.external_account_detector import detect_external_account_payments
 from src.models.transactions import Transaction, TransactionType
 
@@ -24,9 +24,7 @@ def test_detect_external_account_payments_marks_matching_debits():
 
     detect_external_account_payments(
         [transaction],
-        Settings.from_config(
-            {"external_accounts": {"names": ["CREDIT_CARD"], "payment_keywords": ["CREDIT CARD", "CRED"]}}
-        ),
+        ExternalAccountSettings(names=("CREDIT_CARD",), payment_keywords=("CREDIT CARD", "CRED")),
     )
 
     assert transaction.external_account_name == "CREDIT_CARD"
@@ -37,9 +35,7 @@ def test_detect_external_account_payments_ignores_credits():
 
     detect_external_account_payments(
         [transaction],
-        Settings.from_config(
-            {"external_accounts": {"names": ["CREDIT_CARD"], "payment_keywords": ["CREDIT CARD", "CRED"]}}
-        ),
+        ExternalAccountSettings(names=("CREDIT_CARD",), payment_keywords=("CREDIT CARD", "CRED")),
     )
 
     assert transaction.external_account_name is None
@@ -48,6 +44,6 @@ def test_detect_external_account_payments_ignores_credits():
 def test_detect_external_account_payments_noop_when_config_empty():
     transaction = _transaction("CREDIT CARD PAYMENT")
 
-    detect_external_account_payments([transaction], Settings())
+    detect_external_account_payments([transaction], ExternalAccountSettings())
 
     assert transaction.external_account_name is None

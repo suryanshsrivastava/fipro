@@ -233,7 +233,7 @@ def locked_statements(settings: Settings) -> list[dict]:
     for crawled in discover_files(settings):
         if is_encrypted_statement(crawled.filepath):
             by_bank[crawled.metadata.get("bank", "UNKNOWN")].append(crawled.filename)
-    hints = load_password_hints(settings.password_hints)
+    hints = load_password_hints(settings.paths.password_hints)
     return [
         {
             "bank": bank,

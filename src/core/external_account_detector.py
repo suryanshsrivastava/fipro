@@ -1,13 +1,15 @@
 """External account payment detection for Fipro."""
 
-from src.config import Settings
+from src.config import ExternalAccountSettings
 from src.models.transactions import Transaction, TransactionType
 
 
-def detect_external_account_payments(transactions: list[Transaction], settings: Settings) -> list[Transaction]:
+def detect_external_account_payments(
+    transactions: list[Transaction], accounts: ExternalAccountSettings
+) -> list[Transaction]:
     """Annotate debit transactions that match configured payment keywords."""
-    account_names = settings.external_account_names
-    payment_keywords = [keyword.upper() for keyword in settings.external_payment_keywords]
+    account_names = accounts.names
+    payment_keywords = [keyword.upper() for keyword in accounts.payment_keywords]
 
     if not account_names or not payment_keywords:
         return transactions

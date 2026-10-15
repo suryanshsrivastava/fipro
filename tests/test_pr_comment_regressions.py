@@ -9,7 +9,7 @@ from types import SimpleNamespace
 import gspread
 import pytest
 
-from src.config import Settings
+from src.config import GoodbudgetSettings, Settings
 from src.core import orchestrator, pipeline_lifecycle
 from src.core.deduplicator import save_seen_hashes_to_file
 from src.core.parser_registry import ExtractedStatement
@@ -73,9 +73,7 @@ def test_goodbudget_export_keeps_only_goodbudget_columns(tmp_path: Path):
     export_to_goodbudget(
         [transaction],
         str(output_path),
-        Settings.from_config(
-            {"export": {"goodbudget": {"default_envelope": "Unallocated", "default_status": "cleared"}}}
-        ),
+        GoodbudgetSettings(default_envelope="Unallocated", default_status="cleared"),
     )
 
     with output_path.open(newline="") as handle:

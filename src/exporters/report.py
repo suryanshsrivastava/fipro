@@ -6,7 +6,6 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
-from src.config import Settings
 from src.models.result import HubSummary, PipelineRun, ProcessingResult
 from src.models.transactions import Transaction, TransactionStatus, TransactionType
 from src.utils.report_helpers import (
@@ -20,7 +19,7 @@ from src.utils.report_helpers import (
 def generate_report(
     results: list[ProcessingResult],
     output_path: str,
-    settings: Settings | None = None,
+    include_internal_transfers: bool = True,
     duplicates_skipped: int = 0,
     transactions: list[Transaction] | None = None,
     export_transactions: list[Transaction] | None = None,
@@ -28,12 +27,11 @@ def generate_report(
     """Generate and write a JSON processing report; returns the report and its hub summary.
 
     ``transactions`` and ``export_transactions`` default to the results' transactions and
-    their ``settings``-based export filter respectively.
+    the ``include_internal_transfers`` export filter respectively.
     """
     if transactions is None:
         transactions = [transaction for result in results for transaction in result.transactions]
     if export_transactions is None:
-        include_internal_transfers = settings.export_internal_transfers if settings else True
         export_transactions = filter_transactions_for_export(transactions, include_internal_transfers)
 
     by_bank: dict[str, dict[str, int]] = {}

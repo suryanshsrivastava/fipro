@@ -1,7 +1,7 @@
 import argparse
 import sys
 
-from src.config import Settings, load_config
+from src.config import Settings, load_settings
 from src.core.application import (
     CommandInputError,
     prepare_dashboard_launch,
@@ -40,7 +40,7 @@ def main():
     args = parser.parse_args()
 
     try:
-        settings = Settings.from_config(load_config(args.config))
+        settings = load_settings(args.config)
         setup_logging(settings.log_level)
     except FileNotFoundError as e:
         _exit_with_error(f"Error: {e}")
@@ -50,10 +50,10 @@ def main():
     if args.command == "status":
         cmd_status(settings)
     elif args.command == "dashboard":
-        dashboard_csv = args.csv or settings.dashboard_data
+        dashboard_csv = args.csv or settings.paths.dashboard_data
         cmd_dashboard(settings, dashboard_csv, args.port, args.open)
     elif args.command == "sheets":
-        sheets_csv = args.csv or f"{settings.output}/goodbudget_export.csv"
+        sheets_csv = args.csv or f"{settings.paths.output}/goodbudget_export.csv"
         cmd_sheets(sheets_csv, args.creds, args.title)
     elif args.command == "gmail":
         cmd_gmail(settings)
@@ -98,7 +98,7 @@ def cmd_sheets(csv_path: str, creds_path: str, title: str):
 
 def cmd_gmail(settings: Settings):
     try:
-        lines = run_gmail_command(settings)
+        lines = run_gmail_command(settings.gmail, settings.paths.password_hints)
     except (CommandInputError, FileNotFoundError) as exc:
         print(exc, file=sys.stderr)
         if isinstance(exc, FileNotFoundError):
