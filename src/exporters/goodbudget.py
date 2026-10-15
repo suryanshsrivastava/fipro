@@ -1,7 +1,7 @@
 import csv
 from pathlib import Path
 
-from src.config import Settings
+from src.config import GoodbudgetSettings
 from src.models.transactions import Transaction, TransactionStatus
 
 GOODBUDGET_FIELDNAMES = ["Date", "Envelope", "Account", "Name", "Notes", "Amount", "Status"]
@@ -18,7 +18,7 @@ DASHBOARD_FIELDNAMES = [
 ]
 
 
-def export_to_goodbudget(transactions: list[Transaction], output_path: str, settings: Settings) -> None:
+def export_to_goodbudget(transactions: list[Transaction], output_path: str, settings: GoodbudgetSettings) -> None:
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=GOODBUDGET_FIELDNAMES)
@@ -49,7 +49,7 @@ def export_dashboard_data(transactions: list[Transaction], output_path: str) -> 
             )
 
 
-def format_goodbudget_row(transaction: Transaction, settings: Settings) -> dict:
+def format_goodbudget_row(transaction: Transaction, settings: GoodbudgetSettings) -> dict:
     status = "internal_transfer" if transaction.status == TransactionStatus.TRANSFER else settings.default_status
     return {
         "Date": transaction.transaction_date.strftime("%Y-%m-%d"),

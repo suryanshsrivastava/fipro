@@ -9,79 +9,175 @@ from __future__ import annotations
 
 import tomllib
 from collections.abc import Mapping
-from dataclasses import MISSING, dataclass, field, fields
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 
 @dataclass(frozen=True, slots=True)
-class Settings:
-    """Typed, immutable view of the optional config values; field defaults are the fallbacks.
+class PathSettings:
+    input: str
+    output: str = "data/output"
+    processed: str = "data/processed"
+    failed: str = "data/failed"
+    dashboard_data: str = "data/output/dashboard_data.csv"
+    password_hints: str = "data/password_hints.json"
+    seen_hashes: str = "data/.seen_hashes"
 
-    Each field's ``metadata["key"]`` is its dotted path in config.toml. Built per read from the config
-    dict because callers may pass partial dicts (tests, library use).
+    @classmethod
+    def from_config(cls, config: dict) -> PathSettings:
+        return cls(
+            input=_read(config, "paths.input", str, required=True),
+            **_present(
+                config,
+                output=("paths.output", str),
+                processed=("paths.processed", str),
+                failed=("paths.failed", str),
+                dashboard_data=("paths.dashboard_data", str),
+                password_hints=("paths.password_hints", str),
+                seen_hashes=("processing.seen_hashes_path", str),
+            ),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ProcessingSettings:
+    supported_extensions: tuple[str, ...] = ("xls", "xlsx")
+    fail_on_file_error: bool = False
+    # Whether internal transfers stay in exports and reports.
+    export_internal_transfers: bool = True
+
+    @classmethod
+    def from_config(cls, config: dict) -> ProcessingSettings:
+        values = _present(
+            config,
+            supported_extensions=("processing.supported_extensions", "strings"),
+            fail_on_file_error=("processing.fail_on_file_error", bool),
+        )
+        if not values.get("supported_extensions"):
+            values.pop("supported_extensions", None)  # an empty list means "unset"
+        flags = _present(
+            config,
+            include=("processing.include_internal_transfers", bool),
+            skip=("processing.skip_internal_transfers", bool),
+        )
+        # An explicit include flag wins over the legacy skip flag.
+        export = flags["include"] if "include" in flags else not flags.get("skip", False)
+        return cls(export_internal_transfers=export, **values)
+
+
+@dataclass(frozen=True, slots=True)
+class GoodbudgetSettings:
+    max_description_length: int = 50
+    default_envelope: str = "Unallocated"
+    default_status: str = "cleared"
+
+    @classmethod
+    def from_config(cls, config: dict) -> GoodbudgetSettings:
+        return cls(
+            **_present(
+                config,
+                max_description_length=("export.goodbudget.max_description_length", int),
+                default_envelope=("export.goodbudget.default_envelope", str),
+                default_status=("export.goodbudget.default_status", str),
+            )
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ExternalAccountSettings:
+    names: tuple[str, ...] = ()
+    payment_keywords: tuple[str, ...] = ()
+
+    @classmethod
+    def from_config(cls, config: dict) -> ExternalAccountSettings:
+        return cls(
+            **_present(
+                config,
+                names=("external_accounts.names", "strings"),
+                payment_keywords=("external_accounts.payment_keywords", "strings"),
+            )
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class GmailSettings:
+    credentials: str = "config/gmail_credentials.json"
+    token: str = "config/gmail_token.json"
+    max_messages: int = 10
+    queries: Mapping[str, str] = field(default_factory=dict)
+
+    @classmethod
+    def from_config(cls, config: dict) -> GmailSettings:
+        return cls(
+            **_present(
+                config,
+                credentials=("gmail.credentials", str),
+                token=("gmail.token", str),
+                max_messages=("gmail.max_messages", int),
+                queries=("gmail.queries", dict),
+            )
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class Settings:
+    """Typed, immutable settings, grouped by who uses them. Built once from config.toml in ``main``.
+
+    Absent optional keys fall back to each field's default; a present value of the wrong type is a
+    ValueError, and ``paths.input`` is required.
     """
 
-    input: str | None = field(default=None, metadata={"key": "paths.input", "type": str})
-    log_level: str = field(default="INFO", metadata={"key": "fipro.log_level"})
-    output: str = field(default="data/output", metadata={"key": "paths.output"})
-    processed: str = field(default="data/processed", metadata={"key": "paths.processed"})
-    failed: str = field(default="data/failed", metadata={"key": "paths.failed"})
-    dashboard_data: str = field(default="data/output/dashboard_data.csv", metadata={"key": "paths.dashboard_data"})
-    password_hints: str = field(default="data/password_hints.json", metadata={"key": "paths.password_hints"})
-    supported_extensions: tuple[str, ...] = field(
-        default=("xls", "xlsx"), metadata={"key": "processing.supported_extensions"}
-    )
-    include_internal_transfers: bool | None = field(
-        default=None, metadata={"key": "processing.include_internal_transfers", "type": bool}
-    )
-    skip_internal_transfers: bool = field(default=False, metadata={"key": "processing.skip_internal_transfers"})
-    fail_on_file_error: bool = field(default=False, metadata={"key": "processing.fail_on_file_error"})
-    seen_hashes_path: str = field(default="data/.seen_hashes", metadata={"key": "processing.seen_hashes_path"})
-    max_description_length: int = field(default=50, metadata={"key": "export.goodbudget.max_description_length"})
-    default_envelope: str = field(default="Unallocated", metadata={"key": "export.goodbudget.default_envelope"})
-    default_status: str = field(default="cleared", metadata={"key": "export.goodbudget.default_status"})
-    external_account_names: tuple[str, ...] = field(default=(), metadata={"key": "external_accounts.names"})
-    external_payment_keywords: tuple[str, ...] = field(
-        default=(), metadata={"key": "external_accounts.payment_keywords"}
-    )
-    gmail_credentials: str = field(default="config/gmail_credentials.json", metadata={"key": "gmail.credentials"})
-    gmail_token: str = field(default="config/gmail_token.json", metadata={"key": "gmail.token"})
-    gmail_max_messages: int = field(default=10, metadata={"key": "gmail.max_messages"})
-    gmail_queries: Mapping[str, str] = field(default_factory=dict, metadata={"key": "gmail.queries"})
-
-    @property
-    def export_internal_transfers(self) -> bool:
-        """Whether internal transfers stay in exports and reports (explicit flag wins over skip)."""
-        if self.include_internal_transfers is not None:
-            return self.include_internal_transfers
-        return not self.skip_internal_transfers
+    paths: PathSettings
+    processing: ProcessingSettings = field(default_factory=ProcessingSettings)
+    goodbudget: GoodbudgetSettings = field(default_factory=GoodbudgetSettings)
+    external_accounts: ExternalAccountSettings = field(default_factory=ExternalAccountSettings)
+    gmail: GmailSettings = field(default_factory=GmailSettings)
+    log_level: str = "INFO"
 
     @classmethod
     def from_config(cls, config: dict) -> Settings:
-        """Read each field from its dotted key; a present value of the wrong type is a ValueError."""
-        values: dict[str, Any] = {}
-        for f in fields(cls):
-            node: Any = config
-            for part in f.metadata["key"].split("."):
-                node = node.get(part) if isinstance(node, dict) else None
-            if node is None:
-                continue
-            expected: type | tuple[type, ...] = f.metadata.get("type") or (
-                dict if f.default is MISSING else type(f.default)
-            )
-            if expected is tuple:
-                expected = (list, tuple)
-            if not isinstance(node, expected) or (isinstance(node, bool) and expected is int):
-                raise ValueError(f"Config key '{f.metadata['key']}' must be {_describe(expected)}, got {node!r}")
-            if f.name == "supported_extensions" and not node:
-                continue  # an empty extension list means "unset", as discovery has always treated it
-            values[f.name] = tuple(node) if isinstance(node, list) else node
-        return cls(**values)
+        return cls(
+            paths=PathSettings.from_config(config),
+            processing=ProcessingSettings.from_config(config),
+            goodbudget=GoodbudgetSettings.from_config(config),
+            external_accounts=ExternalAccountSettings.from_config(config),
+            gmail=GmailSettings.from_config(config),
+            **_present(config, log_level=("fipro.log_level", str)),
+        )
 
 
-def _describe(expected: type | tuple[type, ...]) -> str:
-    return " or ".join(t.__name__ for t in (expected if isinstance(expected, tuple) else (expected,)))
+_MISSING = object()
+
+
+def _read(config: dict, dotted_key: str, kind: type | str, *, required: bool = False) -> Any:
+    """The value at ``dotted_key`` checked against ``kind`` (a type, or "strings" for a list of str)."""
+    node: Any = config
+    for part in dotted_key.split("."):
+        node = node.get(part, _MISSING) if isinstance(node, dict) else _MISSING
+    if node is _MISSING or node is None:
+        if required:
+            raise ValueError(f"Required key '{dotted_key}' not found in config")
+        return _MISSING
+    if kind == "strings":
+        if not isinstance(node, list | tuple) or not all(isinstance(item, str) for item in node):
+            raise ValueError(f"Config key '{dotted_key}' must be a list of strings, got {node!r}")
+        return tuple(node)
+    assert isinstance(kind, type)
+    if not isinstance(node, kind) or (kind is int and isinstance(node, bool)):
+        raise ValueError(f"Config key '{dotted_key}' must be {kind.__name__}, got {node!r}")
+    return node
+
+
+def _present(config: dict, **specs: tuple[str, type | str]) -> dict[str, Any]:
+    """Only the keys that are set in ``config``, so omitted ones keep their dataclass defaults."""
+    values = {name: _read(config, key, kind) for name, (key, kind) in specs.items()}
+    return {name: value for name, value in values.items() if value is not _MISSING}
+
+
+def load_settings(config_path: str = "config/config.toml") -> Settings:
+    """Load and validate config.toml into Settings."""
+    return Settings.from_config(load_config(config_path))
 
 
 def load_config(config_path: str = "config/config.toml") -> dict:

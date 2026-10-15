@@ -4,26 +4,9 @@ import json
 from datetime import date
 from decimal import Decimal
 
-from src.config import Settings
 from src.exporters.report import generate_report
 from src.models.result import ProcessingResult
 from src.models.transactions import Transaction, TransactionStatus, TransactionType
-
-
-def test_export_internal_transfers_defaults_to_true():
-    assert Settings().export_internal_transfers is True
-    assert Settings.from_config({}).export_internal_transfers is True
-
-
-def test_export_internal_transfers_honors_explicit_flags():
-    def settings(processing: dict) -> Settings:
-        return Settings.from_config({"processing": processing})
-
-    assert settings({"include_internal_transfers": False}).export_internal_transfers is False
-    assert settings({"skip_internal_transfers": True}).export_internal_transfers is False
-    assert settings({"skip_internal_transfers": False}).export_internal_transfers is True
-    # An explicit include flag wins over skip.
-    assert settings({"include_internal_transfers": True, "skip_internal_transfers": True}).export_internal_transfers
 
 
 def test_exported_count_excludes_transfers_when_config_excludes_them(tmp_path):
@@ -52,7 +35,7 @@ def test_exported_count_excludes_transfers_when_config_excludes_them(tmp_path):
     report, hub_summary = generate_report(
         [result],
         str(report_path),
-        settings=Settings.from_config({"processing": {"include_internal_transfers": False}}),
+        include_internal_transfers=False,
     )
     written_report = json.loads(report_path.read_text(encoding="utf-8"))
 
@@ -96,7 +79,7 @@ def test_cash_flow_excludes_transfers_when_config_says_so(tmp_path):
     report, _ = generate_report(
         [result],
         str(report_path),
-        settings=Settings.from_config({"processing": {"include_internal_transfers": False}}),
+        include_internal_transfers=False,
     )
     assert report["cash_flow"]["total_debits"] == "100.00"
     assert report["cash_flow"]["total_credits"] == "0"

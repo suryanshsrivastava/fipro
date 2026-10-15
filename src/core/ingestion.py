@@ -11,12 +11,8 @@ from src.models.account import CrawledFile
 
 def discover_files(settings: Settings) -> list[CrawledFile]:
     """Scan the input path for supported statement files and return CrawledFile metadata."""
-    input_path = settings.input
-    if not input_path:
-        raise ValueError("Input path not configured under paths.input")
-
-    supported_exts = settings.supported_extensions
-
+    input_path = settings.paths.input
+    supported_exts = settings.processing.supported_extensions
     discovered: list[CrawledFile] = []
 
     for root, _, files in os.walk(input_path):
