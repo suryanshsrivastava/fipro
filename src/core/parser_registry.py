@@ -76,13 +76,6 @@ def _load_excel_statement(filepath: str) -> pd.DataFrame:
     return pd.read_excel(filepath, engine=engine, header=None)
 
 
-def _load_sbi_statement(filepath: str) -> pd.DataFrame:
-    dataframe = load_sbi_file(filepath)
-    if dataframe is None:
-        raise ValueError(f"Unable to load SBI statement: {filepath}")
-    return dataframe
-
-
 @dataclass(frozen=True, slots=True)
 class ParserAdapter:
     parser: BankParser
@@ -111,7 +104,7 @@ class ParserRegistry:
     def __init__(self, adapters: list[ParserAdapter] | None = None) -> None:
         self._adapters = adapters or [
             _adapter(HDFC_LAYOUT, _load_excel_statement),
-            _adapter(SBI_LAYOUT, _load_sbi_statement),
+            _adapter(SBI_LAYOUT, load_sbi_file),
             _adapter(AXIS_LAYOUT, _load_excel_statement),
         ]
 
