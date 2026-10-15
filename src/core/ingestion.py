@@ -9,13 +9,13 @@ from src.core.parser_registry import get_default_parser_registry
 from src.models.account import CrawledFile
 
 
-def discover_files(config: dict) -> list[CrawledFile]:
+def discover_files(settings: Settings) -> list[CrawledFile]:
     """Scan the input path for supported statement files and return CrawledFile metadata."""
-    input_path = config.get("paths", {}).get("input")
+    input_path = settings.input
     if not input_path:
         raise ValueError("Input path not configured under paths.input")
 
-    supported_exts = Settings.from_config(config).supported_extensions
+    supported_exts = settings.supported_extensions
 
     discovered: list[CrawledFile] = []
 

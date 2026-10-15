@@ -40,46 +40,46 @@ def main():
     args = parser.parse_args()
 
     try:
-        config = load_config(args.config)
-        setup_logging(Settings.from_config(config).log_level)
+        settings = Settings.from_config(load_config(args.config))
+        setup_logging(settings.log_level)
     except FileNotFoundError as e:
         _exit_with_error(f"Error: {e}")
     except ValueError as e:
         _exit_with_error(f"Config error: {e}")
 
     if args.command == "status":
-        cmd_status(config)
+        cmd_status(settings)
     elif args.command == "dashboard":
-        dashboard_csv = args.csv or Settings.from_config(config).dashboard_data
-        cmd_dashboard(config, dashboard_csv, args.port, args.open)
+        dashboard_csv = args.csv or settings.dashboard_data
+        cmd_dashboard(settings, dashboard_csv, args.port, args.open)
     elif args.command == "sheets":
-        sheets_csv = args.csv or f"{Settings.from_config(config).output}/goodbudget_export.csv"
+        sheets_csv = args.csv or f"{settings.output}/goodbudget_export.csv"
         cmd_sheets(sheets_csv, args.creds, args.title)
     elif args.command == "gmail":
-        cmd_gmail(config)
+        cmd_gmail(settings)
     else:
-        cmd_process(config)
+        cmd_process(settings)
 
 
-def cmd_process(config):
+def cmd_process(settings: Settings):
     try:
-        lines = run_process_command(config)
+        lines = run_process_command(settings)
     except Exception as exc:
         _exit_with_error(f"Processing failed: {exc}")
     _print_lines(lines)
 
 
-def cmd_status(config):
-    _print_lines(run_status_command(config))
+def cmd_status(settings: Settings):
+    _print_lines(run_status_command(settings))
 
 
-def cmd_dashboard(config: dict, csv_path: str, port: int, open_browser: bool):
+def cmd_dashboard(settings: Settings, csv_path: str, port: int, open_browser: bool):
     try:
         launch = prepare_dashboard_launch(csv_path, port, open_browser)
     except CommandInputError as exc:
         _exit_with_error(str(exc))
     _print_lines(launch.lines)
-    serve_dashboard(launch.csv_path, launch.port, open_browser=launch.open_browser, config=config)
+    serve_dashboard(launch.csv_path, launch.port, open_browser=launch.open_browser, settings=settings)
 
 
 def cmd_sheets(csv_path: str, creds_path: str, title: str):
@@ -96,9 +96,9 @@ def cmd_sheets(csv_path: str, creds_path: str, title: str):
     _print_lines(result.lines)
 
 
-def cmd_gmail(config: dict):
+def cmd_gmail(settings: Settings):
     try:
-        lines = run_gmail_command(config)
+        lines = run_gmail_command(settings)
     except (CommandInputError, FileNotFoundError) as exc:
         print(exc, file=sys.stderr)
         if isinstance(exc, FileNotFoundError):

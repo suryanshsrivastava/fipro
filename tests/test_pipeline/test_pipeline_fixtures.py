@@ -6,6 +6,7 @@ import json
 import shutil
 from pathlib import Path
 
+from src.config import Settings
 from src.core.orchestrator import process_pipeline
 
 FIXTURES_ROOT = Path(__file__).resolve().parents[1] / "fixtures"
@@ -45,7 +46,7 @@ def test_raw_monthly_exports_pipeline(tmp_path):
         },
     }
 
-    run = process_pipeline(config)
+    run = process_pipeline(Settings.from_config(config))
 
     assert len(run.results) == 3
     assert sorted(path.name for path in processed_dir.iterdir()) == [
@@ -101,7 +102,7 @@ def test_mixed_basic_pipeline_tags_external_account_payments(tmp_path):
         },
     }
 
-    run = process_pipeline(config)
+    run = process_pipeline(Settings.from_config(config))
 
     assert len(run.results) == 3
     all_transactions = [transaction for result in run.results for transaction in result.transactions]

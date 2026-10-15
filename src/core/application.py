@@ -29,8 +29,8 @@ class SheetsCommandResult:
     lines: list[str]
 
 
-def run_process_command(config: dict) -> list[str]:
-    return summarize_pipeline_run(process_pipeline(config))
+def run_process_command(settings: Settings) -> list[str]:
+    return summarize_pipeline_run(process_pipeline(settings))
 
 
 def _require_existing_file(
@@ -44,11 +44,11 @@ def _require_existing_file(
 
 
 def run_status_command(
-    config: dict,
+    settings: Settings,
     *,
-    discoverer: Callable[[dict], list] = discover_files,
+    discoverer: Callable[[Settings], list] = discover_files,
 ) -> list[str]:
-    files = discoverer(config)
+    files = discoverer(settings)
     if not files:
         return ["No files to process."]
 
@@ -80,9 +80,8 @@ def prepare_dashboard_launch(
     return DashboardLaunch(csv_path=csv_path, port=port, open_browser=open_browser, lines=lines)
 
 
-def run_gmail_command(config: dict, *, service: Any = None) -> list[str]:
+def run_gmail_command(settings: Settings, *, service: Any = None) -> list[str]:
     """Fetch statement password hints from Gmail and save them for the dashboard."""
-    settings = Settings.from_config(config)
     queries = settings.gmail_queries
     if not queries:
         raise CommandInputError("No Gmail search queries configured under [gmail.queries] in config.toml")

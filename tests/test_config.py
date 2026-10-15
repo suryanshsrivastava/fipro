@@ -25,10 +25,21 @@ def test_settings_defaults_match_shipped_config_toml():
 
     shipped, defaults = asdict(Settings.from_config(config)), asdict(Settings())
 
-    # The shipped config only adds Gmail search queries on top of the defaults.
-    assert {k: v for k, v in shipped.items() if k != "gmail_queries"} == {
-        k: v for k, v in defaults.items() if k != "gmail_queries"
+    # The shipped file only adds values that have no sensible built-in default.
+    configured_only = {"input", "gmail_queries", "external_account_names", "external_payment_keywords"}
+    assert {k: v for k, v in shipped.items() if k not in configured_only} == {
+        k: v for k, v in defaults.items() if k not in configured_only
     }
+
+
+def test_settings_reads_input_and_external_accounts():
+    settings = Settings.from_config(
+        {"paths": {"input": "in"}, "external_accounts": {"names": ["CC"], "payment_keywords": ["CRED"]}}
+    )
+
+    assert settings.input == "in"
+    assert settings.external_account_names == ("CC",)
+    assert settings.external_payment_keywords == ("CRED",)
 
 
 def test_settings_rejects_wrongly_typed_values():

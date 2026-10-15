@@ -15,7 +15,6 @@ from src.exporters.goodbudget import export_dashboard_data, export_to_goodbudget
 from src.exporters.hub_csv import export_hub_csv
 from src.exporters.report import generate_report
 from src.models.result import HubSummary, PipelineRun, ProcessingResult
-from src.utils.report_helpers import include_internal_transfers_from_config
 
 logger = logging.getLogger("fipro.orchestrator")
 
@@ -27,7 +26,7 @@ _EXPORT_ARTIFACTS = (GOODBUDGET_CSV, DASHBOARD_CSV, HUB_CSV, REPORT_JSON)
 
 
 def _run_export_phase(
-    config: dict,
+    settings: Settings,
     consolidation: ConsolidationResult,
     results: list[ProcessingResult],
     output_dir: Path,
@@ -41,13 +40,13 @@ def _run_export_phase(
 
     with tempfile.TemporaryDirectory(prefix=".fipro_export_", dir=output_dir) as staging_name:
         staging_dir = Path(staging_name)
-        export_to_goodbudget(consolidation.export_transactions, str(staging_dir / GOODBUDGET_CSV), config)
+        export_to_goodbudget(consolidation.export_transactions, str(staging_dir / GOODBUDGET_CSV), settings)
         export_dashboard_data(consolidation.deduplicated_transactions, str(staging_dir / DASHBOARD_CSV))
         export_hub_csv(consolidation.export_transactions, str(staging_dir / HUB_CSV))
         _, hub_summary = generate_report(
             results,
             str(staging_dir / REPORT_JSON),
-            config=config,
+            settings=settings,
             duplicates_skipped=consolidation.duplicates_skipped,
             transactions=consolidation.deduplicated_transactions,
             export_transactions=consolidation.export_transactions,
@@ -58,22 +57,20 @@ def _run_export_phase(
     return hub_summary
 
 
-def process_pipeline(config: dict, passwords: dict[str, str] | None = None) -> PipelineRun:
+def process_pipeline(settings: Settings, passwords: dict[str, str] | None = None) -> PipelineRun:
     """Run the full pipeline. ``passwords`` maps bank (e.g. "SBI") to a statement password for this run only."""
-    input_path = config["paths"]["input"]
-    settings = Settings.from_config(config)
     seen_hashes_path = Path(settings.seen_hashes_path)
     seen_hashes = get_seen_hashes_from_file(str(seen_hashes_path))
 
-    files = discover_files(config)
+    files = discover_files(settings)
     if not files:
-        logger.info("No files found in %s", input_path)
+        logger.info("No files found in %s", settings.input)
         return PipelineRun.without_exports("no_input_files")
 
     extraction = extract_from_crawled_files(
         files,
         parser_registry=get_default_parser_registry(),
-        input_path=input_path,
+        input_path=settings.input,
         passwords=passwords,
     )
 
@@ -93,13 +90,13 @@ def process_pipeline(config: dict, passwords: dict[str, str] | None = None) -> P
     consolidation = consolidate_transactions(
         extraction.all_transactions,
         seen_hashes=seen_hashes,
-        include_internal_transfers=include_internal_transfers_from_config(config),
+        include_internal_transfers=settings.export_internal_transfers,
     )
-    detect_external_account_payments(consolidation.deduplicated_transactions, config)
+    detect_external_account_payments(consolidation.deduplicated_transactions, settings)
     apply_processing_metrics(extraction.results, consolidation)
 
     output_dir = Path(settings.output)
-    hub_summary = _run_export_phase(config, consolidation, extraction.results, output_dir)
+    hub_summary = _run_export_phase(settings, consolidation, extraction.results, output_dir)
 
     # Record hashes before archiving: if archiving fails, the exports are already published, so a retry
     # must treat the still-pending file as duplicates rather than export (and double-import) it again.

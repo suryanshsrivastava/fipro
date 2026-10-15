@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from src.config import load_config
+from src.config import Settings, load_config
 from src.core.orchestrator import process_pipeline
 from tests.test_extraction.helpers import FIXTURES_ROOT
 
@@ -28,7 +28,7 @@ def test_process_pipeline_writes_demo_outputs(tmp_path):
     config["paths"]["dashboard_data"] = str(output_dir / "dashboard_data.csv")
     config["processing"]["seen_hashes_path"] = str(tmp_path / "state" / ".seen_hashes")
 
-    run = process_pipeline(config)
+    run = process_pipeline(Settings.from_config(config))
 
     assert len(run.results) == 3
     assert (output_dir / "goodbudget_export.csv").exists()

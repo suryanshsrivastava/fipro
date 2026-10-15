@@ -9,6 +9,7 @@ from types import SimpleNamespace
 import gspread
 import pytest
 
+from src.config import Settings
 from src.core import orchestrator, pipeline_lifecycle
 from src.core.deduplicator import save_seen_hashes_to_file
 from src.core.parser_registry import ExtractedStatement
@@ -72,7 +73,9 @@ def test_goodbudget_export_keeps_only_goodbudget_columns(tmp_path: Path):
     export_to_goodbudget(
         [transaction],
         str(output_path),
-        {"export": {"goodbudget": {"default_envelope": "Unallocated", "default_status": "cleared"}}},
+        Settings.from_config(
+            {"export": {"goodbudget": {"default_envelope": "Unallocated", "default_status": "cleared"}}}
+        ),
     )
 
     with output_path.open(newline="") as handle:
@@ -199,7 +202,7 @@ def test_process_pipeline_skips_internal_transfers_from_export(monkeypatch: pyte
         "export": {"goodbudget": {}},
     }
 
-    orchestrator.process_pipeline(config)
+    orchestrator.process_pipeline(Settings.from_config(config))
 
     assert exported["transactions"] == []
 
@@ -236,7 +239,7 @@ def test_process_pipeline_moves_files_only_after_successful_export(monkeypatch: 
     }
 
     with pytest.raises(RuntimeError, match="export failed"):
-        orchestrator.process_pipeline(config)
+        orchestrator.process_pipeline(Settings.from_config(config))
 
     assert processed_moves == []
     output_dir = tmp_path / "output"
@@ -476,7 +479,7 @@ def test_process_pipeline_export_phase_leaves_no_artifacts_on_hub_failure(
     }
 
     with pytest.raises(RuntimeError, match="hub export failed"):
-        orchestrator.process_pipeline(config)
+        orchestrator.process_pipeline(Settings.from_config(config))
 
     assert hash_writes == []
     assert processed_moves == []
@@ -507,11 +510,11 @@ def test_process_pipeline_accounts_for_prior_seen_hashes_on_rerun(monkeypatch: p
         "export": {"goodbudget": {}},
     }
 
-    run1 = orchestrator.process_pipeline(config)
+    run1 = orchestrator.process_pipeline(Settings.from_config(config))
     assert run1.results[0].successful == 1
     assert run1.results[0].duplicates_skipped == 0
 
-    run2 = orchestrator.process_pipeline(config)
+    run2 = orchestrator.process_pipeline(Settings.from_config(config))
     assert run2.results[0].successful == 0
     assert run2.results[0].duplicates_skipped == 1
 
@@ -544,6 +547,6 @@ def test_process_pipeline_records_hashes_before_archiving_so_retry_skips_exporte
     }
 
     with pytest.raises(OSError, match="disk full"):
-        orchestrator.process_pipeline(config)
+        orchestrator.process_pipeline(Settings.from_config(config))
 
     assert hashes_path.read_text().split() == [parser._transactions[0].hash]

@@ -18,9 +18,8 @@ DASHBOARD_FIELDNAMES = [
 ]
 
 
-def export_to_goodbudget(transactions: list[Transaction], output_path: str, config: dict) -> None:
+def export_to_goodbudget(transactions: list[Transaction], output_path: str, settings: Settings) -> None:
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-    settings = Settings.from_config(config)
     with open(output_path, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=GOODBUDGET_FIELDNAMES)
         writer.writeheader()
