@@ -99,18 +99,18 @@ def export_to_google_sheets(
 
     headers = list(GOODBUDGET_FIELDNAMES)
     data_rows = [headers]
-    for row in rows:
-        data_rows.append(
-            [
-                row.get("Date", ""),
-                row.get("Envelope", ""),
-                row.get("Account", ""),
-                row.get("Name", "")[:100],
-                row.get("Notes", ""),
-                row.get("Amount", ""),
-                row.get("Status", ""),
-            ]
-        )
+    data_rows.extend(
+        [
+            row.get("Date", ""),
+            row.get("Envelope", ""),
+            row.get("Account", ""),
+            row.get("Name", "")[:100],
+            row.get("Notes", ""),
+            row.get("Amount", ""),
+            row.get("Status", ""),
+        ]
+        for row in rows
+    )
 
     spreadsheet = _open_or_create_spreadsheet(client, spreadsheet_title, id_path)
     worksheet = spreadsheet.sheet1

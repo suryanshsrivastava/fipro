@@ -3,6 +3,7 @@ import shutil
 import tempfile
 from pathlib import Path
 
+from src.config import Settings
 from src.core.deduplicator import get_seen_hashes_from_file, save_seen_hashes_to_file
 from src.core.external_account_detector import detect_external_account_payments
 from src.core.ingestion import discover_files
@@ -60,12 +61,8 @@ def _run_export_phase(
 def process_pipeline(config: dict, passwords: dict[str, str] | None = None) -> PipelineRun:
     """Run the full pipeline. ``passwords`` maps bank (e.g. "SBI") to a statement password for this run only."""
     input_path = config["paths"]["input"]
-    output_path = config["paths"].get("output", "data/output")
-    processed_path = config["paths"].get("processed", "data/processed")
-    failed_path = config["paths"].get("failed", "data/failed")
-    fail_on_file_error = config.get("processing", {}).get("fail_on_file_error", False)
-    processing_config = config.get("processing", {})
-    seen_hashes_path = Path(processing_config.get("seen_hashes_path", "data/.seen_hashes"))
+    settings = Settings.from_config(config)
+    seen_hashes_path = Path(settings.seen_hashes_path)
     seen_hashes = get_seen_hashes_from_file(str(seen_hashes_path))
 
     files = discover_files(config)
@@ -81,14 +78,14 @@ def process_pipeline(config: dict, passwords: dict[str, str] | None = None) -> P
     )
 
     if extraction.failures:
-        persist_failed_files(extraction.failures, failed_path)
+        persist_failed_files(extraction.failures, settings.failed)
 
-    if extraction.failures and fail_on_file_error:
+    if extraction.failures and settings.fail_on_file_error:
         raise RuntimeError(f"Processing aborted because {len(extraction.failures)} file(s) failed to parse")
 
     if not extraction.processed_files:
         # Nothing parsed (all locked or failed): keep the previous exports instead of overwriting them with empty files.
-        logger.info("No statements were processed; leaving existing exports in %s untouched", output_path)
+        logger.info("No statements were processed; leaving existing exports in %s untouched", settings.output)
         return PipelineRun.without_exports(
             "no_files_processed", results=extraction.results, locked_files=extraction.locked_files
         )
@@ -101,13 +98,13 @@ def process_pipeline(config: dict, passwords: dict[str, str] | None = None) -> P
     detect_external_account_payments(consolidation.deduplicated_transactions, config)
     apply_processing_metrics(extraction.results, consolidation)
 
-    output_dir = Path(output_path)
+    output_dir = Path(settings.output)
     hub_summary = _run_export_phase(config, consolidation, extraction.results, output_dir)
 
     # Record hashes before archiving: if archiving fails, the exports are already published, so a retry
     # must treat the still-pending file as duplicates rather than export (and double-import) it again.
     save_seen_hashes_to_file(seen_hashes, str(seen_hashes_path))
-    move_processed_files(extraction.processed_files, processed_path)
+    move_processed_files(extraction.processed_files, settings.processed)
 
     logger.info("Pipeline complete. %d transactions exported to %s", consolidation.exported_count, output_dir)
     return PipelineRun(

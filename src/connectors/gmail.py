@@ -14,6 +14,7 @@ from __future__ import annotations
 import base64
 import json
 import re
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from html.parser import HTMLParser
@@ -78,7 +79,7 @@ def gmail_service(creds):
     return build("gmail", "v1", credentials=creds, cache_discovery=False)
 
 
-def fetch_password_hints(service: Any, queries: dict[str, str], max_messages: int = 10) -> list[PasswordHint]:
+def fetch_password_hints(service: Any, queries: Mapping[str, str], max_messages: int = 10) -> list[PasswordHint]:
     """For each bank, return the hint from the newest message matching its Gmail search query."""
     messages = service.users().messages()
     hints: list[PasswordHint] = []
@@ -143,9 +144,10 @@ def message_text(payload: dict) -> str:
 
 def load_password_hints(path: str) -> dict[str, dict]:
     try:
-        return json.loads(Path(path).read_text())
+        hints: dict[str, dict] = json.loads(Path(path).read_text())
     except FileNotFoundError:
         return {}
+    return hints
 
 
 def save_password_hints(hints: list[PasswordHint], path: str) -> None:
@@ -166,7 +168,7 @@ def _write_token(token: Path, creds: Any) -> None:
 def _header(payload: dict, name: str) -> str:
     for header in payload.get("headers", []):
         if header.get("name", "").lower() == name.lower():
-            return header.get("value", "")
+            return str(header.get("value", ""))
     return ""
 
 

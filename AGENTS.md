@@ -200,13 +200,13 @@ class BankParser(ABC):
         pass
 
     @abstractmethod
-    def find_header_row(self, df: pd.DataFrame) -> int:
-        pass
-
-    @abstractmethod
     def extract_transactions(self, df: pd.DataFrame, source_file: str) -> list:
         pass
 ```
+
+Bank parsers subclass `TabularStatementParser` (`src/parsers/tabular.py`), which implements
+detection, header location and row extraction. A bank is declared as data: `bank_name`,
+`filename_marker`, `detect_signatures`, `column_mapping` and `parse_date` (see `src/parsers/hdfc.py`).
 
 ### Bank-Specific Details
 
