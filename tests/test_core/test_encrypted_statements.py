@@ -220,3 +220,11 @@ def test_decrypt_legacy_xls_does_not_pass_verify_password(tmp_path, monkeypatch)
     monkeypatch.setattr(orchestrator.msoffcrypto, "OfficeFile", FakeXls97File)
 
     assert orchestrator._decrypt_statement(str(statement), "SBI", {}).read() == b"decrypted"
+
+
+def test_dashboard_header_is_filled_from_data_not_a_loading_placeholder(dashboard_url):
+    html = urllib.request.urlopen(dashboard_url).read().decode()
+
+    assert "Loading..." not in html
+    assert "id=summary" in html
+    assert "renderSummary();" in html

@@ -65,7 +65,7 @@ HTML_TEMPLATE = """
 <body>
 <header>
   <h1>Fipro Dashboard</h1>
-  <div class=subtitle id=filename>Loading...</div>
+  <div class=subtitle id=summary>—</div>
 </header>
 <section id=locked aria-label="Locked statements"></section>
 <div class=toolbar>
@@ -145,6 +145,13 @@ function setStickyOffsets() {
 }
 window.addEventListener('resize', setStickyOffsets);
 
+function renderSummary() {
+  const dates = DATA.map(r => r.transaction_date).filter(Boolean).sort();
+  const count = `${DATA.length} transaction${DATA.length === 1 ? '' : 's'}`;
+  document.getElementById('summary').textContent =
+    dates.length ? `${count} · ${dates[0]} → ${dates[dates.length - 1]}` : count;
+}
+
 function init() {
   const th = document.getElementById('thead');
   th.innerHTML = COLS.map(c => `<th data-col=${c} onclick=\"toggleSort('${c}')\">${c.replace(/_/g,' ')}<span class=arrow>▼</span></th>`).join('');
@@ -153,6 +160,7 @@ function init() {
   sel.innerHTML = '<option value=\"\">All banks</option>' + banks.map(b=>`<option value=${b}>${b}</option>`).join('');
   search = document.getElementById('search').value;
   bank = sel.value; type = document.getElementById('type_filter').value;
+  renderSummary();
   renderLocked();
   setStickyOffsets();
   render();
