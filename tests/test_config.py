@@ -1,4 +1,4 @@
-from dataclasses import asdict
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -80,7 +80,23 @@ def test_defaults_match_shipped_config_toml():
     assert shipped.processing == defaults.processing
     assert shipped.goodbudget == defaults.goodbudget
     assert shipped.log_level == defaults.log_level
-    assert {k for k, v in asdict(shipped.gmail).items() if v != asdict(GmailSettings())[k]} == {"queries"}
+    assert replace(shipped.gmail, queries={}) == GmailSettings()
+
+
+def test_queries_are_a_read_only_copy_of_the_config_table():
+    table = {"SBI": "from:sbi.co.in password"}
+    settings = Settings.from_config({"paths": {"input": "in"}, "gmail": {"queries": table}})
+
+    table["AXIS"] = "from:axisbank.com"
+
+    assert dict(settings.gmail.queries) == {"SBI": "from:sbi.co.in password"}
+    with pytest.raises(TypeError):
+        settings.gmail.queries["X"] = "y"  # type: ignore[index]
+
+
+def test_queries_values_must_be_strings():
+    with pytest.raises(ValueError, match="gmail.queries"):
+        Settings.from_config({"paths": {"input": "in"}, "gmail": {"queries": {"SBI": 5}}})
 
 
 def test_load_config_still_returns_the_raw_dict():

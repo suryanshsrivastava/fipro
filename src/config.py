@@ -11,7 +11,10 @@ import tomllib
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any
+
+_DEFAULT_LOG_LEVEL = "INFO"
 
 
 @dataclass(frozen=True, slots=True)
@@ -26,17 +29,15 @@ class PathSettings:
 
     @classmethod
     def from_config(cls, config: dict) -> PathSettings:
+        d = cls(input="")
         return cls(
-            input=_read(config, "paths.input", str, required=True),
-            **_present(
-                config,
-                output=("paths.output", str),
-                processed=("paths.processed", str),
-                failed=("paths.failed", str),
-                dashboard_data=("paths.dashboard_data", str),
-                password_hints=("paths.password_hints", str),
-                seen_hashes=("processing.seen_hashes_path", str),
-            ),
+            input=_required_str(config, "paths.input"),
+            output=_str(config, "paths.output", d.output),
+            processed=_str(config, "paths.processed", d.processed),
+            failed=_str(config, "paths.failed", d.failed),
+            dashboard_data=_str(config, "paths.dashboard_data", d.dashboard_data),
+            password_hints=_str(config, "paths.password_hints", d.password_hints),
+            seen_hashes=_str(config, "processing.seen_hashes_path", d.seen_hashes),
         )
 
 
@@ -49,21 +50,19 @@ class ProcessingSettings:
 
     @classmethod
     def from_config(cls, config: dict) -> ProcessingSettings:
-        values = _present(
-            config,
-            supported_extensions=("processing.supported_extensions", "strings"),
-            fail_on_file_error=("processing.fail_on_file_error", bool),
-        )
-        if not values.get("supported_extensions"):
-            values.pop("supported_extensions", None)  # an empty list means "unset"
-        flags = _present(
-            config,
-            include=("processing.include_internal_transfers", bool),
-            skip=("processing.skip_internal_transfers", bool),
-        )
+        d = cls()
+        include = _lookup(config, "processing.include_internal_transfers")
+        if include is not None and not isinstance(include, bool):
+            raise ValueError(f"Config key 'processing.include_internal_transfers' must be bool, got {include!r}")
         # An explicit include flag wins over the legacy skip flag.
-        export = flags["include"] if "include" in flags else not flags.get("skip", False)
-        return cls(export_internal_transfers=export, **values)
+        export = include if include is not None else not _bool(config, "processing.skip_internal_transfers", False)
+        return cls(
+            # An empty extension list means "unset".
+            supported_extensions=_strings(config, "processing.supported_extensions", d.supported_extensions)
+            or d.supported_extensions,
+            fail_on_file_error=_bool(config, "processing.fail_on_file_error", d.fail_on_file_error),
+            export_internal_transfers=export,
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -74,13 +73,11 @@ class GoodbudgetSettings:
 
     @classmethod
     def from_config(cls, config: dict) -> GoodbudgetSettings:
+        d = cls()
         return cls(
-            **_present(
-                config,
-                max_description_length=("export.goodbudget.max_description_length", int),
-                default_envelope=("export.goodbudget.default_envelope", str),
-                default_status=("export.goodbudget.default_status", str),
-            )
+            max_description_length=_int(config, "export.goodbudget.max_description_length", d.max_description_length),
+            default_envelope=_str(config, "export.goodbudget.default_envelope", d.default_envelope),
+            default_status=_str(config, "export.goodbudget.default_status", d.default_status),
         )
 
 
@@ -91,12 +88,10 @@ class ExternalAccountSettings:
 
     @classmethod
     def from_config(cls, config: dict) -> ExternalAccountSettings:
+        d = cls()
         return cls(
-            **_present(
-                config,
-                names=("external_accounts.names", "strings"),
-                payment_keywords=("external_accounts.payment_keywords", "strings"),
-            )
+            names=_strings(config, "external_accounts.names", d.names),
+            payment_keywords=_strings(config, "external_accounts.payment_keywords", d.payment_keywords),
         )
 
 
@@ -109,14 +104,12 @@ class GmailSettings:
 
     @classmethod
     def from_config(cls, config: dict) -> GmailSettings:
+        d = cls()
         return cls(
-            **_present(
-                config,
-                credentials=("gmail.credentials", str),
-                token=("gmail.token", str),
-                max_messages=("gmail.max_messages", int),
-                queries=("gmail.queries", dict),
-            )
+            credentials=_str(config, "gmail.credentials", d.credentials),
+            token=_str(config, "gmail.token", d.token),
+            max_messages=_int(config, "gmail.max_messages", d.max_messages),
+            queries=_str_map(config, "gmail.queries"),
         )
 
 
@@ -133,7 +126,7 @@ class Settings:
     goodbudget: GoodbudgetSettings = field(default_factory=GoodbudgetSettings)
     external_accounts: ExternalAccountSettings = field(default_factory=ExternalAccountSettings)
     gmail: GmailSettings = field(default_factory=GmailSettings)
-    log_level: str = "INFO"
+    log_level: str = _DEFAULT_LOG_LEVEL
 
     @classmethod
     def from_config(cls, config: dict) -> Settings:
@@ -143,40 +136,66 @@ class Settings:
             goodbudget=GoodbudgetSettings.from_config(config),
             external_accounts=ExternalAccountSettings.from_config(config),
             gmail=GmailSettings.from_config(config),
-            **_present(config, log_level=("fipro.log_level", str)),
+            log_level=_str(config, "fipro.log_level", _DEFAULT_LOG_LEVEL),
         )
 
 
-_MISSING = object()
-
-
-def _read(config: dict, dotted_key: str, kind: type | str, *, required: bool = False) -> Any:
-    """The value at ``dotted_key`` checked against ``kind`` (a type, or "strings" for a list of str)."""
+def _lookup(config: dict, dotted_key: str) -> Any:
+    """The value at ``dotted_key``, or None when any part of the path is absent."""
     node: Any = config
     for part in dotted_key.split("."):
-        node = node.get(part, _MISSING) if isinstance(node, dict) else _MISSING
-    if node is _MISSING or node is None:
-        if required:
-            raise ValueError(f"Required key '{dotted_key}' not found in config")
-        return _MISSING
-    if kind == "strings":
-        if not isinstance(node, list | tuple) or not all(isinstance(item, str) for item in node):
-            raise ValueError(f"Config key '{dotted_key}' must be a list of strings, got {node!r}")
-        return tuple(node)
-    assert isinstance(kind, type)
-    if not isinstance(node, kind) or (kind is int and isinstance(node, bool)):
-        raise ValueError(f"Config key '{dotted_key}' must be {kind.__name__}, got {node!r}")
+        node = node.get(part) if isinstance(node, dict) else None
     return node
 
 
-def _present(config: dict, **specs: tuple[str, type | str]) -> dict[str, Any]:
-    """Only the keys that are set in ``config``, so omitted ones keep their dataclass defaults."""
-    values = {name: _read(config, key, kind) for name, (key, kind) in specs.items()}
-    return {name: value for name, value in values.items() if value is not _MISSING}
+def _typed(config: dict, key: str, kind: type, default: Any) -> Any:
+    value = _lookup(config, key)
+    if value is None:
+        return default
+    if not isinstance(value, kind) or (kind is int and isinstance(value, bool)):
+        raise ValueError(f"Config key '{key}' must be {kind.__name__}, got {value!r}")
+    return value
+
+
+def _str(config: dict, key: str, default: str) -> str:
+    return str(_typed(config, key, str, default))
+
+
+def _int(config: dict, key: str, default: int) -> int:
+    return int(_typed(config, key, int, default))
+
+
+def _bool(config: dict, key: str, default: bool) -> bool:
+    return bool(_typed(config, key, bool, default))
+
+
+def _required_str(config: dict, key: str) -> str:
+    if _lookup(config, key) is None:
+        raise ValueError(f"Required key '{key}' not found in config")
+    return _str(config, key, "")
+
+
+def _strings(config: dict, key: str, default: tuple[str, ...]) -> tuple[str, ...]:
+    value = _lookup(config, key)
+    if value is None:
+        return default
+    if not isinstance(value, list | tuple) or not all(isinstance(item, str) for item in value):
+        raise ValueError(f"Config key '{key}' must be a list of strings, got {value!r}")
+    return tuple(value)
+
+
+def _str_map(config: dict, key: str) -> Mapping[str, str]:
+    """A read-only copy of a table of strings (never the config's own mutable dict)."""
+    value = _lookup(config, key)
+    if value is None:
+        return MappingProxyType({})
+    if not isinstance(value, dict) or not all(isinstance(k, str) and isinstance(v, str) for k, v in value.items()):
+        raise ValueError(f"Config key '{key}' must be a table of strings, got {value!r}")
+    return MappingProxyType(dict(value))
 
 
 def load_settings(config_path: str = "config/config.toml") -> Settings:
-    """Load and validate config.toml into Settings."""
+    """Load config.toml into Settings; missing required keys and wrong types are ValueErrors."""
     return Settings.from_config(load_config(config_path))
 
 
@@ -192,42 +211,11 @@ def load_config(config_path: str = "config/config.toml") -> dict:
 
     Raises:
         FileNotFoundError: If config file doesn't exist
-        ValueError: If config is invalid
+        tomllib.TOMLDecodeError: If the file is not valid TOML (Settings validates the contents)
     """
     path = Path(config_path)
     if not path.exists():
         raise FileNotFoundError(f"config.toml not found at {path}")
 
     with open(path, "rb") as f:
-        config = tomllib.load(f)
-
-    validate_config(config)
-    return config
-
-
-def validate_config(config: dict) -> bool:
-    """
-    Validate configuration structure.
-
-    Checks that required sections and keys are present.
-
-    Args:
-        config: Configuration dictionary
-
-    Returns:
-        True if valid
-
-    Raises:
-        ValueError: If validation fails with details
-    """
-    required_sections = ["paths"]
-    for section in required_sections:
-        if section not in config:
-            raise ValueError(f"Required section '{section}' not found in config")
-
-    paths = config["paths"]
-    for key in ["input", "output"]:
-        if key not in paths:
-            raise ValueError(f"Required key 'paths.{key}' not found in config")
-
-    return True
+        return tomllib.load(f)
