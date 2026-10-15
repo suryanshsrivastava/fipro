@@ -2,6 +2,7 @@
 
 import pytest
 
+from src.config import Settings
 from src.core.orchestrator import process_pipeline
 from src.models.transactions import Transaction
 from tests.test_extraction.helpers import FIXTURES_ROOT
@@ -17,7 +18,7 @@ def test_full_pipeline_end_to_end(tmp_path, fixture_input_loader, pipeline_confi
     fixture_input_loader(fixture_input, input_dir)
     config = pipeline_config_factory(input_dir=input_dir, output_dir=output_dir, processed_dir=processed_dir)
 
-    run = process_pipeline(config)
+    run = process_pipeline(Settings.from_config(config))
 
     assert len(run.results) == 3
     assert run.exported_count == len(run.export_transactions)

@@ -65,7 +65,7 @@ HTML_TEMPLATE = """
 <body>
 <header>
   <h1>Fipro Dashboard</h1>
-  <div class=subtitle id=filename>Loading...</div>
+  <div class=subtitle id=summary>—</div>
 </header>
 <section id=locked aria-label="Locked statements"></section>
 <div class=toolbar>
@@ -145,6 +145,13 @@ function setStickyOffsets() {
 }
 window.addEventListener('resize', setStickyOffsets);
 
+function renderSummary() {
+  const dates = DATA.map(r => r.transaction_date).filter(Boolean).sort();
+  const count = `${DATA.length} transaction${DATA.length === 1 ? '' : 's'}`;
+  document.getElementById('summary').textContent =
+    dates.length ? `${count} · ${dates[0]} → ${dates[dates.length - 1]}` : count;
+}
+
 function init() {
   const th = document.getElementById('thead');
   th.innerHTML = COLS.map(c => `<th data-col=${c} onclick=\"toggleSort('${c}')\">${c.replace(/_/g,' ')}<span class=arrow>▼</span></th>`).join('');
@@ -153,6 +160,7 @@ function init() {
   sel.innerHTML = '<option value=\"\">All banks</option>' + banks.map(b=>`<option value=${b}>${b}</option>`).join('');
   search = document.getElementById('search').value;
   bank = sel.value; type = document.getElementById('type_filter').value;
+  renderSummary();
   renderLocked();
   setStickyOffsets();
   render();
@@ -219,13 +227,13 @@ def load_csv_data(csv_path: str) -> list[dict]:
     return _load_csv_data(csv_path)
 
 
-def locked_statements(config: dict) -> list[dict]:
+def locked_statements(settings: Settings) -> list[dict]:
     """Password-protected statements waiting in the input folder, grouped by bank, with any saved Gmail hint."""
     by_bank: dict[str, list[str]] = defaultdict(list)
-    for crawled in discover_files(config):
+    for crawled in discover_files(settings):
         if is_encrypted_statement(crawled.filepath):
             by_bank[crawled.metadata.get("bank", "UNKNOWN")].append(crawled.filename)
-    hints = load_password_hints(Settings.from_config(config).password_hints)
+    hints = load_password_hints(settings.password_hints)
     return [
         {
             "bank": bank,
@@ -242,14 +250,14 @@ def _script_json(value: object) -> str:
     return json.dumps(value, default=str).replace("<", "\\u003c")
 
 
-def build_server(csv_path: str, port: int, config: dict | None = None) -> HTTPServer:
+def build_server(csv_path: str, port: int, settings: Settings | None = None) -> HTTPServer:
     def current_rows() -> list[dict]:
         return load_csv_data(csv_path) if Path(csv_path).exists() else []
 
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
             if self.path == "/" or self.path == "/index.html":
-                locked = locked_statements(config) if config else []
+                locked = locked_statements(settings) if settings else []
                 html = HTML_TEMPLATE.replace("{{DATA}}", _script_json(current_rows())).replace(
                     "{{LOCKED}}", _script_json(locked)
                 )
@@ -260,7 +268,7 @@ def build_server(csv_path: str, port: int, config: dict | None = None) -> HTTPSe
                 self._send(404, "text/plain", b"")
 
         def do_POST(self):
-            if self.path != "/unlock" or config is None:
+            if self.path != "/unlock" or settings is None:
                 self._send_json(404, {"error": "not found"})
                 return
             # JSON-only + same-origin: a page on another site cannot trigger processing through the browser.
@@ -278,7 +286,7 @@ def build_server(csv_path: str, port: int, config: dict | None = None) -> HTTPSe
             try:
                 body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
                 passwords = {str(bank).upper(): str(pw) for bank, pw in body.get("passwords", {}).items() if pw}
-                run = process_pipeline(config, passwords=passwords)
+                run = process_pipeline(settings, passwords=passwords)
             except Exception as exc:  # report to the page; the server keeps running
                 self._send_json(500, {"error": f"Processing failed: {exc}"})
                 return
@@ -310,10 +318,10 @@ def serve_dashboard(
     csv_path: str = "data/output/dashboard_data.csv",
     port: int = 8080,
     open_browser: bool = False,
-    config: dict | None = None,
+    settings: Settings | None = None,
 ):
     Path(csv_path).parent.mkdir(parents=True, exist_ok=True)
-    server = build_server(csv_path, port, config)
+    server = build_server(csv_path, port, settings)
     url = f"http://localhost:{port}"
     print(f"Dashboard: {url}")
     if open_browser:

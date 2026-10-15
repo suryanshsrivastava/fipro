@@ -12,12 +12,14 @@ import pytest
 from msoffcrypto.format.ooxml import OOXMLFile
 from openpyxl import Workbook
 
+from src.config import Settings
 from src.connectors.gmail import PasswordHint, save_password_hints
 from src.core.ingestion import get_bank_from_path
 from src.core.orchestrator import process_pipeline
 from src.core.parser_registry import get_default_parser_registry
 from src.exporters.report import summarize_pipeline_run
-from src.parsers.sbi import SBIParser
+from src.parsers.sbi import SBI_LAYOUT
+from src.parsers.tabular import TabularStatementParser
 from src.ui.dashboard import build_server
 
 SBI_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "parsers" / "sbi" / "raw_monthly_export" / "input.xls"
@@ -80,11 +82,11 @@ def test_get_bank_from_path_prefers_filename_then_nearest_folder(relative_path, 
 @pytest.mark.parametrize("env_var", ["FIPRO_SBI_STATEMENT_PASSWORD", "FIPRO_STATEMENT_PASSWORD"])
 def test_process_pipeline_decrypts_statement_in_bank_folder(tmp_path, monkeypatch, encrypted_statement, env_var):
     monkeypatch.setenv(env_var, PASSWORD)
-    expected = SBIParser().extract_transactions(
+    expected = TabularStatementParser(SBI_LAYOUT).extract_transactions(
         get_default_parser_registry().load_dataframe(str(SBI_FIXTURE), bank_hint="SBI"), str(SBI_FIXTURE)
     )
 
-    run = process_pipeline(_config(tmp_path))
+    run = process_pipeline(Settings.from_config(_config(tmp_path)))
 
     [result] = run.results
     assert result.bank == "SBI"
@@ -97,7 +99,7 @@ def test_process_pipeline_decrypts_statement_in_bank_folder(tmp_path, monkeypatc
 
 
 def test_process_pipeline_uses_password_passed_in_for_this_run(tmp_path, encrypted_statement):
-    run = process_pipeline(_config(tmp_path), passwords={"SBI": PASSWORD})
+    run = process_pipeline(Settings.from_config(_config(tmp_path)), passwords={"SBI": PASSWORD})
 
     assert run.locked_files == []
     assert run.results[0].total_transactions > 0
@@ -109,7 +111,7 @@ def test_locked_statement_stays_in_input_and_previous_exports_survive(tmp_path, 
     previous_export.parent.mkdir()
     previous_export.write_text("previous run\n")
 
-    run = process_pipeline(_config(tmp_path))
+    run = process_pipeline(Settings.from_config(_config(tmp_path)))
 
     assert run.locked_files == [str(encrypted_statement)]
     [result] = run.results
@@ -124,7 +126,7 @@ def test_locked_statement_stays_in_input_and_previous_exports_survive(tmp_path, 
 def test_wrong_password_keeps_file_locked_without_leaking_password(tmp_path, monkeypatch, encrypted_statement):
     monkeypatch.setenv("FIPRO_SBI_STATEMENT_PASSWORD", "not-the-password")
 
-    run = process_pipeline(_config(tmp_path))
+    run = process_pipeline(Settings.from_config(_config(tmp_path)))
 
     [result] = run.results
     assert result.warnings == [
@@ -147,7 +149,7 @@ def dashboard_url(tmp_path, encrypted_statement):  # noqa: ARG001 - the statemen
         ],
         config["paths"]["password_hints"],
     )
-    server = build_server(str(tmp_path / "output" / "dashboard_data.csv"), 0, config)
+    server = build_server(str(tmp_path / "output" / "dashboard_data.csv"), 0, Settings.from_config(config))
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     yield f"http://127.0.0.1:{server.server_address[1]}"
@@ -218,3 +220,11 @@ def test_decrypt_legacy_xls_does_not_pass_verify_password(tmp_path, monkeypatch)
     monkeypatch.setattr(orchestrator.msoffcrypto, "OfficeFile", FakeXls97File)
 
     assert orchestrator._decrypt_statement(str(statement), "SBI", {}).read() == b"decrypted"
+
+
+def test_dashboard_header_is_filled_from_data_not_a_loading_placeholder(dashboard_url):
+    html = urllib.request.urlopen(dashboard_url).read().decode()
+
+    assert "Loading..." not in html
+    assert "id=summary" in html
+    assert "renderSummary();" in html

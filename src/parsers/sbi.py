@@ -1,61 +1,68 @@
-"""SBI Bank statement parser.
+"""SBI Bank statement layout and loader.
 
 SBI statements are often tab-separated text with an .xls extension, with a variable-position header
 (Txn Date / Description / Debit / Credit / Balance) and "DD MMM YYYY" dates.
 """
 
-import pandas as pd
+import zipfile
 
-from src.parsers.tabular import TabularStatementParser
+import pandas as pd
+import xlrd
+from openpyxl.utils.exceptions import InvalidFileException
+
+from src.parsers.tabular import BankLayout
 from src.utils.date_parser import parse_sbi_date
 
+# Reader failures that only mean "this isn't that format"; they are collected, not swallowed.
+_NOT_TEXT_STATEMENT = (UnicodeDecodeError, ValueError, pd.errors.ParserError, pd.errors.EmptyDataError)
+_NOT_THIS_EXCEL_FORMAT = (xlrd.XLRDError, zipfile.BadZipFile, InvalidFileException, ValueError)
 
-class SBIParser(TabularStatementParser):
-    bank_name = "SBI"
-    filename_marker = "sbi"
-    detect_signatures = (frozenset({"txn date", "description", "debit", "credit"}),)
-    column_mapping = {
-        "transaction_date": ["Txn Date", "Transaction Date", "Value Date"],
-        "description": ["Description", "Particulars"],
-        "debit": ["Debit"],
-        "credit": ["Credit"],
-        "balance": ["Balance"],
-    }
-    parse_date = staticmethod(parse_sbi_date)
+SBI_LAYOUT = BankLayout(
+    bank_name="SBI",
+    filename_marker="sbi",
+    detect_signatures=(frozenset({"txn date", "description", "debit", "credit"}),),
+    column_mapping={
+        "transaction_date": ("Txn Date", "Transaction Date", "Value Date"),
+        "description": ("Description", "Particulars"),
+        "debit": ("Debit",),
+        "credit": ("Credit",),
+        "balance": ("Balance",),
+    },
+    parse_date=parse_sbi_date,
+)
 
-    @staticmethod
-    def load_sbi_file(filepath: str) -> pd.DataFrame | None:
-        """
-        Load SBI statement file, handling both Excel and tab-separated formats.
 
-        SBI often exports .xls files that are actually tab-separated text with
-        metadata rows at the top. This method finds and loads from the header row.
-        """
-        # Try reading as tab-separated text first (common SBI format)
+def load_sbi_file(filepath: str) -> pd.DataFrame:
+    """
+    Load an SBI statement, which is either tab-separated text (often named .xls) or a real Excel file.
+
+    Text is tried first; "not text" and "not that Excel format" are expected and fall through. Anything
+    else (I/O errors, unexpected failures) propagates. If no reader accepts the file, the ValueError lists
+    each reader's reason.
+    """
+    reasons: list[str] = []
+
+    try:
+        return _read_tab_separated(filepath)
+    except _NOT_TEXT_STATEMENT as exc:
+        reasons.append(f"text: {exc}")
+
+    for engine in ("xlrd", "openpyxl"):
         try:
-            # First, find the header row by scanning for "Txn Date"
-            with open(filepath, encoding="utf-8") as f:
-                lines = f.readlines()
+            return pd.read_excel(filepath, engine=engine)
+        except _NOT_THIS_EXCEL_FORMAT as exc:
+            reasons.append(f"{engine}: {exc}")
 
-            header_line_idx = None
-            for idx, line in enumerate(lines):
-                if "Txn Date" in line and "Debit" in line:
-                    header_line_idx = idx
-                    break
+    raise ValueError(f"Unable to load SBI statement: {filepath} ({'; '.join(reasons)})")
 
-            if header_line_idx is not None:
-                # Read from header row onwards
-                df = pd.read_csv(filepath, sep="\t", encoding="utf-8", skiprows=header_line_idx, on_bad_lines="skip")
-                if len(df.columns) > 3:
-                    return df
-        except Exception:
-            pass
 
-        # Try Excel formats
-        for engine in ["xlrd", "openpyxl"]:
-            try:
-                return pd.read_excel(filepath, engine=engine)
-            except Exception:
-                continue
-
-        return None
+def _read_tab_separated(filepath: str) -> pd.DataFrame:
+    with open(filepath, encoding="utf-8") as f:
+        lines = f.readlines()
+    header_line_idx = next((i for i, line in enumerate(lines) if "Txn Date" in line and "Debit" in line), None)
+    if header_line_idx is None:
+        raise ValueError("no 'Txn Date'/'Debit' header line")
+    df = pd.read_csv(filepath, sep="\t", encoding="utf-8", skiprows=header_line_idx, on_bad_lines="skip")
+    if len(df.columns) <= 3:
+        raise ValueError(f"only {len(df.columns)} columns after the header line")
+    return df

@@ -6,10 +6,10 @@ from decimal import Decimal
 import pandas as pd
 import pytest
 
+from src.core import parser_registry
 from src.core.parser_registry import ParserAdapter, ParserRegistry
 from src.models.transactions import Transaction, TransactionType
 from src.parsers.base import BankParser
-from src.parsers.sbi import SBIParser
 
 
 class _DummyParser(BankParser):
@@ -44,7 +44,7 @@ def test_infer_bank_from_filename_uses_registered_markers():
 def test_load_dataframe_uses_sbi_loader_for_sbi_files(monkeypatch: pytest.MonkeyPatch, tmp_path):
     expected = pd.DataFrame({"Txn Date": ["01 Jan 2026"], "Debit": ["100.00"], "Credit": [None], "Description": ["x"]})
 
-    monkeypatch.setattr(SBIParser, "load_sbi_file", staticmethod(lambda _filepath: expected))
+    monkeypatch.setattr(parser_registry, "load_sbi_file", lambda _filepath: expected)
     registry = ParserRegistry()
 
     statement = tmp_path / "account_sbi.xls"

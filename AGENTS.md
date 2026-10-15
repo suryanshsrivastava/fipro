@@ -137,7 +137,7 @@ fipro/
 │   │   ├── orchestrator.py   # Pipeline coordination
 │   │   ├── deduplicator.py
 │   │   └── transfer_detector.py
-│   ├── parsers/              # HDFC, SBI, Axis BankParser impls
+│   ├── parsers/              # BankLayout + shared tabular parser; HDFC, SBI, Axis layouts
 │   ├── models/               # Transaction, ProcessingResult, CrawledFile
 │   ├── exporters/            # goodbudget, report, sheets
 │   ├── ui/                   # Local HTML dashboard
@@ -204,9 +204,9 @@ class BankParser(ABC):
         pass
 ```
 
-Bank parsers subclass `TabularStatementParser` (`src/parsers/tabular.py`), which implements
-detection, header location and row extraction. A bank is declared as data: `bank_name`,
-`filename_marker`, `detect_signatures`, `column_mapping` and `parse_date` (see `src/parsers/hdfc.py`).
+Banks are declared as data. `TabularStatementParser(layout)` (`src/parsers/tabular.py`) implements
+detection, header location and row extraction for any `BankLayout`; each bank module exposes a layout
+constant (`HDFC_LAYOUT`, `SBI_LAYOUT`, `AXIS_LAYOUT`) and `ParserRegistry` wires them to a file loader.
 
 ### Bank-Specific Details
 
@@ -263,7 +263,7 @@ from src.models import Transaction
 ```
 
 ### Naming Conventions
-- Classes: `PascalCase` (e.g., `Transaction`, `HDFCParser`)
+- Classes: `PascalCase` (e.g., `Transaction`, `TabularStatementParser`)
 - Functions/variables: `snake_case` (e.g., `extract_transactions`)
 - Constants: `UPPER_SNAKE_CASE` (e.g., `MAX_FILE_SIZE`)
 - Private: prefix with `_`

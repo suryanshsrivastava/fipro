@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 
 import pytest
 
+from src.config import Settings
 from src.core.application import (
     CommandInputError,
     prepare_dashboard_launch,
@@ -23,7 +24,7 @@ def test_run_status_command_groups_files_by_bank():
         FakeCrawledFile(filename="b.xls", metadata={"bank": "SBI"}),
         FakeCrawledFile(filename="c.xls", metadata={"bank": "HDFC"}),
     ]
-    lines = run_status_command({}, discoverer=lambda _config: files)
+    lines = run_status_command(Settings(), discoverer=lambda _config: files)
     assert lines == [
         "HDFC: 2 file(s)",
         "  - a.xls",
@@ -34,7 +35,7 @@ def test_run_status_command_groups_files_by_bank():
 
 
 def test_run_status_command_with_no_files():
-    assert run_status_command({}, discoverer=lambda _config: []) == ["No files to process."]
+    assert run_status_command(Settings(), discoverer=lambda _config: []) == ["No files to process."]
 
 
 def test_prepare_dashboard_launch_starts_without_csv_so_locked_files_can_be_unlocked():
@@ -68,4 +69,4 @@ def test_run_process_command_returns_pipeline_lines(monkeypatch: pytest.MonkeyPa
         lambda _config: type("Run", (), {"results": [1]})(),
     )
     monkeypatch.setattr("src.core.application.summarize_pipeline_run", lambda _run: ["ok"])
-    assert run_process_command({}) == ["ok"]
+    assert run_process_command(Settings()) == ["ok"]

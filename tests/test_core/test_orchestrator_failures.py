@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from src.config import Settings
 from src.core.orchestrator import process_pipeline
 
 FIXTURES_ROOT = Path(__file__).resolve().parents[1] / "fixtures"
@@ -35,7 +36,7 @@ def test_process_pipeline_fails_whole_run_and_moves_only_bad_file(tmp_path, pipe
     config["external_accounts"] = {"names": ["CREDIT_CARD"], "payment_keywords": ["CREDIT CARD", "CRED"]}
 
     with pytest.raises(RuntimeError, match="failed to parse"):
-        process_pipeline(config)
+        process_pipeline(Settings.from_config(config))
 
     assert (input_dir / "hdfc.xls").exists()
     assert not processed_dir.exists() or not list(processed_dir.iterdir())
@@ -66,7 +67,7 @@ def test_process_pipeline_continues_and_moves_bad_file_to_failed(tmp_path, pipel
     )
     config["external_accounts"] = {"names": ["CREDIT_CARD"], "payment_keywords": ["CREDIT CARD", "CRED"]}
 
-    run = process_pipeline(config)
+    run = process_pipeline(Settings.from_config(config))
 
     assert len(run.results) == 2
     assert sorted(path.name for path in processed_dir.iterdir()) == ["hdfc.xls"]
