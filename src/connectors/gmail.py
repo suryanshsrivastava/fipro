@@ -144,9 +144,10 @@ def message_text(payload: dict) -> str:
 
 def load_password_hints(path: str) -> dict[str, dict]:
     try:
-        return json.loads(Path(path).read_text())
+        hints: dict[str, dict] = json.loads(Path(path).read_text())
     except FileNotFoundError:
         return {}
+    return hints
 
 
 def save_password_hints(hints: list[PasswordHint], path: str) -> None:
@@ -167,7 +168,7 @@ def _write_token(token: Path, creds: Any) -> None:
 def _header(payload: dict, name: str) -> str:
     for header in payload.get("headers", []):
         if header.get("name", "").lower() == name.lower():
-            return header.get("value", "")
+            return str(header.get("value", ""))
     return ""
 
 

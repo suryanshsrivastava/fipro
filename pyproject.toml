@@ -45,8 +45,12 @@ target-version = "py314"
 exclude = ["legacy", ".fipro-env", "data"]
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "B", "UP", "SIM"]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "C4", "PERF", "RET", "ARG", "PGH", "ERA"]
 ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+# Test doubles must match the signatures they stand in for; fixtures are requested for side effects.
+"tests/**" = ["ARG"]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -56,6 +60,7 @@ python_version = "3.14"
 ignore_missing_imports = true
 check_untyped_defs = true
 warn_unused_ignores = true
+warn_return_any = true
 files = ["src"]
 
 [tool.pytest.ini_options]

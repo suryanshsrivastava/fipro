@@ -261,23 +261,27 @@ def build_server(csv_path: str, port: int, config: dict | None = None) -> HTTPSe
 
         def do_POST(self):
             if self.path != "/unlock" or config is None:
-                return self._send_json(404, {"error": "not found"})
+                self._send_json(404, {"error": "not found"})
+                return
             # JSON-only + same-origin: a page on another site cannot trigger processing through the browser.
             if self.headers.get("Content-Type", "").split(";")[0].strip() != "application/json":
-                return self._send_json(415, {"error": "expected application/json"})
+                self._send_json(415, {"error": "expected application/json"})
+                return
             # Checking Host as well as Origin also blocks DNS-rebinding pages that resolve to 127.0.0.1.
             local_hosts = {f"localhost:{server.server_port}", f"127.0.0.1:{server.server_port}"}
             origin = self.headers.get("Origin")
             if self.headers.get("Host") not in local_hosts or (
                 origin is not None and origin not in {f"http://{h}" for h in local_hosts}
             ):
-                return self._send_json(403, {"error": "cross-origin request refused"})
+                self._send_json(403, {"error": "cross-origin request refused"})
+                return
             try:
                 body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
                 passwords = {str(bank).upper(): str(pw) for bank, pw in body.get("passwords", {}).items() if pw}
                 run = process_pipeline(config, passwords=passwords)
             except Exception as exc:  # report to the page; the server keeps running
-                return self._send_json(500, {"error": f"Processing failed: {exc}"})
+                self._send_json(500, {"error": f"Processing failed: {exc}"})
+                return
             self._send_json(
                 200,
                 {

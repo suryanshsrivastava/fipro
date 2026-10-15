@@ -54,8 +54,7 @@ class SBIParser(TabularStatementParser):
         # Try Excel formats
         for engine in ["xlrd", "openpyxl"]:
             try:
-                df = pd.read_excel(filepath, engine=engine)
-                return df
+                return pd.read_excel(filepath, engine=engine)
             except Exception:
                 continue
 
