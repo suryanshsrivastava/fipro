@@ -17,7 +17,8 @@ from src.core.ingestion import get_bank_from_path
 from src.core.orchestrator import process_pipeline
 from src.core.parser_registry import get_default_parser_registry
 from src.exporters.report import summarize_pipeline_run
-from src.parsers.sbi import SBIParser
+from src.parsers.sbi import SBI_LAYOUT
+from src.parsers.tabular import TabularStatementParser
 from src.ui.dashboard import build_server
 
 SBI_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "parsers" / "sbi" / "raw_monthly_export" / "input.xls"
@@ -80,7 +81,7 @@ def test_get_bank_from_path_prefers_filename_then_nearest_folder(relative_path, 
 @pytest.mark.parametrize("env_var", ["FIPRO_SBI_STATEMENT_PASSWORD", "FIPRO_STATEMENT_PASSWORD"])
 def test_process_pipeline_decrypts_statement_in_bank_folder(tmp_path, monkeypatch, encrypted_statement, env_var):
     monkeypatch.setenv(env_var, PASSWORD)
-    expected = SBIParser().extract_transactions(
+    expected = TabularStatementParser(SBI_LAYOUT).extract_transactions(
         get_default_parser_registry().load_dataframe(str(SBI_FIXTURE), bank_hint="SBI"), str(SBI_FIXTURE)
     )
 

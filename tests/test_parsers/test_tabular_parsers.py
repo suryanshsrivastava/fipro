@@ -3,9 +3,10 @@ from __future__ import annotations
 import pandas as pd
 
 from src.models.transactions import TransactionType
-from src.parsers.axis import AxisParser
-from src.parsers.hdfc import HDFCParser
-from src.parsers.sbi import SBIParser
+from src.parsers.axis import AXIS_LAYOUT
+from src.parsers.hdfc import HDFC_LAYOUT
+from src.parsers.sbi import SBI_LAYOUT
+from src.parsers.tabular import TabularStatementParser
 
 
 def test_axis_parses_abbreviated_headers_after_preamble():
@@ -17,7 +18,7 @@ def test_axis_parses_abbreviated_headers_after_preamble():
             ["02-02-2026", "Salary", None, "1,000.00", "1,850.00"],
         ]
     )
-    parser = AxisParser()
+    parser = TabularStatementParser(AXIS_LAYOUT)
 
     assert parser.can_parse("axis_feb.xls", df)
     assert not parser.can_parse("statement.xls", df)
@@ -41,7 +42,7 @@ def test_sbi_uses_columns_as_header_when_already_parsed():
             "Balance": ["9,500.00"],
         }
     )
-    parser = SBIParser()
+    parser = TabularStatementParser(SBI_LAYOUT)
 
     [txn] = parser.extract_transactions(df, "sbi.xls")
     assert (txn.description, str(txn.amount), txn.transaction_type) == ("ATM WDL", "500.00", TransactionType.DEBIT)
@@ -50,4 +51,4 @@ def test_sbi_uses_columns_as_header_when_already_parsed():
 def test_hdfc_detection_requires_all_amount_columns():
     df = pd.DataFrame([["Date", "Narration", "Withdrawal Amt."], ["01/02/26", "x", "1"]])
 
-    assert not HDFCParser().can_parse("hdfc.xls", df)
+    assert not TabularStatementParser(HDFC_LAYOUT).can_parse("hdfc.xls", df)

@@ -10,10 +10,11 @@ from msoffcrypto.exceptions import DecryptionError, FileFormatError, InvalidKeyE
 from msoffcrypto.format.ooxml import OOXMLFile
 
 from src.models.transactions import Transaction
-from src.parsers.axis import AxisParser
+from src.parsers.axis import AXIS_LAYOUT
 from src.parsers.base import BankParser
-from src.parsers.hdfc import HDFCParser
-from src.parsers.sbi import SBIParser
+from src.parsers.hdfc import HDFC_LAYOUT
+from src.parsers.sbi import SBI_LAYOUT, load_sbi_file
+from src.parsers.tabular import BankLayout, TabularStatementParser
 
 _OLE_MAGIC = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
 _DEFAULT_PASSWORD_ENV_VAR = "FIPRO_STATEMENT_PASSWORD"
@@ -76,7 +77,7 @@ def _load_excel_statement(filepath: str) -> pd.DataFrame:
 
 
 def _load_sbi_statement(filepath: str) -> pd.DataFrame:
-    dataframe = SBIParser.load_sbi_file(filepath)
+    dataframe = load_sbi_file(filepath)
     if dataframe is None:
         raise ValueError(f"Unable to load SBI statement: {filepath}")
     return dataframe
@@ -93,6 +94,12 @@ class ParserAdapter:
         return any(marker in lower_name for marker in self.filename_markers)
 
 
+def _adapter(layout: BankLayout, loader: Callable[[str], pd.DataFrame]) -> ParserAdapter:
+    return ParserAdapter(
+        parser=TabularStatementParser(layout), filename_markers=(layout.filename_marker,), loader=loader
+    )
+
+
 @dataclass(slots=True)
 class ExtractedStatement:
     parser: BankParser
@@ -103,9 +110,9 @@ class ExtractedStatement:
 class ParserRegistry:
     def __init__(self, adapters: list[ParserAdapter] | None = None) -> None:
         self._adapters = adapters or [
-            ParserAdapter(parser=HDFCParser(), filename_markers=("hdfc",), loader=_load_excel_statement),
-            ParserAdapter(parser=SBIParser(), filename_markers=("sbi",), loader=_load_sbi_statement),
-            ParserAdapter(parser=AxisParser(), filename_markers=("axis",), loader=_load_excel_statement),
+            _adapter(HDFC_LAYOUT, _load_excel_statement),
+            _adapter(SBI_LAYOUT, _load_sbi_statement),
+            _adapter(AXIS_LAYOUT, _load_excel_statement),
         ]
 
     def parsers(self) -> list[BankParser]:
