@@ -167,7 +167,7 @@ class FakeFlow:
     consent_kwargs: dict = {}
 
     @classmethod
-    def from_client_secrets_file(cls, path, scopes):
+    def from_client_secrets_file(cls, _path, scopes):
         assert scopes == ["https://www.googleapis.com/auth/gmail.readonly"]
         return cls()
 
@@ -181,7 +181,7 @@ def oauth(tmp_path, monkeypatch):
     stored: dict[str, FakeCreds] = {}
     monkeypatch.setattr(
         "google.oauth2.credentials.Credentials.from_authorized_user_file",
-        lambda path, scopes=None: stored["creds"],
+        lambda *_args, **_kwargs: stored["creds"],
     )
     monkeypatch.setattr("google_auth_oauthlib.flow.InstalledAppFlow", FakeFlow)
     client = tmp_path / "client.json"
@@ -217,6 +217,7 @@ def test_authorize_reconsents_offline_when_refresh_fails(oauth):
     assert FakeFlow.consent_kwargs == {"port": 0, "prompt": "consent", "access_type": "offline"}
 
 
-def test_authorize_without_token_or_client_explains_setup(oauth, tmp_path):
+@pytest.mark.usefixtures("oauth")
+def test_authorize_without_token_or_client_explains_setup(tmp_path):
     with pytest.raises(FileNotFoundError, match="Gmail OAuth client credentials not found"):
         authorize(str(tmp_path / "missing.json"), str(tmp_path / "token.json"))

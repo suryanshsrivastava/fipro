@@ -135,7 +135,7 @@ def test_wrong_password_keeps_file_locked_without_leaking_password(tmp_path, mon
 
 
 @pytest.fixture
-def dashboard_url(tmp_path, encrypted_statement):
+def dashboard_url(tmp_path, encrypted_statement):  # noqa: ARG001 - the statement must exist in the input folder
     config = _config(tmp_path) | {
         "paths": _config(tmp_path)["paths"] | {"password_hints": str(tmp_path / "hints.json")}
     }

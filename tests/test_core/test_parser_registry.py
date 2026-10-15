@@ -17,10 +17,10 @@ class _DummyParser(BankParser):
     def bank_name(self) -> str:
         return "DUMMY"
 
-    def can_parse(self, filename: str, df: pd.DataFrame) -> bool:
+    def can_parse(self, filename: str, _df: pd.DataFrame) -> bool:
         return filename.endswith(".dummy")
 
-    def extract_transactions(self, df: pd.DataFrame, source_file: str) -> list[Transaction]:
+    def extract_transactions(self, _df: pd.DataFrame, source_file: str) -> list[Transaction]:
         return [
             Transaction(
                 transaction_date=date(2026, 1, 1),
