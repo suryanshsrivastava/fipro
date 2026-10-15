@@ -29,3 +29,14 @@ def test_settings_defaults_match_shipped_config_toml():
     assert {k: v for k, v in shipped.items() if k != "gmail_queries"} == {
         k: v for k, v in defaults.items() if k != "gmail_queries"
     }
+
+
+def test_settings_rejects_wrongly_typed_values():
+    import pytest
+
+    with pytest.raises(ValueError, match="gmail.max_messages"):
+        Settings.from_config({"gmail": {"max_messages": "10"}})
+    with pytest.raises(ValueError, match="processing.fail_on_file_error"):
+        Settings.from_config({"processing": {"fail_on_file_error": "yes"}})
+    with pytest.raises(ValueError, match="gmail.max_messages"):
+        Settings.from_config({"gmail": {"max_messages": True}})

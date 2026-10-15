@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import tomllib
 from collections.abc import Mapping
-from dataclasses import dataclass, field, fields
+from dataclasses import MISSING, dataclass, field, fields
 from pathlib import Path
 from typing import Any
 
@@ -43,19 +43,30 @@ class Settings:
 
     @classmethod
     def from_config(cls, config: dict) -> Settings:
+        """Read each field from its dotted key; a present value of the wrong type is a ValueError."""
         values: dict[str, Any] = {}
         for f in fields(cls):
             node: Any = config
             for part in f.metadata["key"].split("."):
                 node = node.get(part) if isinstance(node, dict) else None
-            if node is not None:
-                values[f.name] = node
+            if node is None:
+                continue
+            expected: type | tuple[type, ...] = dict if f.default is MISSING else type(f.default)
+            if expected is tuple:
+                expected = (list, tuple)
+            if not isinstance(node, expected) or (isinstance(node, bool) and f.default is not False):
+                raise ValueError(f"Config key '{f.metadata['key']}' must be {_describe(expected)}, got {node!r}")
+            values[f.name] = node
         # An empty extension list means "unset", as discovery has always treated it.
-        if not values.get("supported_extensions"):
-            values.pop("supported_extensions", None)
-        else:
+        if values.get("supported_extensions"):
             values["supported_extensions"] = tuple(values["supported_extensions"])
+        else:
+            values.pop("supported_extensions", None)
         return cls(**values)
+
+
+def _describe(expected: type | tuple[type, ...]) -> str:
+    return " or ".join(t.__name__ for t in (expected if isinstance(expected, tuple) else (expected,)))
 
 
 def load_config(config_path: str = "config/config.toml") -> dict:

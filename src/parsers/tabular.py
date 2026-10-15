@@ -1,6 +1,7 @@
 """Shared implementation for bank statements that are a preamble followed by a header row and data rows."""
 
 from abc import abstractmethod
+from collections.abc import Iterable
 from datetime import date
 from decimal import Decimal
 from typing import ClassVar
@@ -48,7 +49,7 @@ class TabularStatementParser(BankParser):
     def _with_header(self, df: pd.DataFrame) -> pd.DataFrame:
         """The data rows with the header applied; the frame is used as-is when its columns already are the header."""
         if self._matches(self._tokens(df.columns)):
-            return df.copy()
+            return df
         for idx in range(min(_SCAN_ROWS, len(df))):
             if self._matches(self._tokens(df.iloc[idx].tolist())):
                 data = df.iloc[idx + 1 :].copy()
@@ -93,7 +94,7 @@ class TabularStatementParser(BankParser):
             for key, aliases in self.column_mapping.items()
         }
 
-    def _tokens(self, values) -> set[str]:
+    def _tokens(self, values: Iterable[object]) -> set[str]:
         return {text.lower() for text in map(self.cell_text, values) if text}
 
     def _matches(self, tokens: set[str]) -> bool:
