@@ -12,13 +12,11 @@ class HDFCParser(TabularStatementParser):
     bank_name = "HDFC"
     filename_marker = "hdfc"
     detect_signatures = (frozenset({"narration", "withdrawal amt.", "deposit amt."}),)
-    header_signatures = (frozenset({"date", "narration", "withdrawal amt.", "deposit amt."}),)
     column_mapping = {
         "transaction_date": ["Date", "Value Dt"],
         "description": ["Narration"],
         "debit": ["Withdrawal Amt.", "Withdrawal"],
         "credit": ["Deposit Amt.", "Deposit"],
         "balance": ["Closing Balance"],
-        "reference": ["Chq./Ref.No."],
     }
     parse_date = staticmethod(parse_hdfc_date)

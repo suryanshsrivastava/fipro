@@ -4,6 +4,7 @@ import csv
 from datetime import date
 from decimal import Decimal
 
+from src.config import Settings
 from src.exporters.goodbudget import build_goodbudget_notes, export_dashboard_data, format_goodbudget_row
 from src.models.transactions import Transaction, TransactionStatus, TransactionType
 
@@ -44,7 +45,7 @@ def test_format_goodbudget_row_uses_built_notes():
     transaction = _transaction("CREDIT CARD PAYMENT", TransactionType.DEBIT)
     transaction.external_account_name = "CREDIT_CARD"
 
-    row = format_goodbudget_row(transaction, {}, max_len=50)
+    row = format_goodbudget_row(transaction, Settings())
 
     assert row["Notes"] == "External account payment: CREDIT_CARD"
 

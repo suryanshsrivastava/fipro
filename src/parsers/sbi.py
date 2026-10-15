@@ -20,7 +20,6 @@ class SBIParser(TabularStatementParser):
         "debit": ["Debit"],
         "credit": ["Credit"],
         "balance": ["Balance"],
-        "reference": ["Ref No./Cheque No.", "Ref No."],
     }
     parse_date = staticmethod(parse_sbi_date)
 

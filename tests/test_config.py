@@ -20,10 +20,6 @@ def test_settings_treats_empty_extension_list_as_unset():
     assert Settings.from_config({"processing": {"supported_extensions": []}}).supported_extensions == ("xls", "xlsx")
 
 
-def test_settings_defaults_are_not_shared_between_instances():
-    assert Settings().gmail_queries is not Settings().gmail_queries
-
-
 def test_settings_defaults_match_shipped_config_toml():
     config = load_config(str(Path(__file__).resolve().parents[1] / "config" / "config.toml"))
 

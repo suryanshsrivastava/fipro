@@ -9,66 +9,52 @@ from __future__ import annotations
 
 import tomllib
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from pathlib import Path
 from typing import Any
-
-# Dotted config key for each Settings field.
-_KEYS = {
-    "log_level": "fipro.log_level",
-    "output": "paths.output",
-    "processed": "paths.processed",
-    "failed": "paths.failed",
-    "dashboard_data": "paths.dashboard_data",
-    "password_hints": "paths.password_hints",
-    "supported_extensions": "processing.supported_extensions",
-    "fail_on_file_error": "processing.fail_on_file_error",
-    "seen_hashes_path": "processing.seen_hashes_path",
-    "max_description_length": "export.goodbudget.max_description_length",
-    "default_envelope": "export.goodbudget.default_envelope",
-    "default_status": "export.goodbudget.default_status",
-    "gmail_credentials": "gmail.credentials",
-    "gmail_token": "gmail.token",
-    "gmail_max_messages": "gmail.max_messages",
-    "gmail_queries": "gmail.queries",
-}
 
 
 @dataclass(frozen=True, slots=True)
 class Settings:
     """Typed, immutable view of the optional config values; field defaults are the fallbacks.
 
-    Built per read from the config dict because callers may pass partial dicts (tests, library use).
+    Each field's ``metadata["key"]`` is its dotted path in config.toml. Built per read from the config
+    dict because callers may pass partial dicts (tests, library use).
     """
 
-    log_level: str = "INFO"
-    output: str = "data/output"
-    processed: str = "data/processed"
-    failed: str = "data/failed"
-    dashboard_data: str = "data/output/dashboard_data.csv"
-    password_hints: str = "data/password_hints.json"
-    supported_extensions: tuple[str, ...] = ("xls", "xlsx")
-    fail_on_file_error: bool = False
-    seen_hashes_path: str = "data/.seen_hashes"
-    max_description_length: int = 50
-    default_envelope: str = "Unallocated"
-    default_status: str = "cleared"
-    gmail_credentials: str = "config/gmail_credentials.json"
-    gmail_token: str = "config/gmail_token.json"
-    gmail_max_messages: int = 10
-    gmail_queries: Mapping[str, str] = field(default_factory=dict)
+    log_level: str = field(default="INFO", metadata={"key": "fipro.log_level"})
+    output: str = field(default="data/output", metadata={"key": "paths.output"})
+    processed: str = field(default="data/processed", metadata={"key": "paths.processed"})
+    failed: str = field(default="data/failed", metadata={"key": "paths.failed"})
+    dashboard_data: str = field(default="data/output/dashboard_data.csv", metadata={"key": "paths.dashboard_data"})
+    password_hints: str = field(default="data/password_hints.json", metadata={"key": "paths.password_hints"})
+    supported_extensions: tuple[str, ...] = field(
+        default=("xls", "xlsx"), metadata={"key": "processing.supported_extensions"}
+    )
+    fail_on_file_error: bool = field(default=False, metadata={"key": "processing.fail_on_file_error"})
+    seen_hashes_path: str = field(default="data/.seen_hashes", metadata={"key": "processing.seen_hashes_path"})
+    max_description_length: int = field(default=50, metadata={"key": "export.goodbudget.max_description_length"})
+    default_envelope: str = field(default="Unallocated", metadata={"key": "export.goodbudget.default_envelope"})
+    default_status: str = field(default="cleared", metadata={"key": "export.goodbudget.default_status"})
+    gmail_credentials: str = field(default="config/gmail_credentials.json", metadata={"key": "gmail.credentials"})
+    gmail_token: str = field(default="config/gmail_token.json", metadata={"key": "gmail.token"})
+    gmail_max_messages: int = field(default=10, metadata={"key": "gmail.max_messages"})
+    gmail_queries: Mapping[str, str] = field(default_factory=dict, metadata={"key": "gmail.queries"})
 
     @classmethod
     def from_config(cls, config: dict) -> Settings:
-        defaults = cls()
         values: dict[str, Any] = {}
-        for name, dotted_key in _KEYS.items():
+        for f in fields(cls):
             node: Any = config
-            for part in dotted_key.split("."):
+            for part in f.metadata["key"].split("."):
                 node = node.get(part) if isinstance(node, dict) else None
-            values[name] = getattr(defaults, name) if node is None else node
-        # An empty extension list means "unset", matching how discovery has always behaved.
-        values["supported_extensions"] = tuple(values["supported_extensions"]) or defaults.supported_extensions
+            if node is not None:
+                values[f.name] = node
+        # An empty extension list means "unset", as discovery has always treated it.
+        if not values.get("supported_extensions"):
+            values.pop("supported_extensions", None)
+        else:
+            values["supported_extensions"] = tuple(values["supported_extensions"])
         return cls(**values)
 
 

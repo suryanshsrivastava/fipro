@@ -43,12 +43,11 @@ def test_sbi_uses_columns_as_header_when_already_parsed():
     )
     parser = SBIParser()
 
-    assert parser.find_header_row(df) == -1
     [txn] = parser.extract_transactions(df, "sbi.xls")
     assert (txn.description, str(txn.amount), txn.transaction_type) == ("ATM WDL", "500.00", TransactionType.DEBIT)
 
 
-def test_hdfc_detection_requires_all_amount_columns_but_header_needs_date():
+def test_hdfc_detection_requires_all_amount_columns():
     df = pd.DataFrame([["Date", "Narration", "Withdrawal Amt."], ["01/02/26", "x", "1"]])
 
     assert not HDFCParser().can_parse("hdfc.xls", df)

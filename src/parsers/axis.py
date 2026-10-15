@@ -21,6 +21,5 @@ class AxisParser(TabularStatementParser):
         "debit": ["Debit", "DR"],
         "credit": ["Credit", "CR"],
         "balance": ["Balance", "BAL"],
-        "reference": ["Chq No", "Cheque No.", "CHQNO"],
     }
     parse_date = staticmethod(parse_axis_date)
