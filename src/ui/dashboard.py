@@ -183,7 +183,7 @@ function paintSortArrows() {
   });
 }
 
-let view = [], rowH = 37, drawing = false;
+let view = [], rowH = 37, rowHMeasured = false, drawing = false;
 
 // Narrations and notes come from other people (UPI remarks), so they must never reach innerHTML raw.
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -212,7 +212,11 @@ function drawWindow() {
   const spacer = n => `<tr class=spacer style="height:${n * rowH}px"></tr>`;
   body.innerHTML = spacer(first) + view.slice(first, last).map(rowHtml).join('') + spacer(view.length - last);
   const sample = body.querySelector('tr:not(.spacer)');
-  if (sample && Math.abs(sample.getBoundingClientRect().height - rowH) > 0.5) { rowH = sample.getBoundingClientRect().height; drawWindow(); }
+  if (sample && !rowHMeasured) {  // measure once: re-measuring every draw can loop forever on fractional row heights
+    rowHMeasured = true;
+    rowH = sample.getBoundingClientRect().height;
+    drawWindow();
+  }
 }
 
 window.addEventListener('scroll', () => {
