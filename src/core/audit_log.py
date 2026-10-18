@@ -24,7 +24,7 @@ def write_audit_logs(results: list[ProcessingResult]) -> None:
     """Upsert one row per successfully parsed statement into the audit log beside it."""
     by_dir: dict[Path, list[ProcessingResult]] = {}
     for r in results:
-        if r.successful and Path(r.source_file).exists():
+        if not (r.failed or r.warnings) and Path(r.source_file).exists():
             by_dir.setdefault(Path(r.source_file).parent, []).append(r)
 
     for folder, folder_results in by_dir.items():

@@ -32,3 +32,21 @@ def test_audit_log_records_period_and_entries_and_keeps_created(tmp_path):
     (row,) = _rows(tmp_path)
     assert row["date_created"] != row["date_modified"]
     assert row["entries"] == "1"
+
+
+def test_audit_log_records_readable_statement_with_no_transactions(tmp_path):
+    stmt = tmp_path / "empty.xlsx"
+    stmt.write_bytes(b"x")
+    write_audit_logs([_result(stmt)])
+    (row,) = _rows(tmp_path)
+    assert (row["entries"], row["period_start"], row["period_end"]) == ("0", "", "")
+
+
+def test_audit_log_skips_failed_and_locked_statements(tmp_path):
+    bad, locked = tmp_path / "bad.xlsx", tmp_path / "locked.xlsx"
+    bad.write_bytes(b"x")
+    locked.write_bytes(b"x")
+    failed = ProcessingResult(str(bad), "SBI", 0, 0, 1, 0, [], ["boom"], [])
+    pending = ProcessingResult(str(locked), "SBI", 0, 0, 0, 0, [], [], ["password-protected"])
+    write_audit_logs([failed, pending])
+    assert not (tmp_path / AUDIT_LOG_NAME).exists()
