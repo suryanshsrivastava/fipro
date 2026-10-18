@@ -13,11 +13,9 @@ from src.core.orchestrator import process_pipeline
 FIXTURES_ROOT = Path(__file__).resolve().parents[1] / "fixtures"
 
 
-def test_process_pipeline_fails_whole_run_and_moves_only_bad_file(tmp_path, pipeline_config_factory):
+def test_process_pipeline_aborts_on_bad_file_and_leaves_everything_in_place(tmp_path, pipeline_config_factory):
     input_dir = tmp_path / "input"
     output_dir = tmp_path / "output"
-    processed_dir = tmp_path / "processed"
-    failed_dir = tmp_path / "failed"
     input_dir.mkdir()
 
     shutil.copy(
@@ -29,8 +27,6 @@ def test_process_pipeline_fails_whole_run_and_moves_only_bad_file(tmp_path, pipe
     config = pipeline_config_factory(
         input_dir=input_dir,
         output_dir=output_dir,
-        processed_dir=processed_dir,
-        failed_dir=failed_dir,
         fail_on_file_error=True,
     )
     config["external_accounts"] = {"names": ["CREDIT_CARD"], "payment_keywords": ["CREDIT CARD", "CRED"]}
@@ -38,18 +34,15 @@ def test_process_pipeline_fails_whole_run_and_moves_only_bad_file(tmp_path, pipe
     with pytest.raises(RuntimeError, match="failed to parse"):
         process_pipeline(Settings.from_config(config))
 
+    # The bad file is never quarantined: input is the archive, so a failed run changes nothing.
     assert (input_dir / "hdfc.xls").exists()
-    assert not processed_dir.exists() or not list(processed_dir.iterdir())
+    assert (input_dir / "bad_axis.xlsx").exists()
     assert not output_dir.exists() or not list(output_dir.iterdir())
-    assert (failed_dir / "bad_axis.xlsx").exists()
-    assert (failed_dir / "bad_axis.xlsx.error.txt").exists()
 
 
-def test_process_pipeline_continues_and_moves_bad_file_to_failed(tmp_path, pipeline_config_factory):
+def test_process_pipeline_continues_past_bad_file_and_still_exports_good_ones(tmp_path, pipeline_config_factory):
     input_dir = tmp_path / "input"
     output_dir = tmp_path / "output"
-    processed_dir = tmp_path / "processed"
-    failed_dir = tmp_path / "failed"
     input_dir.mkdir()
 
     shutil.copy(
@@ -61,8 +54,6 @@ def test_process_pipeline_continues_and_moves_bad_file_to_failed(tmp_path, pipel
     config = pipeline_config_factory(
         input_dir=input_dir,
         output_dir=output_dir,
-        processed_dir=processed_dir,
-        failed_dir=failed_dir,
         fail_on_file_error=False,
     )
     config["external_accounts"] = {"names": ["CREDIT_CARD"], "payment_keywords": ["CREDIT CARD", "CRED"]}
@@ -70,8 +61,11 @@ def test_process_pipeline_continues_and_moves_bad_file_to_failed(tmp_path, pipel
     run = process_pipeline(Settings.from_config(config))
 
     assert len(run.results) == 2
-    assert sorted(path.name for path in processed_dir.iterdir()) == ["hdfc.xls"]
-    assert (failed_dir / "bad_axis.xlsx").exists()
-    assert (failed_dir / "bad_axis.xlsx.error.txt").exists()
+    failed = [result for result in run.results if result.errors]
+    assert [Path(result.source_file).name for result in failed] == ["bad_axis.xlsx"]
     assert (output_dir / "goodbudget_export.csv").exists()
-    assert not (processed_dir / "bad_axis.xlsx").exists()
+    # Both files are still exactly where they were dropped.
+    assert sorted(path.name for path in input_dir.iterdir() if path.name != "audit_log.csv") == [
+        "bad_axis.xlsx",
+        "hdfc.xls",
+    ]

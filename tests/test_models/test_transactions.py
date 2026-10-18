@@ -191,6 +191,32 @@ class TestTransaction:
         )
         assert txn1.hash == txn2.hash
 
+    def test_hash_ignores_whitespace_and_line_wrapping(self):
+        """Banks re-wrap the same narration between statements; the hash must not care.
+
+        SBI shifts the line break by one character in a later statement, so the space lands in a
+        different place. Both spellings are the same transaction and must dedupe.
+        """
+        earlier = Transaction(
+            transaction_date=date(2026, 7, 8),
+            description="WDL TFR    UPI/DR/618960870158/SEEMA/YESB/payt\n mqr6px/UPI   0097692162094",
+            amount=Decimal("60.00"),
+            transaction_type=TransactionType.DEBIT,
+            source_bank="SBI",
+            source_file="earlier.xlsx",
+            balance=Decimal("11.56"),
+        )
+        later = Transaction(
+            transaction_date=date(2026, 7, 8),
+            description="WDL TFR   UPI/DR/618960870158/SEEMA/YESB/paytm\n qr6px/UPI   0097692162094",
+            amount=Decimal("60.00"),
+            transaction_type=TransactionType.DEBIT,
+            source_bank="SBI",
+            source_file="later.xlsx",
+            balance=Decimal("11.56"),
+        )
+        assert earlier.hash == later.hash
+
     def test_hash_differs_for_same_description_different_bank(self):
         hdfc = Transaction(
             transaction_date=date(2025, 1, 15),

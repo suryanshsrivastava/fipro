@@ -315,7 +315,7 @@ def build_server(csv_path: str, port: int, settings: Settings | None = None) -> 
 
 
 def serve_dashboard(
-    csv_path: str = "data/output/dashboard_data.csv",
+    csv_path: str = "corpus/output/dashboard_data.csv",
     port: int = 8080,
     open_browser: bool = False,
     settings: Settings | None = None,
@@ -330,7 +330,7 @@ def serve_dashboard(
 
 
 def start_dashboard_thread(
-    csv_path: str = "data/output/dashboard_data.csv", port: int = 8080, open_browser: bool = False
+    csv_path: str = "corpus/output/dashboard_data.csv", port: int = 8080, open_browser: bool = False
 ):
     t = threading.Thread(target=serve_dashboard, args=(csv_path, port, open_browser), daemon=True)
     t.start()

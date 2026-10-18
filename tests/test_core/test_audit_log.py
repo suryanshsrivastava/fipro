@@ -1,0 +1,34 @@
+import csv
+import os
+from datetime import date
+from decimal import Decimal
+
+from src.core.audit_log import AUDIT_LOG_NAME, write_audit_logs
+from src.models.result import ProcessingResult
+from src.models.transactions import Transaction, TransactionType
+
+
+def _result(path, *dates):
+    txns = [Transaction(d, "x", Decimal("1"), TransactionType.DEBIT, "SBI", str(path)) for d in dates]
+    return ProcessingResult(str(path), "SBI", len(txns), len(txns), 0, 0, txns, [], [])
+
+
+def _rows(folder):
+    with (folder / AUDIT_LOG_NAME).open(newline="") as f:
+        return list(csv.DictReader(f))
+
+
+def test_audit_log_records_period_and_entries_and_keeps_created(tmp_path):
+    stmt = tmp_path / "s.xlsx"
+    stmt.write_bytes(b"x")
+    os.utime(stmt, (1_700_000_000, 1_700_000_000))
+    write_audit_logs([_result(stmt, date(2025, 3, 9), date(2025, 1, 2), date(2025, 2, 1))])
+    (row,) = _rows(tmp_path)
+    assert (row["period_start"], row["period_end"], row["entries"]) == ("2025-01-02", "2025-03-09", "3")
+    assert row["date_created"] == row["date_modified"]
+
+    os.utime(stmt, (1_800_000_000, 1_800_000_000))  # statement edited after first being logged
+    write_audit_logs([_result(stmt, date(2025, 1, 2))])
+    (row,) = _rows(tmp_path)
+    assert row["date_created"] != row["date_modified"]
+    assert row["entries"] == "1"

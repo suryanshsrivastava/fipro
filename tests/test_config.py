@@ -15,7 +15,7 @@ def test_settings_reads_config_then_falls_back_to_defaults():
 
     assert settings.paths.input == "in"
     assert settings.paths.output == "custom/out"
-    assert settings.paths.failed == "data/failed"
+    assert settings.paths.password_hints == "corpus/password_hints.json"
     assert settings.goodbudget.default_status == "pending"
     assert settings.goodbudget.default_envelope == "Unallocated"
     assert settings.gmail.queries == {}

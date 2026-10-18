@@ -71,3 +71,22 @@ def test_consolidate_transactions_counts_prior_duplicates_per_file():
     assert consolidated.duplicates_skipped == 1
     assert results[0].duplicates_skipped == 1
     assert results[0].successful == 0
+
+
+def test_dedup_merges_row_truncated_by_a_page_break_keeping_fuller_narration():
+    from datetime import date
+    from decimal import Decimal
+
+    from src.core.deduplicator import deduplicate
+    from src.models.transactions import Transaction, TransactionType
+
+    def txn(desc, src, bal="3345.27"):
+        return Transaction(
+            date(2019, 12, 2), desc, Decimal("143.15"), TransactionType.DEBIT, "SBI", src, balance=Decimal(bal)
+        )
+
+    cut, full = txn("WDL\n TFR", "a.xlsx"), txn("WDL TFR UPI/DR/1/UBER", "b.xlsx")
+    unique, dropped = deduplicate([cut, full])
+    assert unique == [full] and dropped == {"a.xlsx": 1}
+    # Different balance = a genuinely separate identical-looking payment: both stay.
+    assert len(deduplicate([cut, txn("WDL TFR UPI/DR/1/UBER", "b.xlsx", "3202.12")])[0]) == 2

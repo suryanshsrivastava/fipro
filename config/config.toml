@@ -5,17 +5,22 @@ version = "0.1.0"
 log_level = "INFO"
 
 [paths]
-input = "data/input"
-output = "data/output"
-processed = "data/processed"
-failed = "data/failed"
-dashboard_data = "data/output/dashboard_data.csv"
-password_hints = "data/password_hints.json"
+# `data` is a symlink to the statement corpus (~/Documents/Finances/data): the source of truth,
+# read-only as far as this program is concerned. Nothing is moved, renamed or deleted and every run
+# re-exports the whole corpus.
+input = "data"
+# Everything else lives under corpus/: generated exports and anything hand-made. Both corpus/ and
+# data/ are gitignored.
+output = "corpus/output"
+dashboard_data = "corpus/output/dashboard_data.csv"
+password_hints = "corpus/password_hints.json"
+# Bank -> statement password, so locked statements can be processed without re-entering them.
+# Holds the passwords themselves (unlike password_hints, which holds only the hint sentence).
+statement_passwords = "corpus/statement_passwords.json"
 
 [processing]
 supported_extensions = ["xls", "xlsx"]
 skip_internal_transfers = false
-seen_hashes_path = "data/.seen_hashes"
 
 [banks.hdfc]
 name = "HDFC"

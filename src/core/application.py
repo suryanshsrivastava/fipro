@@ -7,6 +7,7 @@ from src.config import GmailSettings, Settings
 from src.connectors.gmail import authorize, fetch_password_hints, gmail_service, save_password_hints
 from src.core.ingestion import discover_files
 from src.core.orchestrator import process_pipeline
+from src.core.statement_passwords import load_statement_passwords
 from src.exporters.report import summarize_pipeline_run
 from src.exporters.sheets import export_to_google_sheets
 
@@ -30,7 +31,9 @@ class SheetsCommandResult:
 
 
 def run_process_command(settings: Settings) -> list[str]:
-    return summarize_pipeline_run(process_pipeline(settings))
+    """Process statements, using any saved statement passwords (dashboard/inline passwords still win)."""
+    passwords = load_statement_passwords(settings.paths.statement_passwords)
+    return summarize_pipeline_run(process_pipeline(settings, passwords=passwords))
 
 
 def _require_existing_file(

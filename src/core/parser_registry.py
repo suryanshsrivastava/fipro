@@ -7,7 +7,6 @@ from pathlib import Path
 import msoffcrypto
 import pandas as pd
 from msoffcrypto.exceptions import DecryptionError, FileFormatError, InvalidKeyError
-from msoffcrypto.format.ooxml import OOXMLFile
 
 from src.models.transactions import Transaction
 from src.parsers.axis import AXIS_LAYOUT
@@ -17,6 +16,7 @@ from src.parsers.sbi import SBI_LAYOUT, load_sbi_file
 from src.parsers.tabular import BankLayout, TabularStatementParser
 
 _OLE_MAGIC = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
+_OOXML_ZIP_MAGIC = b"PK\x03\x04"
 _DEFAULT_PASSWORD_ENV_VAR = "FIPRO_STATEMENT_PASSWORD"
 
 
@@ -39,8 +39,9 @@ def is_encrypted_statement(filepath: str) -> bool:
 def _decrypt_statement(filepath: str, bank: str, passwords: dict[str, str]) -> io.BytesIO:
     """Decrypt a password-protected statement in memory; the decrypted bytes never touch disk.
 
-    The password comes from ``passwords[bank]`` (entered in the dashboard), else the
-    ``FIPRO_<BANK>_STATEMENT_PASSWORD`` / ``FIPRO_STATEMENT_PASSWORD`` environment variables.
+    The password comes from ``passwords[bank]`` (entered in the dashboard or read from the saved
+    statement-password file), else the ``FIPRO_<BANK>_STATEMENT_PASSWORD`` /
+    ``FIPRO_STATEMENT_PASSWORD`` environment variables.
     """
     name = Path(filepath).name
     bank_env_var = f"FIPRO_{bank}_STATEMENT_PASSWORD"
@@ -58,14 +59,26 @@ def _decrypt_statement(filepath: str, bank: str, passwords: dict[str, str]) -> i
     with open(filepath, "rb") as f:
         try:
             office_file = msoffcrypto.OfficeFile(f)
-            # Only OOXML's load_key accepts verify_password; legacy .xls verifies on its own.
-            kwargs = {"verify_password": True} if isinstance(office_file, OOXMLFile) else {}
-            office_file.load_key(password=password, **kwargs)
+            office_file.load_key(password=password)
             office_file.decrypt(decrypted)
         except (InvalidKeyError, DecryptionError) as exc:
             raise StatementLockedError(f"Could not decrypt {name}: wrong password in {source}") from exc
-    decrypted.seek(0)
-    return decrypted
+
+    payload = decrypted.getvalue()
+    if not _is_decrypted_statement(payload):
+        raise StatementLockedError(f"Could not decrypt {name}: wrong password in {source}")
+    return io.BytesIO(payload)
+
+
+def _is_decrypted_statement(payload: bytes) -> bool:
+    """Whether decrypted bytes are a readable statement package.
+
+    The password itself is deliberately not verified by ``msoffcrypto``: its agile verifier compares
+    the padded decrypted verifier hash against the raw digest, so it rejects correct passwords for
+    statements whose padding is non-empty (SBI's Excel exports all fail it). A wrong password
+    decrypts to garbage instead, so the payload's magic bytes are the real check.
+    """
+    return payload.startswith(_OOXML_ZIP_MAGIC) or payload.startswith(_OLE_MAGIC)
 
 
 def _load_excel_statement(filepath: str) -> pd.DataFrame:

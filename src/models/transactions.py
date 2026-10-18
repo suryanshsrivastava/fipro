@@ -82,10 +82,15 @@ class Transaction:
     created_at: str | None = None
 
     def __post_init__(self):
-        """Generate unique hash for deduplication."""
-        unique_str = (
-            f"{self.transaction_date}{self.amount}{self.description}{self.transaction_type.value}{self.source_bank}"
-        )
+        """Generate unique hash for deduplication.
+
+        All whitespace is stripped from the narration first: banks re-wrap the same narration
+        differently between statement runs (SBI shifts the line break by a character, splitting
+        the text in a different place), and a transaction reported in two overlapping statements
+        must still hash the same.
+        """
+        narration = "".join(self.description.split())
+        unique_str = f"{self.transaction_date}{self.amount}{narration}{self.transaction_type.value}{self.source_bank}"
         if self.balance:
             unique_str += str(self.balance)
         self.hash = hashlib.sha256(unique_str.encode()).hexdigest()[:16]

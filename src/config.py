@@ -20,12 +20,10 @@ _DEFAULT_LOG_LEVEL = "INFO"
 @dataclass(frozen=True, slots=True)
 class PathSettings:
     input: str
-    output: str = "data/output"
-    processed: str = "data/processed"
-    failed: str = "data/failed"
-    dashboard_data: str = "data/output/dashboard_data.csv"
-    password_hints: str = "data/password_hints.json"
-    seen_hashes: str = "data/.seen_hashes"
+    output: str = "corpus/output"
+    dashboard_data: str = "corpus/output/dashboard_data.csv"
+    password_hints: str = "corpus/password_hints.json"
+    statement_passwords: str = "corpus/statement_passwords.json"
 
     @classmethod
     def from_config(cls, config: dict) -> PathSettings:
@@ -33,11 +31,9 @@ class PathSettings:
         return cls(
             input=_required_str(config, "paths.input"),
             output=_str(config, "paths.output", d.output),
-            processed=_str(config, "paths.processed", d.processed),
-            failed=_str(config, "paths.failed", d.failed),
             dashboard_data=_str(config, "paths.dashboard_data", d.dashboard_data),
             password_hints=_str(config, "paths.password_hints", d.password_hints),
-            seen_hashes=_str(config, "processing.seen_hashes_path", d.seen_hashes),
+            statement_passwords=_str(config, "paths.statement_passwords", d.statement_passwords),
         )
 
 
