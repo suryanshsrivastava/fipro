@@ -61,29 +61,3 @@ def test_audit_log_write_failure_does_not_raise(tmp_path):
     finally:
         tmp_path.chmod(0o700)
     assert not (tmp_path / AUDIT_LOG_NAME).exists()
-
-
-def test_audit_log_with_unexpected_header_is_left_untouched(tmp_path):
-    stmt = tmp_path / "s.xlsx"
-    stmt.write_bytes(b"x")
-    (tmp_path / AUDIT_LOG_NAME).write_text("name,rows\ns.xlsx,3\n")
-    write_audit_logs([_result(stmt, date(2025, 1, 2))])
-    assert (tmp_path / AUDIT_LOG_NAME).read_text() == "name,rows\ns.xlsx,3\n"
-
-
-def test_audit_log_drops_extra_columns_from_existing_log(tmp_path):
-    stmt = tmp_path / "s.xlsx"
-    stmt.write_bytes(b"x")
-    (tmp_path / AUDIT_LOG_NAME).write_text(
-        "filename,date_created,date_modified,period_start,period_end,entries,comment\nold.xlsx,a,b,c,d,1,keep me\n"
-    )
-    write_audit_logs([_result(stmt, date(2025, 1, 2))])
-    assert [r["filename"] for r in _rows(tmp_path)] == ["old.xlsx", "s.xlsx"]
-
-
-def test_audit_log_with_undecodable_existing_file_is_left_untouched(tmp_path):
-    stmt = tmp_path / "s.xlsx"
-    stmt.write_bytes(b"x")
-    (tmp_path / AUDIT_LOG_NAME).write_bytes(b"filename\n\xe9\n")  # CP1252, not UTF-8
-    write_audit_logs([_result(stmt, date(2025, 1, 2))])
-    assert (tmp_path / AUDIT_LOG_NAME).read_bytes() == b"filename\n\xe9\n"

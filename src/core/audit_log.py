@@ -25,7 +25,8 @@ def _mtime(path: Path) -> str:
 def write_audit_logs(results: list[ProcessingResult]) -> None:
     """Upsert one row per successfully parsed statement into the audit log beside it.
 
-    A log that cannot be written or read back is left untouched and reported as a warning.
+    The script is the only writer. A log that cannot be written (e.g. a read-only folder) is reported
+    as a warning and never blocks the export.
     """
     by_dir: dict[Path, list[ProcessingResult]] = {}
     for r in results:
@@ -35,7 +36,7 @@ def write_audit_logs(results: list[ProcessingResult]) -> None:
     for folder, folder_results in by_dir.items():
         try:
             _upsert(folder / AUDIT_LOG_NAME, folder_results)
-        except Exception as exc:  # best-effort side log: never let a bad or unwritable file block the export
+        except OSError as exc:  # e.g. a read-only folder: the audit is secondary, never block the export
             logger.warning("Could not update %s: %s", folder / AUDIT_LOG_NAME, exc)
 
 
@@ -59,7 +60,7 @@ def _upsert(log: Path, results: list[ProcessingResult]) -> None:
 
     tmp = log.with_suffix(".tmp")
     with tmp.open("w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=_FIELDS, extrasaction="ignore")
+        writer = csv.DictWriter(f, fieldnames=_FIELDS)
         writer.writeheader()
         writer.writerows(sorted(rows.values(), key=lambda row: row["filename"]))
     os.replace(tmp, log)
