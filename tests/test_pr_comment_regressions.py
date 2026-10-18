@@ -10,8 +10,7 @@ import gspread
 import pytest
 
 from src.config import GoodbudgetSettings, Settings
-from src.core import orchestrator, pipeline_lifecycle
-from src.core.deduplicator import save_seen_hashes_to_file
+from src.core import orchestrator
 from src.core.parser_registry import ExtractedStatement
 from src.exporters.goodbudget import export_to_goodbudget
 from src.exporters.sheets import export_to_google_sheets
@@ -86,32 +85,6 @@ def test_goodbudget_export_keeps_only_goodbudget_columns(tmp_path: Path):
     assert rows[0]["Amount"] == str(transaction.signed_amount)
 
 
-def test_save_seen_hashes_to_file_creates_parent_directory(tmp_path: Path):
-    target = tmp_path / "nested" / "seen_hashes.txt"
-
-    save_seen_hashes_to_file({"abc123", "def456"}, str(target))
-
-    assert target.exists()
-    assert target.read_text().splitlines() == ["abc123", "def456"]
-
-
-def test_move_file_to_processed_avoids_overwriting_existing_archive(tmp_path: Path):
-    source = tmp_path / "input" / "hdfc.xls"
-    source.parent.mkdir(parents=True)
-    source.write_text("new statement")
-    processed_dir = tmp_path / "processed"
-    processed_dir.mkdir()
-    existing = processed_dir / "hdfc.xls"
-    existing.write_text("old statement")
-
-    dest = pipeline_lifecycle.move_file_to_processed(str(source), str(processed_dir))
-
-    assert dest == str(processed_dir / "hdfc_1.xls")
-    assert not source.exists()
-    assert existing.read_text() == "old statement"
-    assert Path(dest).read_text() == "new statement"
-
-
 def test_serve_dashboard_does_not_open_browser_without_flag(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     csv_path = tmp_path / "dashboard.csv"
     csv_path.write_text("Date,Envelope,Account,Name,Notes,Amount,Status\n")
@@ -172,9 +145,6 @@ def test_process_pipeline_skips_internal_transfers_from_export(monkeypatch: pyte
 
     monkeypatch.setattr(orchestrator, "discover_files", lambda _config: crawled)
     _mock_parser_registry(monkeypatch, parser)
-    monkeypatch.setattr(orchestrator, "get_seen_hashes_from_file", lambda _path: set())
-    monkeypatch.setattr(orchestrator, "save_seen_hashes_to_file", lambda *_args: None)
-    monkeypatch.setattr(pipeline_lifecycle, "move_file_to_processed", lambda *_args: None)
     monkeypatch.setattr(orchestrator, "generate_report", _mock_generate_report)
 
     def capture_goodbudget(transactions, csv_path, *_args, **_kwargs):
@@ -205,19 +175,13 @@ def test_process_pipeline_skips_internal_transfers_from_export(monkeypatch: pyte
     assert exported["transactions"] == []
 
 
-def test_process_pipeline_moves_files_only_after_successful_export(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+def test_process_pipeline_leaves_statements_in_place_when_export_fails(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
     transaction = make_transaction(source_file="statement.xls")
     parser = DummyParser([transaction])
     crawled = [SimpleNamespace(filepath="statement.xls", filename="statement.xls", metadata={})]
-    processed_moves: list[str] = []
 
     monkeypatch.setattr(orchestrator, "discover_files", lambda _config: crawled)
     _mock_parser_registry(monkeypatch, parser)
-    monkeypatch.setattr(orchestrator, "get_seen_hashes_from_file", lambda _path: set())
-    monkeypatch.setattr(orchestrator, "save_seen_hashes_to_file", lambda *_args: None)
-    monkeypatch.setattr(
-        pipeline_lifecycle, "move_file_to_processed", lambda source, *_args: processed_moves.append(source)
-    )
     monkeypatch.setattr(orchestrator, "generate_report", _mock_generate_report)
 
     def fail_export(*_args, **_kwargs):
@@ -226,12 +190,7 @@ def test_process_pipeline_moves_files_only_after_successful_export(monkeypatch: 
     monkeypatch.setattr(orchestrator, "export_to_goodbudget", fail_export)
 
     config = {
-        "paths": {
-            "input": str(tmp_path / "input"),
-            "output": str(tmp_path / "output"),
-            "processed": str(tmp_path / "processed"),
-            "failed": str(tmp_path / "failed"),
-        },
+        "paths": {"input": str(tmp_path / "input"), "output": str(tmp_path / "output")},
         "processing": {"skip_internal_transfers": False},
         "export": {"goodbudget": {}},
     }
@@ -239,7 +198,6 @@ def test_process_pipeline_moves_files_only_after_successful_export(monkeypatch: 
     with pytest.raises(RuntimeError, match="export failed"):
         orchestrator.process_pipeline(Settings.from_config(config))
 
-    assert processed_moves == []
     output_dir = tmp_path / "output"
     assert not output_dir.exists() or not list(output_dir.glob("goodbudget_export.csv"))
 
@@ -443,21 +401,10 @@ def test_process_pipeline_export_phase_leaves_no_artifacts_on_hub_failure(
     transaction = make_transaction(source_file="statement.xls")
     parser = DummyParser([transaction])
     crawled = [SimpleNamespace(filepath="statement.xls", filename="statement.xls", metadata={})]
-    hash_writes: list[set[str]] = []
-    processed_moves: list[str] = []
     output_dir = tmp_path / "output"
 
     monkeypatch.setattr(orchestrator, "discover_files", lambda _config: crawled)
     _mock_parser_registry(monkeypatch, parser)
-    monkeypatch.setattr(orchestrator, "get_seen_hashes_from_file", lambda _path: set())
-    monkeypatch.setattr(
-        orchestrator,
-        "save_seen_hashes_to_file",
-        lambda hashes, _path: hash_writes.append(set(hashes)),
-    )
-    monkeypatch.setattr(
-        pipeline_lifecycle, "move_file_to_processed", lambda source, *_args: processed_moves.append(source)
-    )
     monkeypatch.setattr(orchestrator, "export_to_goodbudget", lambda *_args, **_kwargs: None)
 
     def fail_hub(*_args, **_kwargs):
@@ -466,85 +413,41 @@ def test_process_pipeline_export_phase_leaves_no_artifacts_on_hub_failure(
     monkeypatch.setattr(orchestrator, "export_hub_csv", fail_hub)
 
     config = {
-        "paths": {
-            "input": str(tmp_path / "input"),
-            "output": str(output_dir),
-            "processed": str(tmp_path / "processed"),
-            "failed": str(tmp_path / "failed"),
-        },
-        "processing": {"skip_internal_transfers": False, "seen_hashes_path": str(tmp_path / ".seen_hashes")},
+        "paths": {"input": str(tmp_path / "input"), "output": str(output_dir)},
+        "processing": {"skip_internal_transfers": False},
         "export": {"goodbudget": {}},
     }
 
     with pytest.raises(RuntimeError, match="hub export failed"):
         orchestrator.process_pipeline(Settings.from_config(config))
 
-    assert hash_writes == []
-    assert processed_moves == []
     assert not output_dir.exists() or not list(output_dir.glob("goodbudget_export.csv"))
     assert not output_dir.exists() or not list(output_dir.glob("hub_summary.csv"))
     assert not output_dir.exists() or not list(output_dir.glob("processing_report.json"))
     assert not output_dir.exists() or not list(output_dir.glob("dashboard_data.csv"))
 
 
-def test_process_pipeline_accounts_for_prior_seen_hashes_on_rerun(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+def test_process_pipeline_rerun_reproduces_the_same_export(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+    """Because input is re-read every run, a second run must export the same rows, not zero."""
     transaction = make_transaction(source_file="statement.xls")
     parser = DummyParser([transaction])
     crawled = [SimpleNamespace(filepath="statement.xls", filename="statement.xls", metadata={})]
 
     monkeypatch.setattr(orchestrator, "discover_files", lambda _config: crawled)
     _mock_parser_registry(monkeypatch, parser)
-    monkeypatch.setattr(pipeline_lifecycle, "move_file_to_processed", lambda *_args: None)
     monkeypatch.setattr(orchestrator, "generate_report", _mock_generate_report)
 
     config = {
-        "paths": {
-            "input": str(tmp_path / "input"),
-            "output": str(tmp_path / "output"),
-            "processed": str(tmp_path / "processed"),
-            "failed": str(tmp_path / "failed"),
-        },
-        "processing": {"skip_internal_transfers": False, "seen_hashes_path": str(tmp_path / ".seen_hashes")},
+        "paths": {"input": str(tmp_path / "input"), "output": str(tmp_path / "output")},
+        "processing": {"skip_internal_transfers": False},
         "export": {"goodbudget": {}},
     }
 
     run1 = orchestrator.process_pipeline(Settings.from_config(config))
     assert run1.results[0].successful == 1
-    assert run1.results[0].duplicates_skipped == 0
+    assert run1.exported_count == 1
 
     run2 = orchestrator.process_pipeline(Settings.from_config(config))
-    assert run2.results[0].successful == 0
-    assert run2.results[0].duplicates_skipped == 1
-
-
-def test_process_pipeline_records_hashes_before_archiving_so_retry_skips_exported_rows(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-):
-    parser = DummyParser([make_transaction(source_file="statement.xls")])
-    crawled = [SimpleNamespace(filepath="statement.xls", filename="statement.xls", metadata={})]
-    hashes_path = tmp_path / ".seen_hashes"
-
-    monkeypatch.setattr(orchestrator, "discover_files", lambda _config: crawled)
-    _mock_parser_registry(monkeypatch, parser)
-    monkeypatch.setattr(orchestrator, "generate_report", _mock_generate_report)
-
-    def failing_move(*_args):
-        raise OSError("disk full")
-
-    monkeypatch.setattr(orchestrator, "move_processed_files", failing_move)
-
-    config = {
-        "paths": {
-            "input": str(tmp_path / "input"),
-            "output": str(tmp_path / "output"),
-            "processed": str(tmp_path / "processed"),
-            "failed": str(tmp_path / "failed"),
-        },
-        "processing": {"skip_internal_transfers": False, "seen_hashes_path": str(hashes_path)},
-        "export": {"goodbudget": {}},
-    }
-
-    with pytest.raises(OSError, match="disk full"):
-        orchestrator.process_pipeline(Settings.from_config(config))
-
-    assert hashes_path.read_text().split() == [parser._transactions[0].hash]
+    assert run2.results[0].successful == 1
+    assert run2.exported_count == 1
+    assert run2.results[0].duplicates_skipped == 0

@@ -14,7 +14,7 @@ Or step-by-step:
 uv sync --all-groups
 uv run pre-commit install
 
-# drop statements into data/input/, then:
+# add statements under data/<bank>/ (a symlink to your statement corpus), then:
 uv run fipro process
 
 # optional: view in local dashboard
@@ -37,8 +37,8 @@ uv run fipro sheets --creds <path>     # upload to Google Sheets
 - `src/` — application code (parsers, core pipeline, exporters, UI)
 - `tests/` — pytest suite with regression fixtures under `tests/fixtures/`
 - `config/config.toml` — runtime configuration
-- `data/input/` — drop bank statements here (gitignored)
-- `data/output/` — generated CSV/JSON (gitignored)
+- `data/` — symlink to the read-only statement corpus, one folder per bank (`axis/`, `hdfc/`, `sbi/`); each gets an `audit_log.csv`
+- `corpus/` — generated exports and saved statement passwords (gitignored)
 
 ## Further Reading
 

@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from pathlib import Path
 
 import pytest
 
@@ -68,7 +69,25 @@ def test_run_sheets_command_returns_output_line():
 def test_run_process_command_returns_pipeline_lines(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(
         "src.core.application.process_pipeline",
-        lambda _config: type("Run", (), {"results": [1]})(),
+        lambda _config, **_kwargs: type("Run", (), {"results": [1]})(),
     )
     monkeypatch.setattr("src.core.application.summarize_pipeline_run", lambda _run: ["ok"])
     assert run_process_command(Settings(PathSettings(input="in"))) == ["ok"]
+
+
+def test_run_process_command_reads_saved_statement_passwords(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """`fipro process` gets its passwords from the configured file, not only from the dashboard."""
+    passwords_path = tmp_path / "statement_passwords.json"
+    passwords_path.write_text('{"SBI": "from-file"}')
+    captured: dict = {}
+
+    def fake_pipeline(_settings, passwords=None):
+        captured["passwords"] = passwords
+        return type("Run", (), {"results": [1]})()
+
+    monkeypatch.setattr("src.core.application.process_pipeline", fake_pipeline)
+    monkeypatch.setattr("src.core.application.summarize_pipeline_run", lambda _run: ["ok"])
+    settings = Settings(PathSettings(input="in", statement_passwords=str(passwords_path)))
+
+    assert run_process_command(settings) == ["ok"]
+    assert captured["passwords"] == {"SBI": "from-file"}

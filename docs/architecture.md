@@ -5,7 +5,7 @@
 Fipro is a local-first Python CLI pipeline for statement ingestion, parsing, transformation, consolidation, and export.
 
 ```
-data/input/*.xls|*.xlsx
+data/{axis,hdfc,sbi}/*.xls|*.xlsx  (read-only symlinked corpus)
   -> src/core/ingestion.py
   -> src/core/orchestrator.py
       -> src/parsers/{hdfc,sbi,axis}.py
@@ -13,7 +13,7 @@ data/input/*.xls|*.xlsx
       -> src/core/transfer_detector.py
       -> src/exporters/goodbudget.py
       -> src/exporters/report.py
-  -> data/output/{goodbudget_export.csv,processing_report.json}
+  -> corpus/output/{goodbudget_export.csv,processing_report.json}
 ```
 
 ## 2. Components
@@ -50,11 +50,11 @@ data/input/*.xls|*.xlsx
 
 ## 3. Data Lifecycle
 
-1. Input files are discovered in `data/input/`.
+1. Input files are discovered under `data/`.
 2. Each file is parsed and normalized into canonical transaction objects.
 3. Consolidation merges all records, deduplicates, and flags transfers.
-4. Outputs are written to `data/output/`.
-5. Processed/failed file lifecycle is maintained under `data/processed/` and `data/failed/`.
+4. Outputs are written to `corpus/output/`; a per-folder `audit_log.csv` is the only write into `data/`.
+5. Statements are never moved: every run re-reads the whole corpus, so reruns are idempotent.
 
 ## 4. Reliability Controls
 

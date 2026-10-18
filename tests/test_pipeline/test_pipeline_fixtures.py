@@ -16,24 +16,16 @@ def test_raw_monthly_exports_pipeline(tmp_path):
     case_dir = FIXTURES_ROOT / "extraction" / "raw_monthly_exports_2025_08_27"
     input_dir = tmp_path / "input"
     output_dir = tmp_path / "output"
-    processed_dir = tmp_path / "processed"
-    failed_dir = tmp_path / "failed"
 
     shutil.copytree(case_dir / "input", input_dir)
 
     config = {
         "fipro": {"version": "0.1.0", "log_level": "INFO"},
-        "paths": {
-            "input": str(input_dir),
-            "output": str(output_dir),
-            "processed": str(processed_dir),
-            "failed": str(failed_dir),
-        },
+        "paths": {"input": str(input_dir), "output": str(output_dir)},
         "processing": {
             "supported_extensions": ["xls", "xlsx"],
             "include_internal_transfers": True,
             "fail_on_file_error": True,
-            "seen_hashes_path": str(tmp_path / ".seen_hashes"),
         },
         "banks": {
             "hdfc": {"patterns": ["*hdfc*"]},
@@ -49,12 +41,11 @@ def test_raw_monthly_exports_pipeline(tmp_path):
     run = process_pipeline(Settings.from_config(config))
 
     assert len(run.results) == 3
-    assert sorted(path.name for path in processed_dir.iterdir()) == [
+    assert sorted(path.name for path in input_dir.iterdir() if path.name != "audit_log.csv") == [
         "axis.xls",
         "hdfc.xls",
         "sbi.xls",
     ]
-    assert not failed_dir.exists() or not list(failed_dir.iterdir())
 
     assert (output_dir / "goodbudget_export.csv").exists()
     assert (output_dir / "dashboard_data.csv").exists()
@@ -72,24 +63,16 @@ def test_mixed_basic_pipeline_tags_external_account_payments(tmp_path):
     case_dir = FIXTURES_ROOT / "pipeline" / "mixed_basic"
     input_dir = tmp_path / "input"
     output_dir = tmp_path / "output"
-    processed_dir = tmp_path / "processed"
-    failed_dir = tmp_path / "failed"
 
     shutil.copytree(case_dir / "input", input_dir)
 
     config = {
         "fipro": {"version": "0.1.0", "log_level": "INFO"},
-        "paths": {
-            "input": str(input_dir),
-            "output": str(output_dir),
-            "processed": str(processed_dir),
-            "failed": str(failed_dir),
-        },
+        "paths": {"input": str(input_dir), "output": str(output_dir)},
         "processing": {
             "supported_extensions": ["xls", "xlsx"],
             "include_internal_transfers": True,
             "fail_on_file_error": True,
-            "seen_hashes_path": str(tmp_path / ".seen_hashes"),
         },
         "banks": {
             "hdfc": {"patterns": ["*hdfc*"]},

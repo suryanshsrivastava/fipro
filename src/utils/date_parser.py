@@ -78,7 +78,7 @@ def parse_hdfc_date(date_str: str) -> date:
 
 def parse_sbi_date(date_str: str) -> date:
     """
-    Parse SBI date format (DD MMM YYYY, e.g., "15 Nov 2025").
+    Parse SBI date format: "15 Nov 2025" in text exports, "15/11/2025" in the Excel exports (or a native Excel date, rendered "2025-11-15 00:00:00").
 
     Args:
         date_str: SBI date string
@@ -86,8 +86,10 @@ def parse_sbi_date(date_str: str) -> date:
     Returns:
         date object
     """
-    # Example format: "15 Nov 2025"
-    return parse_date(date_str, "%d %b %Y")
+    parsed = parse_date_multiple_formats(date_str, ["%d %b %Y", "%d/%m/%Y", "%Y-%m-%d %H:%M:%S"])
+    if parsed is None:
+        raise ValueError(f"Unable to parse SBI date: {date_str!r}")
+    return parsed
 
 
 def parse_axis_date(date_str: str) -> date:

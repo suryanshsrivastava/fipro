@@ -171,7 +171,8 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 
-data/
+data
+corpus
 .envrc
 config/google_credentials.json
 config/gmail_credentials.json

@@ -1,7 +1,8 @@
 """SBI Bank statement layout and loader.
 
-SBI statements are often tab-separated text with an .xls extension, with a variable-position header
-(Txn Date / Description / Debit / Credit / Balance) and "DD MMM YYYY" dates.
+SBI statements come in two flavours. Text exports are tab-separated text with an .xls extension and
+"DD MMM YYYY" dates. The Excel exports downloaded from the portal are password-protected workbooks with
+"Date"/"Details" columns and "DD/MM/YYYY" dates. Both share the Debit/Credit/Balance columns.
 """
 
 import zipfile
@@ -20,10 +21,13 @@ _NOT_THIS_EXCEL_FORMAT = (xlrd.XLRDError, zipfile.BadZipFile, InvalidFileExcepti
 SBI_LAYOUT = BankLayout(
     bank_name="SBI",
     filename_marker="sbi",
-    detect_signatures=(frozenset({"txn date", "description", "debit", "credit"}),),
+    detect_signatures=(
+        frozenset({"txn date", "description", "debit", "credit"}),
+        frozenset({"date", "details", "debit", "credit"}),
+    ),
     column_mapping={
-        "transaction_date": ("Txn Date", "Transaction Date", "Value Date"),
-        "description": ("Description", "Particulars"),
+        "transaction_date": ("Txn Date", "Transaction Date", "Value Date", "Date"),
+        "description": ("Description", "Particulars", "Details"),
         "debit": ("Debit",),
         "credit": ("Credit",),
         "balance": ("Balance",),

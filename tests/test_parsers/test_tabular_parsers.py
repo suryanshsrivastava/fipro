@@ -48,7 +48,47 @@ def test_sbi_uses_columns_as_header_when_already_parsed():
     assert (txn.description, str(txn.amount), txn.transaction_type) == ("ATM WDL", "500.00", TransactionType.DEBIT)
 
 
+def test_sbi_parses_portal_excel_export_with_date_and_details_headers():
+    """The password-protected portal download uses Date/Details and DD/MM/YYYY, plus footer rows."""
+    df = pd.DataFrame(
+        [
+            ["Mr. SURYANSH SRIVASTAVA", None, None, None, None, None],
+            ["Statement From : 28-06-2017 to 15-07-2026", None, None, None, None, None],
+            ["Date", "Details", "Ref No/Cheque No", "Debit", "Credit", "Balance"],
+            ["07/07/2017", " CASH DEPOSIT SELF \n AT 16120 KAKROLA MOR", None, None, "2,000.00", "2,000.00"],
+            ["08/07/2017", "TO TRANSFER-UPI/DR/1/shop", "TRANSFER TO 1", "500.00", None, "1,500.00"],
+            ["Statement Summary : 01-01-2017 To 15-07-2026", None, None, None, None, None],
+            ["Please do not share your ATM, Debit/Credit Card number", None, None, None, None, None],
+        ]
+    )
+    parser = TabularStatementParser(SBI_LAYOUT)
+
+    assert parser.can_parse("SBI/AccountStatement_15072026_004021.xlsx", df)
+
+    credit, debit = parser.extract_transactions(df, "AccountStatement_15072026_004021.xlsx")
+    assert (credit.transaction_date.isoformat(), credit.transaction_type, str(credit.amount)) == (
+        "2017-07-07",
+        TransactionType.CREDIT,
+        "2000.00",
+    )
+    assert (debit.transaction_date.isoformat(), debit.transaction_type, str(debit.amount), str(debit.balance)) == (
+        "2017-07-08",
+        TransactionType.DEBIT,
+        "500.00",
+        "1500.00",
+    )
+
+
 def test_hdfc_detection_requires_all_amount_columns():
     df = pd.DataFrame([["Date", "Narration", "Withdrawal Amt."], ["01/02/26", "x", "1"]])
 
     assert not TabularStatementParser(HDFC_LAYOUT).can_parse("hdfc.xls", df)
+
+
+def test_sbi_date_accepts_text_and_native_excel_dates():
+    from datetime import date
+
+    from src.utils.date_parser import parse_sbi_date
+
+    assert parse_sbi_date("15 Nov 2025") == parse_sbi_date("15/11/2025") == date(2025, 11, 15)
+    assert parse_sbi_date("2025-11-15 00:00:00") == date(2025, 11, 15)

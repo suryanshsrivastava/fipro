@@ -14,6 +14,7 @@ from openpyxl import Workbook
 
 from src.config import Settings
 from src.connectors.gmail import PasswordHint, save_password_hints
+from src.core.application import run_process_command
 from src.core.ingestion import get_bank_from_path
 from src.core.orchestrator import process_pipeline
 from src.core.parser_registry import get_default_parser_registry
@@ -44,13 +45,8 @@ def _config(tmp_path: Path) -> dict:
         "paths": {
             "input": str(tmp_path / "input"),
             "output": str(tmp_path / "output"),
-            "processed": str(tmp_path / "processed"),
-            "failed": str(tmp_path / "failed"),
         },
-        "processing": {
-            "supported_extensions": ["xls", "xlsx"],
-            "seen_hashes_path": str(tmp_path / ".seen_hashes"),
-        },
+        "processing": {"supported_extensions": ["xls", "xlsx"]},
     }
 
 
@@ -80,7 +76,7 @@ def test_get_bank_from_path_prefers_filename_then_nearest_folder(relative_path, 
 
 
 @pytest.mark.parametrize("env_var", ["FIPRO_SBI_STATEMENT_PASSWORD", "FIPRO_STATEMENT_PASSWORD"])
-def test_process_pipeline_decrypts_statement_in_bank_folder(tmp_path, monkeypatch, encrypted_statement, env_var):
+def test_encrypted_statement_is_read_in_place_and_left_in_input(tmp_path, monkeypatch, encrypted_statement, env_var):
     monkeypatch.setenv(env_var, PASSWORD)
     expected = TabularStatementParser(SBI_LAYOUT).extract_transactions(
         get_default_parser_registry().load_dataframe(str(SBI_FIXTURE), bank_hint="SBI"), str(SBI_FIXTURE)
@@ -95,7 +91,7 @@ def test_process_pipeline_decrypts_statement_in_bank_folder(tmp_path, monkeypatc
     assert [(t.transaction_date, t.amount, t.transaction_type) for t in run.deduplicated_transactions] == [
         (t.transaction_date, t.amount, t.transaction_type) for t in expected
     ]
-    assert (tmp_path / "processed" / encrypted_statement.name).exists()
+    assert encrypted_statement.exists()
 
 
 def test_process_pipeline_uses_password_passed_in_for_this_run(tmp_path, encrypted_statement):
@@ -103,7 +99,19 @@ def test_process_pipeline_uses_password_passed_in_for_this_run(tmp_path, encrypt
 
     assert run.locked_files == []
     assert run.results[0].total_transactions > 0
-    assert (tmp_path / "processed" / encrypted_statement.name).exists()
+    assert encrypted_statement.exists()
+
+
+def test_saved_statement_passwords_unlock_statements_without_env_or_dashboard(tmp_path, encrypted_statement):
+    """A saved `fipro process` uses corpus/statement_passwords.json, matched case-insensitively by bank."""
+    passwords_path = tmp_path / "statement_passwords.json"
+    passwords_path.write_text(json.dumps({"sbi": PASSWORD}))
+    paths = _config(tmp_path)["paths"] | {"statement_passwords": str(passwords_path)}
+
+    lines = run_process_command(Settings.from_config(_config(tmp_path) | {"paths": paths}))
+
+    assert lines[0].startswith("Processed 1 file(s)")
+    assert encrypted_statement.exists()
 
 
 def test_locked_statement_stays_in_input_and_previous_exports_survive(tmp_path, encrypted_statement):
@@ -117,7 +125,7 @@ def test_locked_statement_stays_in_input_and_previous_exports_survive(tmp_path, 
     [result] = run.results
     assert result.errors == []
     assert "set FIPRO_SBI_STATEMENT_PASSWORD or FIPRO_STATEMENT_PASSWORD" in result.warnings[0]
-    assert encrypted_statement.exists()
+    assert encrypted_statement.exists()  # a locked statement is simply left where it is
     assert not (tmp_path / "failed").exists()
     assert previous_export.read_text() == "previous run\n"
     assert "unlock them in `fipro dashboard`" in "\n".join(summarize_pipeline_run(run))
@@ -173,7 +181,7 @@ def test_dashboard_shows_locked_statement_with_escaped_gmail_hint(dashboard_url,
     assert "</script><b>" not in html
 
 
-def test_dashboard_unlock_processes_statement_with_entered_password(dashboard_url, tmp_path, encrypted_statement):
+def test_dashboard_unlock_processes_statement_with_entered_password(dashboard_url, encrypted_statement):
     status, out = _post(
         f"{dashboard_url}/unlock", {"passwords": {"SBI": PASSWORD}}, {"Content-Type": "application/json"}
     )
@@ -181,7 +189,7 @@ def test_dashboard_unlock_processes_statement_with_entered_password(dashboard_ur
     assert status == 200
     assert out["locked"] == []
     assert out["lines"][0].startswith("Processed 1 file(s)")
-    assert (tmp_path / "processed" / encrypted_statement.name).exists()
+    assert encrypted_statement.exists()
 
 
 @pytest.mark.parametrize(
@@ -201,7 +209,7 @@ def test_dashboard_unlock_refuses_cross_site_requests(dashboard_url, encrypted_s
 
 def test_decrypt_legacy_xls_does_not_pass_verify_password(tmp_path, monkeypatch):
     """Xls97File.load_key(password=None) has no verify_password parameter."""
-    from src.core import parser_registry as orchestrator
+    from src.core import parser_registry as registry
 
     class FakeXls97File:
         def __init__(self, _file):
@@ -211,15 +219,70 @@ def test_decrypt_legacy_xls_does_not_pass_verify_password(tmp_path, monkeypatch)
             assert password == PASSWORD
 
         def decrypt(self, outfile):
-            outfile.write(b"decrypted")
+            outfile.write(b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1decrypted")
 
     statement = tmp_path / "SBI" / "old.xls"
     statement.parent.mkdir()
     statement.write_bytes(b"x")
     monkeypatch.setenv("FIPRO_SBI_STATEMENT_PASSWORD", PASSWORD)
-    monkeypatch.setattr(orchestrator.msoffcrypto, "OfficeFile", FakeXls97File)
+    monkeypatch.setattr(registry.msoffcrypto, "OfficeFile", FakeXls97File)
 
-    assert orchestrator._decrypt_statement(str(statement), "SBI", {}).read() == b"decrypted"
+    assert registry._decrypt_statement(str(statement), "SBI", {}).read() == (
+        b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1decrypted"
+    )
+
+
+def test_decrypt_does_not_ask_msoffcrypto_to_verify_the_password(tmp_path, monkeypatch):
+    """msoffcrypto's agile verifier rejects correct SBI passwords, so the payload is checked instead."""
+    from src.core import parser_registry as registry
+
+    seen: dict = {}
+
+    class FakeOoxmlFile:
+        def __init__(self, _file):
+            pass
+
+        def load_key(self, password=None, **kwargs):
+            seen["password"] = password
+            seen["kwargs"] = kwargs
+
+        def decrypt(self, outfile):
+            outfile.write(b"PK\x03\x04decrypted package")
+
+    statement = tmp_path / "SBI" / "statement.xlsx"
+    statement.parent.mkdir()
+    statement.write_bytes(b"x")
+    monkeypatch.setenv("FIPRO_SBI_STATEMENT_PASSWORD", PASSWORD)
+    monkeypatch.setattr(registry.msoffcrypto, "OfficeFile", FakeOoxmlFile)
+
+    decrypted = registry._decrypt_statement(str(statement), "SBI", {})
+
+    assert decrypted.read() == b"PK\x03\x04decrypted package"
+    assert seen == {"password": PASSWORD, "kwargs": {}}
+
+
+def test_decrypt_rejects_a_payload_that_is_not_a_statement(tmp_path, monkeypatch):
+    """A wrong key decrypts to garbage rather than raising, so garbage must fail the payload check."""
+    from src.core import parser_registry as registry
+
+    class FakeOoxmlFile:
+        def __init__(self, _file):
+            pass
+
+        def load_key(self, password=None):
+            pass
+
+        def decrypt(self, outfile):
+            outfile.write(b"\x00\x01garbage from a wrong key")
+
+    statement = tmp_path / "SBI" / "statement.xlsx"
+    statement.parent.mkdir()
+    statement.write_bytes(b"x")
+    monkeypatch.setenv("FIPRO_SBI_STATEMENT_PASSWORD", PASSWORD)
+    monkeypatch.setattr(registry.msoffcrypto, "OfficeFile", FakeOoxmlFile)
+
+    with pytest.raises(registry.StatementLockedError, match="wrong password in FIPRO_SBI_STATEMENT_PASSWORD"):
+        registry._decrypt_statement(str(statement), "SBI", {})
 
 
 def test_dashboard_header_is_filled_from_data_not_a_loading_placeholder(dashboard_url):

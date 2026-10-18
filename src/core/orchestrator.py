@@ -4,11 +4,10 @@ import tempfile
 from pathlib import Path
 
 from src.config import Settings
-from src.core.deduplicator import get_seen_hashes_from_file, save_seen_hashes_to_file
+from src.core.audit_log import write_audit_logs
 from src.core.external_account_detector import detect_external_account_payments
 from src.core.ingestion import discover_files
 from src.core.parser_registry import get_default_parser_registry
-from src.core.pipeline_lifecycle import move_processed_files, persist_failed_files
 from src.core.statement_extraction import extract_from_crawled_files
 from src.core.transaction_consolidation import ConsolidationResult, apply_processing_metrics, consolidate_transactions
 from src.exporters.goodbudget import export_dashboard_data, export_to_goodbudget
@@ -57,10 +56,14 @@ def _run_export_phase(
 
 
 def process_pipeline(settings: Settings, passwords: dict[str, str] | None = None) -> PipelineRun:
-    """Run the full pipeline. ``passwords`` maps bank (e.g. "SBI") to a statement password for this run only."""
-    seen_hashes_path = Path(settings.paths.seen_hashes)
-    seen_hashes = get_seen_hashes_from_file(str(seen_hashes_path))
+    """Run the full pipeline over every statement in ``paths.input`` and rebuild the exports.
 
+    ``paths.input`` is the archive: statements are read and left exactly where they are, and every run
+    re-exports the whole corpus. Runs are therefore idempotent, and adding a statement is just dropping
+    it in the input folder and running again. ``passwords`` maps bank (e.g. "SBI") to a statement
+    password for this run only. Unreadable statements stay in ``paths.input`` with their error reported
+    in the run results and ``processing_report.json``.
+    """
     files = discover_files(settings)
     if not files:
         logger.info("No files found in %s", settings.paths.input)
@@ -73,8 +76,7 @@ def process_pipeline(settings: Settings, passwords: dict[str, str] | None = None
         passwords=passwords,
     )
 
-    if extraction.failures:
-        persist_failed_files(extraction.failures, settings.paths.failed)
+    write_audit_logs(extraction.results)
 
     if extraction.failures and settings.processing.fail_on_file_error:
         raise RuntimeError(f"Processing aborted because {len(extraction.failures)} file(s) failed to parse")
@@ -88,7 +90,6 @@ def process_pipeline(settings: Settings, passwords: dict[str, str] | None = None
 
     consolidation = consolidate_transactions(
         extraction.all_transactions,
-        seen_hashes=seen_hashes,
         include_internal_transfers=settings.processing.export_internal_transfers,
     )
     detect_external_account_payments(consolidation.deduplicated_transactions, settings.external_accounts)
@@ -96,11 +97,6 @@ def process_pipeline(settings: Settings, passwords: dict[str, str] | None = None
 
     output_dir = Path(settings.paths.output)
     hub_summary = _run_export_phase(settings, consolidation, extraction.results, output_dir)
-
-    # Record hashes before archiving: if archiving fails, the exports are already published, so a retry
-    # must treat the still-pending file as duplicates rather than export (and double-import) it again.
-    save_seen_hashes_to_file(seen_hashes, str(seen_hashes_path))
-    move_processed_files(extraction.processed_files, settings.paths.processed)
 
     logger.info("Pipeline complete. %d transactions exported to %s", consolidation.exported_count, output_dir)
     return PipelineRun(

@@ -38,6 +38,10 @@ uv run fipro dashboard      # local HTML dashboard on :8080
 uv run fipro sheets --creds config/google_credentials.json
 ```
 
+`fipro process` reads every statement in the corpus (`data/`, a symlink to `~/Documents/Finances/data`)
+and rewrites the exports in `corpus/output/`. To add history, drop the downloaded statement into the
+matching bank folder under the corpus and re-run — there is nothing to register and no state to reset.
+
 ### Testing
 ```bash
 uv run pytest               # runs suite + coverage gate (see pyproject.toml)
@@ -122,12 +126,9 @@ class Transaction:
 fipro/
 ├── config/
 │   └── config.toml           # Bank patterns, paths, settings
-├── data/
-│   ├── input/                # Drop bank statements here
-│   ├── processing/           # Temporary during processing
-│   ├── processed/            # Successfully processed files
-│   ├── failed/               # Failed files
-│   └── output/               # Generated CSV exports
+├── data -> ~/Documents/Finances/data   # symlink to the statement corpus (see Data Layout)
+├── corpus/                   # working area: generated exports + hand-made / intermediate files
+│   └── output/               # Generated CSV exports, report, dashboard data
 ├── logs/
 ├── src/
 │   ├── main.py               # CLI entry point
@@ -149,11 +150,41 @@ fipro/
     └── fixtures/             # Anonymized sample statements
 ```
 
+## Data Layout
+
+`data` is a **symlink** to the canonical statement corpus (`~/Documents/Finances/data`), which is
+organised as one folder per bank — `axis/`, `hdfc/`, `sbi/` — holding the statements exactly as the
+bank websites downloaded them, fragmented and overlapping. Adding history means dropping a file into
+the right folder and re-running; nothing needs registering.
+
+The corpus is an **append-only archive the pipeline only ever reads**:
+
+- No statement file is moved, renamed, modified or deleted. The pipeline rewrites the export from the
+  whole corpus on every run, so runs are idempotent.
+- Statement files are locked read-only (`chmod a-w`) to enforce that at the filesystem level, not just
+  in code. To replace a statement, `chmod u+w` it first.
+- The single exception is `<bank>/audit_log.csv`, upserted beside each statement by
+  `src/core/audit_log.py`: `filename, date_created, date_modified, period_start, period_end, entries`.
+  `date_created` is the file's mtime when first logged and is never rewritten, so a row where it
+  differs from `date_modified` means the statement changed after it was recorded.
+- Because the corpus is the source of truth, a statement that is missing from it is simply absent from
+  the export — there is no state elsewhere to disagree with.
+
+The repo keeps exactly two data roots:
+
+- **`data`** — the source of truth above: read-only, and only ever written via each bank's `audit_log.csv`.
+- **`corpus/`** — the working area: generated exports live in `corpus/output/`, the saved statement
+  passwords in `corpus/statement_passwords.json`, and anything hand-made or intermediate belongs here too.
+  Its `input/`, `processed/`, `archive/` and `failed/` subfolders are the frozen pre-symlink copy of the
+  old `data/` tree — kept for reference, read by nothing.
+
+(`logs/fipro.log` is the one other write target.)
+
 ## Processing Pipeline
 
 ```
 Stage 1: INGESTION
-├── Scan data/input/ for *.xls, *.xlsx
+├── Scan the corpus (data/) for *.xls, *.xlsx
 ├── Identify bank from filename pattern
 └── Validate file is readable
 
@@ -178,8 +209,8 @@ Stage 4: CONSOLIDATION
 
 Stage 5: EXPORT
 ├── Format for Goodbudget CSV
-├── Write to data/output/
-└── Move processed files to data/processed/
+├── Write to corpus/output/
+└── Upsert <bank>/audit_log.csv beside each statement (the only corpus file ever written)
 ```
 
 ## Bank Parser Specifications
@@ -283,10 +314,11 @@ version = "1.0.0"
 log_level = "INFO"
 
 [paths]
-input = "data/input"
-output = "data/output"
-processed = "data/processed"
-failed = "data/failed"
+input = "data"                        # symlink to the statement corpus; only ever read
+output = "corpus/output"
+dashboard_data = "corpus/output/dashboard_data.csv"
+password_hints = "corpus/password_hints.json"
+statement_passwords = "corpus/statement_passwords.json"
 
 [processing]
 supported_extensions = ["xls", "xlsx"]
@@ -317,7 +349,7 @@ max_description_length = 50
 
 ### Error Classification
 - **Critical**: File system errors, config missing → Exit with error
-- **Processing**: Parse failures, invalid data → Log, move to `data/failed/`
+- **Processing**: Parse failures, invalid data → Log, leave the statement untouched where it is, report it in the run results
 - **Warnings**: Unexpected formats, missing optional fields → Log, continue
 
 ### Logging
