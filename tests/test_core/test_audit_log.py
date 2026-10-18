@@ -50,3 +50,14 @@ def test_audit_log_skips_failed_and_locked_statements(tmp_path):
     pending = ProcessingResult(str(locked), "SBI", 0, 0, 0, 0, [], [], ["password-protected"])
     write_audit_logs([failed, pending])
     assert not (tmp_path / AUDIT_LOG_NAME).exists()
+
+
+def test_audit_log_write_failure_does_not_raise(tmp_path):
+    stmt = tmp_path / "s.xlsx"
+    stmt.write_bytes(b"x")
+    tmp_path.chmod(0o500)  # read-only folder: the audit can't be written
+    try:
+        write_audit_logs([_result(stmt, date(2025, 1, 2))])
+    finally:
+        tmp_path.chmod(0o700)
+    assert not (tmp_path / AUDIT_LOG_NAME).exists()

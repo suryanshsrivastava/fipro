@@ -23,11 +23,10 @@ class ConsolidationResult:
 def consolidate_transactions(
     all_transactions: list[Transaction],
     *,
-    seen_hashes: set[str],
     include_internal_transfers: bool,
 ) -> ConsolidationResult:
-    """Dedupe against ``seen_hashes`` (updated in place), detect transfers and filter for export."""
-    deduplicated_transactions, duplicates_by_source = deduplicate(all_transactions, seen_hashes)
+    """Dedupe overlapping statements, detect transfers and filter for export."""
+    deduplicated_transactions, duplicates_by_source = deduplicate(all_transactions)
     deduplicated_transactions = detect_transfers(deduplicated_transactions)
     transactions_by_source: dict[str, list[Transaction]] = {}
     for transaction in deduplicated_transactions:

@@ -90,8 +90,6 @@ def process_pipeline(settings: Settings, passwords: dict[str, str] | None = None
 
     consolidation = consolidate_transactions(
         extraction.all_transactions,
-        # Fresh per run: the whole corpus is re-read every time, so only duplicates within this run count.
-        seen_hashes=set(),
         include_internal_transfers=settings.processing.export_internal_transfers,
     )
     detect_external_account_payments(consolidation.deduplicated_transactions, settings.external_accounts)

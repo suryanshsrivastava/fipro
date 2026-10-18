@@ -86,7 +86,7 @@ def parse_sbi_date(date_str: str) -> date:
     Returns:
         date object
     """
-    parsed = parse_date_multiple_formats(date_str, ["%d %b %Y", "%d/%m/%Y", "%d-%m-%Y"])
+    parsed = parse_date_multiple_formats(date_str, ["%d %b %Y", "%d/%m/%Y"])
     if parsed is None:
         raise ValueError(f"Unable to parse SBI date: {date_str!r}")
     return parsed

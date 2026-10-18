@@ -89,11 +89,17 @@ class Transaction:
         the text in a different place), and a transaction reported in two overlapping statements
         must still hash the same.
         """
-        narration = "".join(self.description.split())
-        unique_str = f"{self.transaction_date}{self.amount}{narration}{self.transaction_type.value}{self.source_bank}"
+        unique_str = (
+            f"{self.transaction_date}{self.amount}{self.narration_key}{self.transaction_type.value}{self.source_bank}"
+        )
         if self.balance:
             unique_str += str(self.balance)
         self.hash = hashlib.sha256(unique_str.encode()).hexdigest()[:16]
+
+    @property
+    def narration_key(self) -> str:
+        """The description with all whitespace removed: the form used to compare narrations across statements."""
+        return "".join(self.description.split())
 
     @property
     def signed_amount(self) -> Decimal:
