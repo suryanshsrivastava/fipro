@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import date
 
 from src.core.deduplicator import deduplicate
 from src.core.transfer_detector import detect_transfers
@@ -20,13 +21,22 @@ class ConsolidationResult:
         return sum(self.duplicates_by_source.values())
 
 
+def _sort_oldest_first(transactions: list[Transaction]) -> None:
+    """Order by date; a day split across overlapping statements keeps the earlier-starting statement's rows first."""
+    statement_start: dict[str, date] = {}
+    for t in transactions:
+        statement_start[t.source_file] = min(t.transaction_date, statement_start.get(t.source_file, t.transaction_date))
+    transactions.sort(key=lambda t: (t.transaction_date, statement_start[t.source_file]))
+
+
 def consolidate_transactions(
     all_transactions: list[Transaction],
     *,
     include_internal_transfers: bool,
 ) -> ConsolidationResult:
-    """Dedupe overlapping statements, detect transfers and filter for export."""
+    """Dedupe overlapping statements, order oldest to newest, detect transfers and filter for export."""
     deduplicated_transactions, duplicates_by_source = deduplicate(all_transactions)
+    _sort_oldest_first(deduplicated_transactions)
     deduplicated_transactions = detect_transfers(deduplicated_transactions)
     transactions_by_source: dict[str, list[Transaction]] = {}
     for transaction in deduplicated_transactions:

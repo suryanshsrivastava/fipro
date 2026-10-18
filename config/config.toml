@@ -9,14 +9,14 @@ log_level = "INFO"
 # read-only as far as this program is concerned. Nothing is moved, renamed or deleted and every run
 # re-exports the whole corpus.
 input = "data"
-# Everything else lives under corpus/: generated exports and anything hand-made. Both corpus/ and
-# data/ are gitignored.
+# Everything else lives under corpus/ (gitignored, like data/): output/ is rebuilt every run, state/
+# holds files that cannot be regenerated, legacy/ is the old pre-symlink copy.
 output = "corpus/output"
 dashboard_data = "corpus/output/dashboard_data.csv"
-password_hints = "corpus/password_hints.json"
+password_hints = "corpus/state/password_hints.json"
 # Bank -> statement password, so locked statements can be processed without re-entering them.
 # Holds the passwords themselves (unlike password_hints, which holds only the hint sentence).
-statement_passwords = "corpus/statement_passwords.json"
+statement_passwords = "corpus/state/statement_passwords.json"
 
 [processing]
 supported_extensions = ["xls", "xlsx"]

@@ -18,7 +18,7 @@ Operational procedures for running and maintaining Fipro. Living document; appen
 
 ## One-time: Gmail Access for Password Hints
 
-`fipro gmail` uses read-only Gmail access (`gmail.readonly`) to find the email that explains each bank's statement password rule. It saves only that sentence to `corpus/password_hints.json`.
+`fipro gmail` uses read-only Gmail access (`gmail.readonly`) to find the email that explains each bank's statement password rule. It saves only that sentence to `corpus/state/password_hints.json`.
 
 1. In Google Cloud Console, enable the **Gmail API** and create an OAuth client of type **Desktop app** (an existing Desktop client works too). Download its JSON to `config/gmail_credentials.json` (gitignored).
 2. Run `uv run fipro gmail`. A browser opens for consent; sign in with the Gmail account that receives the bank statements. The token is saved to `config/gmail_token.json` (gitignored, mode 0600) and refreshed automatically.

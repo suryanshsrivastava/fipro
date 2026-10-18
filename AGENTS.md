@@ -127,8 +127,10 @@ fipro/
 ├── config/
 │   └── config.toml           # Bank patterns, paths, settings
 ├── data -> ~/Documents/Finances/data   # symlink to the statement corpus (see Data Layout)
-├── corpus/                   # working area: generated exports + hand-made / intermediate files
-│   └── output/               # Generated CSV exports, report, dashboard data
+├── corpus/                   # gitignored working area, three kinds of file (see Data Layout)
+│   ├── output/               # rebuilt every run: CSV exports, report, dashboard data (safe to delete)
+│   ├── state/                # must survive: statement_passwords.json, password_hints.json, later annotations
+│   └── legacy/               # frozen pre-symlink data/ tree and the old spreadsheets; read by nothing
 ├── logs/
 ├── src/
 │   ├── main.py               # CLI entry point
@@ -173,10 +175,12 @@ The corpus is an **append-only archive the pipeline only ever reads**:
 The repo keeps exactly two data roots:
 
 - **`data`** — the source of truth above: read-only, and only ever written via each bank's `audit_log.csv`.
-- **`corpus/`** — the working area: generated exports live in `corpus/output/`, the saved statement
-  passwords in `corpus/statement_passwords.json`, and anything hand-made or intermediate belongs here too.
-  Its `input/`, `processed/`, `archive/` and `failed/` subfolders are the frozen pre-symlink copy of the
-  old `data/` tree — kept for reference, read by nothing.
+- **`corpus/`** — the working area, split by lifetime:
+  - `output/` is rebuilt on every run (exports, report, dashboard CSV); delete it freely.
+  - `state/` holds small files that cannot be regenerated: `statement_passwords.json`, `password_hints.json`
+    and, later, transaction annotations. Back this folder up.
+  - `legacy/` is the frozen pre-symlink copy of the old `data/` tree (`input/`, `processed/`, `archive/`,
+    `failed/`, `templates/`) including the hand-annotated spreadsheets — kept for reference, read by nothing.
 
 (`logs/fipro.log` is the one other write target.)
 
@@ -317,8 +321,8 @@ log_level = "INFO"
 input = "data"                        # symlink to the statement corpus; only ever read
 output = "corpus/output"
 dashboard_data = "corpus/output/dashboard_data.csv"
-password_hints = "corpus/password_hints.json"
-statement_passwords = "corpus/statement_passwords.json"
+password_hints = "corpus/state/password_hints.json"
+statement_passwords = "corpus/state/statement_passwords.json"
 
 [processing]
 supported_extensions = ["xls", "xlsx"]

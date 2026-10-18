@@ -2,7 +2,7 @@
 
 The file holds the passwords themselves (unlike ``paths.password_hints``, which holds only the
 sentence a bank's email uses to describe its password rule), so it lives under the gitignored
-``corpus/`` directory by default.
+``corpus/state/`` directory by default.
 """
 
 import json

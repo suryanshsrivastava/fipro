@@ -36,6 +36,17 @@ def is_encrypted_statement(filepath: str) -> bool:
             return False
 
 
+def is_locked_statement(filepath: str, bank: str, passwords: dict[str, str]) -> bool:
+    """Whether a statement is password-protected and cannot be opened with ``passwords`` (or the environment)."""
+    if not is_encrypted_statement(filepath):
+        return False
+    try:
+        _decrypt_statement(filepath, bank, passwords)
+    except StatementLockedError:
+        return True
+    return False
+
+
 def _decrypt_statement(filepath: str, bank: str, passwords: dict[str, str]) -> io.BytesIO:
     """Decrypt a password-protected statement in memory; the decrypted bytes never touch disk.
 
