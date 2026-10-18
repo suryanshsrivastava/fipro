@@ -6,6 +6,7 @@ from src.models.transactions import Transaction, TransactionStatus
 
 GOODBUDGET_FIELDNAMES = ["Date", "Envelope", "Account", "Name", "Notes", "Amount", "Status"]
 DASHBOARD_FIELDNAMES = [
+    "hash",
     "transaction_date",
     "description",
     "amount",
@@ -15,6 +16,13 @@ DASHBOARD_FIELDNAMES = [
     "status",
     "notes",
     "balance",
+    "payment_mode",
+    "counterparty",
+    "category",
+    "review_status",
+    "need_want",
+    "frequency",
+    "splitwise",
 ]
 
 
@@ -36,6 +44,7 @@ def export_dashboard_data(transactions: list[Transaction], output_path: str) -> 
         for txn in transactions:
             writer.writerow(
                 {
+                    "hash": txn.hash,
                     "transaction_date": txn.transaction_date.strftime("%Y-%m-%d"),
                     "description": txn.description,
                     "amount": str(txn.signed_amount),
@@ -45,6 +54,13 @@ def export_dashboard_data(transactions: list[Transaction], output_path: str) -> 
                     "status": txn.status.value,
                     "notes": build_goodbudget_notes(txn),
                     "balance": str(txn.balance) if txn.balance is not None else "",
+                    "payment_mode": txn.payment_mode,
+                    "counterparty": txn.counterparty,
+                    "category": txn.category or "",
+                    "review_status": txn.review_status,
+                    "need_want": txn.need_want,
+                    "frequency": txn.frequency,
+                    "splitwise": "yes" if txn.splitwise else "",
                 }
             )
 

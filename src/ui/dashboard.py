@@ -40,8 +40,10 @@ HTML_TEMPLATE = """
   th .arrow { margin-left: 4px; opacity: 0.4; }
   th.sorted .arrow { opacity: 1; }
   tr { border-bottom: 1px solid #1e293b; transition: background 0.1s; }
-  th:nth-child(2), td:nth-child(2) { width: 100%; max-width: 0; overflow: hidden; text-overflow: ellipsis; }
-  td:nth-child(7) { max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
+  th[data-col=description], td.c-description { width: 100%; max-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  td.c-counterparty { max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
+  td.c-category, td.c-notes { max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
+  th, td { padding-left: 10px; padding-right: 10px; }
   tr:hover { background: #1e293b; }
   tr.spacer, tr.spacer:hover { border: 0; background: none; }
   td { padding: 9px 14px; white-space: nowrap; }
@@ -75,6 +77,7 @@ HTML_TEMPLATE = """
 <div class=toolbar>
   <input type=text id=search placeholder=\"Search description...\" oninput=\"render()\">
   <select id=bank_filter onchange=\"render()\"><option value=\"\">All banks</option></select>
+  <select id=category_filter onchange=\"render()\"><option value=\"\">All categories</option><option value=__none__>Uncategorized</option></select>
   <select id=type_filter onchange=\"render()\"><option value=\"\">All types</option><option value=debit>Debit</option><option value=credit>Credit</option><option value=internal_transfer>Transfer</option></select>
   <div class=stat-badge>Total <span class=val id=total>0</span></div>
   <div class=stat-badge>Filtered <span class=val id=filtered>0</span></div>
@@ -137,7 +140,7 @@ function renderLocked() {
     return card;
   }));
 }
-const COLS = ['transaction_date','description','amount','transaction_type','source_bank','status','notes'];
+const COLS = ['transaction_date','counterparty','description','amount','category','source_bank','payment_mode','review_status','need_want','frequency','notes'];
 const DIR = {transaction_date:1, description:1, amount:1, transaction_type:1, source_bank:1};
 let sortCol='transaction_date', sortDir=1, search='', bank='', type='';
 
@@ -162,6 +165,8 @@ function init() {
   const banks = [...new Set(DATA.map(r=>r.source_bank))].sort();
   const sel = document.getElementById('bank_filter');
   sel.innerHTML = '<option value=\"\">All banks</option>' + banks.map(b=>`<option value=${b}>${b}</option>`).join('');
+  const cats = [...new Set(DATA.map(r=>r.category).filter(Boolean))].sort();
+  document.getElementById('category_filter').insertAdjacentHTML('beforeend', cats.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join(''));
   search = document.getElementById('search').value;
   bank = sel.value; type = document.getElementById('type_filter').value;
   renderSummary();
@@ -191,15 +196,19 @@ const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 function rowHtml(r) {
   const amt = parseFloat(r.amount)||0;
   const cls = r.status==='internal_transfer' ? 'transfer' : (amt<0 ? 'debit' : 'credit');
-  const desc = r.description.length>45 ? r.description.slice(0,45)+'…' : r.description;
+  const td = (col, value, extra='') => `<td class="c-${col}" title="${esc(value)}">${extra || esc(value)}</td>`;
   return `<tr>
-    <td>${esc(r.transaction_date)}</td>
-    <td title="${esc(r.description)}">${esc(desc)}</td>
+    ${td('transaction_date', r.transaction_date)}
+    ${td('counterparty', r.counterparty)}
+    ${td('description', r.description)}
     <td class="amount ${cls}">${amt<0?'−':'+'}${Math.abs(amt).toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
-    <td>${esc(r.transaction_type)}</td>
+    ${td('category', r.category)}
     <td><span class=account>${esc(r.source_bank)}</span></td>
-    <td>${esc(r.status)}</td>
-    <td title="${esc(r.notes)}">${esc((r.notes||'').slice(0,30))}</td>
+    ${td('payment_mode', r.payment_mode)}
+    ${td('review_status', r.review_status)}
+    ${td('need_want', r.need_want)}
+    ${td('frequency', r.frequency)}
+    ${td('notes', r.notes)}
   </tr>`;
 }
 
@@ -230,9 +239,11 @@ function render() {
   search = document.getElementById('search').value.toLowerCase();
   bank = document.getElementById('bank_filter').value;
   type = document.getElementById('type_filter').value;
+  const category = document.getElementById('category_filter').value;
   let rows = DATA.filter(r => {
     if (search && !r.description.toLowerCase().includes(search)) return false;
     if (bank && r.source_bank !== bank) return false;
+    if (category === '__none__' ? r.category : (category && r.category !== category)) return false;
     if (type === 'internal_transfer') return r.status === 'internal_transfer';
     if (type && r.transaction_type !== type) return false;
     if (type && r.status === 'internal_transfer') return false;
