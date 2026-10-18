@@ -35,11 +35,7 @@ def write_audit_logs(results: list[ProcessingResult]) -> None:
     for folder, folder_results in by_dir.items():
         try:
             _upsert(folder / AUDIT_LOG_NAME, folder_results)
-        except (
-            OSError,
-            KeyError,
-            csv.Error,
-        ) as exc:  # read-only folder or hand-edited log: the audit is secondary, never block the export
+        except Exception as exc:  # best-effort side log: never let a bad or unwritable file block the export
             logger.warning("Could not update %s: %s", folder / AUDIT_LOG_NAME, exc)
 
 
