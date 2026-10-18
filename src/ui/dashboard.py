@@ -185,17 +185,21 @@ function paintSortArrows() {
 
 let view = [], rowH = 37, drawing = false;
 
+// Narrations and notes come from other people (UPI remarks), so they must never reach innerHTML raw.
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
 function rowHtml(r) {
   const amt = parseFloat(r.amount)||0;
   const cls = r.status==='internal_transfer' ? 'transfer' : (amt<0 ? 'debit' : 'credit');
+  const desc = r.description.length>45 ? r.description.slice(0,45)+'…' : r.description;
   return `<tr>
-    <td>${r.transaction_date}</td>
-    <td title=\"${r.description}\">${r.description.length>45?r.description.slice(0,45)+'…':r.description}</td>
-    <td class=\"amount ${cls}\">${amt<0?'−':'+'}${Math.abs(amt).toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
-    <td>${r.transaction_type}</td>
-    <td><span class=account>${r.source_bank}</span></td>
-    <td>${r.status}</td>
-    <td title=\"${r.notes||''}\">${(r.notes||'').slice(0,30)}</td>
+    <td>${esc(r.transaction_date)}</td>
+    <td title="${esc(r.description)}">${esc(desc)}</td>
+    <td class="amount ${cls}">${amt<0?'−':'+'}${Math.abs(amt).toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
+    <td>${esc(r.transaction_type)}</td>
+    <td><span class=account>${esc(r.source_bank)}</span></td>
+    <td>${esc(r.status)}</td>
+    <td title="${esc(r.notes)}">${esc((r.notes||'').slice(0,30))}</td>
   </tr>`;
 }
 
