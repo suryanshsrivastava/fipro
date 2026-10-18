@@ -86,3 +86,36 @@ def test_dedup_merges_row_truncated_by_a_page_break_keeping_fuller_narration():
     assert [t.description for t in unique] == ["WDL TFR UPI/DR/1/UBER"] and dropped == {"b.xlsx": 1}
     # Different balance = a genuinely separate identical-looking payment: both stay.
     assert len(deduplicate([cut, txn("WDL TFR UPI/DR/1/UBER", "b.xlsx", "3202.12")])[0]) == 2
+
+
+def test_consolidate_transactions_orders_oldest_to_newest_keeping_same_day_order():
+    from datetime import date
+
+    newer = _txn(source_file="new.xls", amount="1.00", transaction_type=TransactionType.DEBIT)
+    older_a = _txn(source_file="old.xls", amount="2.00", transaction_type=TransactionType.DEBIT)
+    older_b = _txn(source_file="old.xls", amount="3.00", transaction_type=TransactionType.DEBIT)
+    newer.transaction_date, older_a.transaction_date, older_b.transaction_date = (
+        date(2025, 2, 1),
+        date(2025, 1, 1),
+        date(2025, 1, 1),
+    )
+
+    consolidated = consolidate_transactions([newer, older_a, older_b], include_internal_transfers=True)
+
+    assert consolidated.deduplicated_transactions == [older_a, older_b, newer]
+
+
+def test_consolidate_transactions_puts_earlier_starting_statement_first_within_a_day():
+    from datetime import date
+
+    late_file = _txn(source_file="b.xls", amount="1.00", transaction_type=TransactionType.DEBIT)
+    early_file_start = _txn(source_file="a.xls", amount="2.00", transaction_type=TransactionType.DEBIT)
+    early_file_same_day = _txn(source_file="a.xls", amount="3.00", transaction_type=TransactionType.DEBIT)
+    late_file.transaction_date = early_file_same_day.transaction_date = date(2025, 4, 1)
+    early_file_start.transaction_date = date(2025, 1, 2)
+
+    consolidated = consolidate_transactions(
+        [late_file, early_file_start, early_file_same_day], include_internal_transfers=True
+    )
+
+    assert consolidated.deduplicated_transactions == [early_file_start, early_file_same_day, late_file]

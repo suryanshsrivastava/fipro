@@ -9,7 +9,8 @@ from src.config import Settings
 from src.connectors.gmail import load_password_hints
 from src.core.ingestion import discover_files
 from src.core.orchestrator import process_pipeline
-from src.core.parser_registry import is_encrypted_statement
+from src.core.parser_registry import is_locked_statement
+from src.core.statement_passwords import load_statement_passwords
 from src.exporters.report import summarize_pipeline_run
 from src.ui.dashboard_data import load_csv_data as _load_csv_data
 
@@ -39,7 +40,10 @@ HTML_TEMPLATE = """
   th .arrow { margin-left: 4px; opacity: 0.4; }
   th.sorted .arrow { opacity: 1; }
   tr { border-bottom: 1px solid #1e293b; transition: background 0.1s; }
+  th:nth-child(2), td:nth-child(2) { width: 100%; max-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  td:nth-child(7) { max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
   tr:hover { background: #1e293b; }
+  tr.spacer, tr.spacer:hover { border: 0; background: none; }
   td { padding: 9px 14px; white-space: nowrap; }
   td.amount { font-variant-numeric: tabular-nums; }
   td.debit { color: #f87171; }
@@ -135,7 +139,7 @@ function renderLocked() {
 }
 const COLS = ['transaction_date','description','amount','transaction_type','source_bank','status','notes'];
 const DIR = {transaction_date:1, description:1, amount:1, transaction_type:1, source_bank:1};
-let sortCol='transaction_date', sortDir=-1, search='', bank='', type='';
+let sortCol='transaction_date', sortDir=1, search='', bank='', type='';
 
 function setStickyOffsets() {
   const hh = document.querySelector('header').offsetHeight;
@@ -168,12 +172,61 @@ function init() {
 
 function toggleSort(col) {
   if (sortCol===col) sortDir*=-1; else { sortCol=col; sortDir=1; }
-  document.querySelectorAll('th').forEach(t=>t.classList.remove('sorted'));
-  document.querySelector(`th[data-col=${col}]`).classList.add('sorted');
   render();
 }
 
+function paintSortArrows() {
+  document.querySelectorAll('th[data-col]').forEach(t => {
+    const active = t.dataset.col === sortCol;
+    t.classList.toggle('sorted', active);
+    t.querySelector('.arrow').textContent = active ? (sortDir === 1 ? '▲' : '▼') : '↕';
+  });
+}
+
+let view = [], rowH = 37, rowHMeasured = false, drawing = false;
+
+// Narrations and notes come from other people (UPI remarks), so they must never reach innerHTML raw.
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function rowHtml(r) {
+  const amt = parseFloat(r.amount)||0;
+  const cls = r.status==='internal_transfer' ? 'transfer' : (amt<0 ? 'debit' : 'credit');
+  const desc = r.description.length>45 ? r.description.slice(0,45)+'…' : r.description;
+  return `<tr>
+    <td>${esc(r.transaction_date)}</td>
+    <td title="${esc(r.description)}">${esc(desc)}</td>
+    <td class="amount ${cls}">${amt<0?'−':'+'}${Math.abs(amt).toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
+    <td>${esc(r.transaction_type)}</td>
+    <td><span class=account>${esc(r.source_bank)}</span></td>
+    <td>${esc(r.status)}</td>
+    <td title="${esc(r.notes)}">${esc((r.notes||'').slice(0,30))}</td>
+  </tr>`;
+}
+
+// Only the rows near the viewport are in the DOM; spacer rows keep the scrollbar the size of the full table.
+function drawWindow() {
+  const body = document.getElementById('tbody');
+  const top = body.getBoundingClientRect().top + window.scrollY;
+  const first = Math.max(0, Math.floor((window.scrollY - top) / rowH) - 20);
+  const last = Math.min(view.length, first + Math.ceil(window.innerHeight / rowH) + 40);
+  const spacer = n => `<tr class=spacer style="height:${n * rowH}px"></tr>`;
+  body.innerHTML = spacer(first) + view.slice(first, last).map(rowHtml).join('') + spacer(view.length - last);
+  const sample = body.querySelector('tr:not(.spacer)');
+  if (sample && !rowHMeasured) {  // measure once: re-measuring every draw can loop forever on fractional row heights
+    rowHMeasured = true;
+    rowH = sample.getBoundingClientRect().height;
+    drawWindow();
+  }
+}
+
+window.addEventListener('scroll', () => {
+  if (drawing) return;
+  drawing = true;
+  requestAnimationFrame(() => { drawWindow(); drawing = false; });
+});
+
 function render() {
+  paintSortArrows();
   search = document.getElementById('search').value.toLowerCase();
   bank = document.getElementById('bank_filter').value;
   type = document.getElementById('type_filter').value;
@@ -191,20 +244,8 @@ function render() {
     if (va<vb) return -sortDir; if (va>vb) return sortDir; return 0;
   };
   rows = rows.sort(sortFn);
-  const body = document.getElementById('tbody');
-  body.innerHTML = rows.map(r => {
-    const amt = parseFloat(r.amount)||0;
-    const cls = r.status==='internal_transfer' ? 'transfer' : (amt<0 ? 'debit' : 'credit');
-    return `<tr>
-      <td>${r.transaction_date}</td>
-      <td title=\"${r.description}\">${r.description.length>45?r.description.slice(0,45)+'…':r.description}</td>
-      <td class=\"amount ${cls}\">${amt<0?'−':'+'}${Math.abs(amt).toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
-      <td>${r.transaction_type}</td>
-      <td><span class=account>${r.source_bank}</span></td>
-      <td>${r.status}</td>
-      <td title=\"${r.notes||''}\">${(r.notes||'').slice(0,30)}</td>
-    </tr>`;
-  }).join('');
+  view = rows;
+  drawWindow();
   document.getElementById('empty').style.display = rows.length ? 'none' : 'block';
   const filtered = rows.length;
   const net = rows.reduce((s,r)=>s+(parseFloat(r.amount)||0),0);
@@ -228,11 +269,13 @@ def load_csv_data(csv_path: str) -> list[dict]:
 
 
 def locked_statements(settings: Settings) -> list[dict]:
-    """Password-protected statements waiting in the input folder, grouped by bank, with any saved Gmail hint."""
+    """Statements that cannot be opened with the saved passwords, grouped by bank, with any saved Gmail hint."""
+    passwords = load_statement_passwords(settings.paths.statement_passwords)
     by_bank: dict[str, list[str]] = defaultdict(list)
     for crawled in discover_files(settings):
-        if is_encrypted_statement(crawled.filepath):
-            by_bank[crawled.metadata.get("bank", "UNKNOWN")].append(crawled.filename)
+        bank = crawled.metadata.get("bank", "UNKNOWN")
+        if is_locked_statement(crawled.filepath, bank, passwords):
+            by_bank[bank].append(crawled.filename)
     hints = load_password_hints(settings.paths.password_hints)
     return [
         {

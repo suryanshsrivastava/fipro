@@ -103,7 +103,7 @@ def test_process_pipeline_uses_password_passed_in_for_this_run(tmp_path, encrypt
 
 
 def test_saved_statement_passwords_unlock_statements_without_env_or_dashboard(tmp_path, encrypted_statement):
-    """A saved `fipro process` uses corpus/statement_passwords.json, matched case-insensitively by bank."""
+    """A saved `fipro process` uses corpus/state/statement_passwords.json, matched case-insensitively by bank."""
     passwords_path = tmp_path / "statement_passwords.json"
     passwords_path.write_text(json.dumps({"sbi": PASSWORD}))
     paths = _config(tmp_path)["paths"] | {"statement_passwords": str(passwords_path)}
@@ -112,6 +112,23 @@ def test_saved_statement_passwords_unlock_statements_without_env_or_dashboard(tm
 
     assert lines[0].startswith("Processed 1 file(s)")
     assert encrypted_statement.exists()
+
+
+@pytest.mark.usefixtures("encrypted_statement")
+def test_dashboard_lists_only_statements_the_saved_passwords_cannot_open(tmp_path):
+    from src.ui.dashboard import locked_statements
+
+    passwords_path = tmp_path / "statement_passwords.json"
+    paths = _config(tmp_path)["paths"] | {"statement_passwords": str(passwords_path)}
+    settings = Settings.from_config(_config(tmp_path) | {"paths": paths})
+
+    assert [group["bank"] for group in locked_statements(settings)] == ["SBI"]  # nothing saved yet
+
+    passwords_path.write_text(json.dumps({"SBI": "wrong"}))
+    assert [group["bank"] for group in locked_statements(settings)] == ["SBI"]  # wrong password is still locked
+
+    passwords_path.write_text(json.dumps({"SBI": PASSWORD}))
+    assert locked_statements(settings) == []
 
 
 def test_locked_statement_stays_in_input_and_previous_exports_survive(tmp_path, encrypted_statement):

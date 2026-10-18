@@ -38,7 +38,7 @@ uv run fipro sheets --creds <path>     # upload to Google Sheets
 - `tests/` — pytest suite with regression fixtures under `tests/fixtures/`
 - `config/config.toml` — runtime configuration
 - `data/` — symlink to the read-only statement corpus, one folder per bank (`axis/`, `hdfc/`, `sbi/`); each gets an `audit_log.csv`
-- `corpus/` — generated exports and saved statement passwords (gitignored)
+- `corpus/` — gitignored working area: `output/` (rebuilt each run), `state/` (passwords, hints, later annotations), `legacy/` (old pre-symlink copy)
 
 ## Further Reading
 
