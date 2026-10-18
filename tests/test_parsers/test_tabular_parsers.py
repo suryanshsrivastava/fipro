@@ -83,3 +83,12 @@ def test_hdfc_detection_requires_all_amount_columns():
     df = pd.DataFrame([["Date", "Narration", "Withdrawal Amt."], ["01/02/26", "x", "1"]])
 
     assert not TabularStatementParser(HDFC_LAYOUT).can_parse("hdfc.xls", df)
+
+
+def test_sbi_date_accepts_text_and_native_excel_dates():
+    from datetime import date
+
+    from src.utils.date_parser import parse_sbi_date
+
+    assert parse_sbi_date("15 Nov 2025") == parse_sbi_date("15/11/2025") == date(2025, 11, 15)
+    assert parse_sbi_date("2025-11-15 00:00:00") == date(2025, 11, 15)

@@ -63,7 +63,7 @@ def _upsert(log: Path, results: list[ProcessingResult]) -> None:
 
     tmp = log.with_suffix(".tmp")
     with tmp.open("w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=_FIELDS)
+        writer = csv.DictWriter(f, fieldnames=_FIELDS, extrasaction="ignore")
         writer.writeheader()
         writer.writerows(sorted(rows.values(), key=lambda row: row["filename"]))
     os.replace(tmp, log)

@@ -69,3 +69,13 @@ def test_audit_log_with_unexpected_header_is_left_untouched(tmp_path):
     (tmp_path / AUDIT_LOG_NAME).write_text("name,rows\ns.xlsx,3\n")
     write_audit_logs([_result(stmt, date(2025, 1, 2))])
     assert (tmp_path / AUDIT_LOG_NAME).read_text() == "name,rows\ns.xlsx,3\n"
+
+
+def test_audit_log_drops_extra_columns_from_existing_log(tmp_path):
+    stmt = tmp_path / "s.xlsx"
+    stmt.write_bytes(b"x")
+    (tmp_path / AUDIT_LOG_NAME).write_text(
+        "filename,date_created,date_modified,period_start,period_end,entries,comment\nold.xlsx,a,b,c,d,1,keep me\n"
+    )
+    write_audit_logs([_result(stmt, date(2025, 1, 2))])
+    assert [r["filename"] for r in _rows(tmp_path)] == ["old.xlsx", "s.xlsx"]
