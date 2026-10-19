@@ -7,6 +7,7 @@ from pathlib import Path
 
 from src.config import Settings
 from src.connectors.gmail import load_password_hints
+from src.core.annotations import overlay_labels, set_label
 from src.core.ingestion import discover_files
 from src.core.orchestrator import process_pipeline
 from src.core.parser_registry import is_locked_statement
@@ -32,7 +33,7 @@ HTML_TEMPLATE = """
   .toolbar input { width: 220px; }
   .stat-badge { background: #334155; border: 1px solid #475569; border-radius: 6px; padding: 6px 14px; font-size: 12px; display: flex; gap: 6px; align-items: center; }
   .stat-badge .val { color: #38bdf8; font-weight: 600; }
-  .table-wrap { overflow-x: clip; padding: 0 24px 24px; }
+  .table-wrap { overflow-x: clip; padding: 0 12px 24px; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
   thead { position: sticky; top: 0; z-index: 50; }
   th { background: #1e293b; color: #94a3b8; font-weight: 500; text-align: left; padding: 10px 14px; cursor: pointer; user-select: none; white-space: nowrap; }
@@ -43,7 +44,15 @@ HTML_TEMPLATE = """
   th[data-col=description], td.c-description { width: 100%; max-width: 0; overflow: hidden; text-overflow: ellipsis; }
   td.c-counterparty { max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
   td.c-category, td.c-notes { max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
-  th, td { padding-left: 10px; padding-right: 10px; }
+  td select, td input { background: transparent; border: 1px solid transparent; border-radius: 4px; color: inherit; font: inherit; padding: 3px 6px; }
+  td select { appearance: none; width: auto; min-width: 0; cursor: pointer; }
+  td input { width: 100%; min-width: 110px; }
+  th[data-col=description] { min-width: 150px; }
+  td select:hover, td input:hover, td select:focus, td input:focus { border-color: #475569; background: #1e293b; outline: none; }
+  td select option { background: #1e293b; }
+  td .saved { border-color: #34d399; }
+  td .failed { border-color: #f87171; }
+  th, td { padding-left: 8px; padding-right: 8px; }
   tr:hover { background: #1e293b; }
   tr.spacer, tr.spacer:hover { border: 0; background: none; }
   td { padding: 9px 14px; white-space: nowrap; }
@@ -77,6 +86,7 @@ HTML_TEMPLATE = """
 <div class=toolbar>
   <input type=text id=search placeholder=\"Search description...\" oninput=\"render()\">
   <select id=bank_filter onchange=\"render()\"><option value=\"\">All banks</option></select>
+  <datalist id=categories></datalist>
   <select id=category_filter onchange=\"render()\"><option value=\"\">All categories</option><option value=__none__>Uncategorized</option></select>
   <select id=type_filter onchange=\"render()\"><option value=\"\">All types</option><option value=debit>Debit</option><option value=credit>Credit</option><option value=internal_transfer>Transfer</option></select>
   <div class=stat-badge>Total <span class=val id=total>0</span></div>
@@ -140,7 +150,10 @@ function renderLocked() {
     return card;
   }));
 }
-const COLS = ['transaction_date','counterparty','description','amount','category','source_bank','payment_mode','review_status','need_want','frequency','notes'];
+const COLS = ['transaction_date','counterparty','description','amount','category','source_bank','payment_mode','review_status','need_want','frequency','splitwise','notes'];
+// Labels you can edit in place; selects for the fixed vocabularies, text inputs for category and notes.
+const CHOICES = {review_status:['cleared','reconciled','waiting','doubt'], need_want:['Need','Want'], frequency:['Monthly','Once'], splitwise:['yes']};
+const HEADERS = {transaction_date:'date', source_bank:'bank', payment_mode:'mode', review_status:'status', need_want:'need/want', frequency:'freq'};
 const DIR = {transaction_date:1, description:1, amount:1, transaction_type:1, source_bank:1};
 let sortCol='transaction_date', sortDir=1, search='', bank='', type='';
 
@@ -161,12 +174,13 @@ function renderSummary() {
 
 function init() {
   const th = document.getElementById('thead');
-  th.innerHTML = COLS.map(c => `<th data-col=${c} onclick=\"toggleSort('${c}')\">${c.replace(/_/g,' ')}<span class=arrow>▼</span></th>`).join('');
+  th.innerHTML = COLS.map(c => `<th data-col=${c} onclick=\"toggleSort('${c}')\">${HEADERS[c] || c.replace(/_/g,' ')}<span class=arrow>▼</span></th>`).join('');
   const banks = [...new Set(DATA.map(r=>r.source_bank))].sort();
   const sel = document.getElementById('bank_filter');
   sel.innerHTML = '<option value=\"\">All banks</option>' + banks.map(b=>`<option value=${b}>${b}</option>`).join('');
   const cats = [...new Set(DATA.map(r=>r.category).filter(Boolean))].sort();
   document.getElementById('category_filter').insertAdjacentHTML('beforeend', cats.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join(''));
+  cats.forEach(addCategory);
   search = document.getElementById('search').value;
   bank = sel.value; type = document.getElementById('type_filter').value;
   renderSummary();
@@ -193,23 +207,56 @@ let view = [], rowH = 37, rowHMeasured = false, drawing = false;
 // Narrations and notes come from other people (UPI remarks), so they must never reach innerHTML raw.
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
+function editCell(col, r) {
+  const value = r[col] || '', attrs = `data-hash="${esc(r.hash)}" data-field="${col}"`;
+  if (CHOICES[col]) {
+    const options = ['', ...CHOICES[col]].map(o => `<option value="${esc(o)}"${o === value ? ' selected' : ''}>${esc(o) || '—'}</option>`).join('');
+    return `<td class="c-${col}"><select ${attrs}>${options}</select></td>`;
+  }
+  return `<td class="c-${col}"><input ${attrs} value="${esc(value)}"${col === 'category' ? ' list=categories' : ''}></td>`;
+}
+
 function rowHtml(r) {
   const amt = parseFloat(r.amount)||0;
   const cls = r.status==='internal_transfer' ? 'transfer' : (amt<0 ? 'debit' : 'credit');
-  const td = (col, value, extra='') => `<td class="c-${col}" title="${esc(value)}">${extra || esc(value)}</td>`;
+  const td = (col, value) => `<td class="c-${col}" title="${esc(value)}">${esc(value)}</td>`;
+  const label = col => r.hash ? editCell(col, r) : td(col, r[col]);
   return `<tr>
     ${td('transaction_date', r.transaction_date)}
     ${td('counterparty', r.counterparty)}
     ${td('description', r.description)}
     <td class="amount ${cls}">${amt<0?'−':'+'}${Math.abs(amt).toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
-    ${td('category', r.category)}
+    ${label('category')}
     <td><span class=account>${esc(r.source_bank)}</span></td>
     ${td('payment_mode', r.payment_mode)}
-    ${td('review_status', r.review_status)}
-    ${td('need_want', r.need_want)}
-    ${td('frequency', r.frequency)}
-    ${td('notes', r.notes)}
+    ${label('review_status')}
+    ${label('need_want')}
+    ${label('frequency')}
+    ${label('splitwise')}
+    ${label('notes')}
   </tr>`;
+}
+
+const byHash = new Map(DATA.map(r => [r.hash, r]));
+document.getElementById('tbody').addEventListener('change', async e => {
+  const el = e.target, {hash, field} = el.dataset;
+  if (!field) return;
+  el.classList.remove('saved', 'failed');
+  try {
+    const res = await fetch('/annotate', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({hash, field, value: el.value})});
+    if (!res.ok) throw new Error((await res.json()).error || res.status);
+    byHash.get(hash)[field] = el.value.trim();
+    if (field === 'category' && el.value.trim()) addCategory(el.value.trim());
+    el.classList.add('saved');
+  } catch (err) {
+    el.classList.add('failed');
+    el.title = `Not saved: ${err.message}`;
+  }
+});
+
+function addCategory(name) {
+  const list = document.getElementById('categories');
+  if (![...list.options].some(o => o.value === name)) list.insertAdjacentHTML('beforeend', `<option value="${esc(name)}">`);
 }
 
 // Only the rows near the viewport are in the DOM; spacer rows keep the scrollbar the size of the full table.
@@ -306,7 +353,10 @@ def _script_json(value: object) -> str:
 
 def build_server(csv_path: str, port: int, settings: Settings | None = None) -> HTTPServer:
     def current_rows() -> list[dict]:
-        return load_csv_data(csv_path) if Path(csv_path).exists() else []
+        rows = load_csv_data(csv_path) if Path(csv_path).exists() else []
+        if settings:
+            overlay_labels(rows, settings.paths.annotations)
+        return rows
 
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
@@ -322,7 +372,7 @@ def build_server(csv_path: str, port: int, settings: Settings | None = None) -> 
                 self._send(404, "text/plain", b"")
 
         def do_POST(self):
-            if self.path != "/unlock" or settings is None:
+            if self.path not in ("/unlock", "/annotate") or settings is None:
                 self._send_json(404, {"error": "not found"})
                 return
             # JSON-only + same-origin: a page on another site cannot trigger processing through the browser.
@@ -336,6 +386,9 @@ def build_server(csv_path: str, port: int, settings: Settings | None = None) -> 
                 origin is not None and origin not in {f"http://{h}" for h in local_hosts}
             ):
                 self._send_json(403, {"error": "cross-origin request refused"})
+                return
+            if self.path == "/annotate":
+                self._annotate(settings)
                 return
             try:
                 body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
@@ -351,6 +404,15 @@ def build_server(csv_path: str, port: int, settings: Settings | None = None) -> 
                     "locked": [Path(path).name for path in run.locked_files],
                 },
             )
+
+        def _annotate(self, settings: Settings) -> None:
+            try:
+                body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
+                set_label(settings.paths.annotations, str(body["hash"]), str(body["field"]), str(body["value"]))
+            except (KeyError, ValueError) as exc:  # bad request from the page, not a server fault
+                self._send_json(400, {"error": str(exc)})
+                return
+            self._send_json(200, {"ok": True})
 
         def _send_json(self, status: int, payload: object) -> None:
             self._send(status, "application/json", json.dumps(payload, default=str).encode())
