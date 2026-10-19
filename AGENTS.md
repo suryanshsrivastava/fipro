@@ -129,7 +129,7 @@ fipro/
 ├── data -> ~/Documents/Finances/data   # symlink to the statement corpus (see Data Layout)
 ├── corpus/                   # gitignored working area, three kinds of file (see Data Layout)
 │   ├── output/               # rebuilt every run: CSV exports, report, dashboard data (safe to delete)
-│   ├── state/                # must survive: statement_passwords.json, password_hints.json, later annotations
+│   ├── state/                # must survive: statement_passwords.json, password_hints.json, annotations.csv, category_rules.csv
 │   └── legacy/               # frozen pre-symlink data/ tree and the old spreadsheets; read by nothing
 ├── logs/
 ├── src/
@@ -178,9 +178,23 @@ The repo keeps exactly two data roots:
 - **`corpus/`** — the working area, split by lifetime:
   - `output/` is rebuilt on every run (exports, report, dashboard CSV); delete it freely.
   - `state/` holds small files that cannot be regenerated: `statement_passwords.json`, `password_hints.json`
-    and, later, transaction annotations. Back this folder up.
+    and the transaction labels (below). Back this folder up.
   - `legacy/` is the frozen pre-symlink copy of the old `data/` tree (`input/`, `processed/`, `archive/`,
     `failed/`, `templates/`) including the hand-annotated spreadsheets — kept for reference, read by nothing.
+
+### Transaction labels
+
+Labels are hand-maintained, so they live in `corpus/state/`, not in the rebuilt exports
+(`src/core/annotations.py`):
+
+- `annotations.csv` — `hash, review_status, category, need_want, frequency, splitwise, notes`, one row per
+  transaction, keyed by `Transaction.hash` (carried in `dashboard_data.csv`).
+- `category_rules.csv` — `counterparty, category, need_want, frequency`; applies to every transaction with that
+  counterparty. A transaction's own annotation wins over the rule.
+- `category` uses the `Group/Envelope` form (`City/Cab`, `Family/Rent`). `review_status` is one of cleared,
+  reconciled, waiting, doubt. `payment_mode` and `counterparty` are derived from the narration
+  (`src/utils/narration.py`), never stored.
+- `scripts/seed_annotations.py` carried the labels over from the old spreadsheets in `corpus/legacy/`.
 
 (`logs/fipro.log` is the one other write target.)
 
@@ -323,6 +337,8 @@ output = "corpus/output"
 dashboard_data = "corpus/output/dashboard_data.csv"
 password_hints = "corpus/state/password_hints.json"
 statement_passwords = "corpus/state/statement_passwords.json"
+annotations = "corpus/state/annotations.csv"
+category_rules = "corpus/state/category_rules.csv"
 
 [processing]
 supported_extensions = ["xls", "xlsx"]

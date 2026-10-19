@@ -61,6 +61,7 @@ def test_export_dashboard_data_uses_rich_columns(tmp_path):
         rows = list(csv.DictReader(handle))
 
     assert list(rows[0].keys()) == [
+        "hash",
         "transaction_date",
         "description",
         "amount",
@@ -70,6 +71,13 @@ def test_export_dashboard_data_uses_rich_columns(tmp_path):
         "status",
         "notes",
         "balance",
+        "payment_mode",
+        "counterparty",
+        "category",
+        "review_status",
+        "need_want",
+        "frequency",
+        "splitwise",
     ]
     assert rows[0]["source_file"] == "sample.xls"
     assert rows[0]["notes"] == "External account payment: CREDIT_CARD"
