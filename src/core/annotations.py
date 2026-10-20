@@ -67,13 +67,29 @@ def set_label(path: str, txn_hash: str, field: str, value: str) -> None:
     write_table(path, "hash", ANNOTATION_FIELDS, rows)
 
 
-def overlay_labels(rows: list[dict], annotations_path: str) -> None:
-    """Show labels saved since the last `fipro process` on exported rows (a row's own label wins)."""
+def set_rule(path: str, counterparty: str, category: str) -> None:
+    """Make ``category`` the category of every transaction with this counterparty (a transaction's own label still wins)."""
+    counterparty, category = counterparty.strip().upper(), category.strip()
+    if not counterparty or not category:
+        raise ValueError("a rule needs a counterparty and a category")
+    if max(len(counterparty), len(category)) > _MAX_TEXT:
+        raise ValueError(f"rule text is longer than {_MAX_TEXT} characters")
+    rows = {name.upper(): row for name, row in read_table(path, "counterparty").items()}
+    rows.setdefault(counterparty, {})["category"] = category
+    write_table(path, "counterparty", RULE_FIELDS, rows)
+
+
+def overlay_labels(rows: list[dict], annotations_path: str, rules_path: str) -> None:
+    """Show labels saved since the last `fipro process` on exported rows (a row's own label wins over a rule)."""
     annotations = read_table(annotations_path, "hash")
+    rules = {name.upper(): row for name, row in read_table(rules_path, "counterparty").items()}
     for row in rows:
-        for field, value in annotations.get(row.get("hash", ""), {}).items():
+        own = annotations.get(row.get("hash", ""), {})
+        for field, value in own.items():
             if field in ANNOTATION_FIELDS and value:
                 row[field] = value
+        if not own.get("category"):
+            row["category"] = rules.get(row.get("counterparty", ""), {}).get("category") or row.get("category", "")
 
 
 def apply_annotations(transactions: list[Transaction], annotations_path: str, rules_path: str) -> None:

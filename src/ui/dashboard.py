@@ -7,11 +7,12 @@ from pathlib import Path
 
 from src.config import Settings
 from src.connectors.gmail import load_password_hints
-from src.core.annotations import overlay_labels, set_label
+from src.core.annotations import overlay_labels, set_label, set_rule
 from src.core.ingestion import discover_files
 from src.core.orchestrator import process_pipeline
 from src.core.parser_registry import is_locked_statement
 from src.core.statement_passwords import load_statement_passwords
+from src.core.suggestions import confident_suggestions
 from src.exporters.report import summarize_pipeline_run
 from src.ui.dashboard_data import load_csv_data as _load_csv_data
 
@@ -44,6 +45,10 @@ HTML_TEMPLATE = """
   th[data-col=description], td.c-description { width: 100%; max-width: 0; overflow: hidden; text-overflow: ellipsis; }
   td.c-counterparty { max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
   td.c-category, td.c-notes { max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
+  td.c-category { max-width: 280px; }
+  .cell { display: flex; gap: 4px; align-items: center; }
+  .cell input { flex: 1; }
+  button.accept { flex: none; max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: #14532d; color: #bbf7d0; border: 1px solid #166534; border-radius: 4px; padding: 1px 6px; font-size: 11px; cursor: pointer; }
   td select, td input { background: transparent; border: 1px solid transparent; border-radius: 4px; color: inherit; font: inherit; padding: 3px 6px; }
   td select { appearance: none; width: auto; min-width: 0; cursor: pointer; }
   td input { width: 100%; min-width: 110px; }
@@ -107,6 +112,7 @@ HTML_TEMPLATE = """
 <script>
 const DATA = {{DATA}};
 const LOCKED = {{LOCKED}};
+const SUGGESTIONS = {{SUGGESTIONS}};  // counterparty -> {category, probability}, from `fipro suggest`
 
 function el(tag, cls, text) {
   const node = document.createElement(tag);
@@ -207,13 +213,19 @@ let view = [], rowH = 37, rowHMeasured = false, drawing = false;
 // Narrations and notes come from other people (UPI remarks), so they must never reach innerHTML raw.
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-function editCell(col, r) {
+function editCell(col, r, extra = '') {
   const value = r[col] || '', attrs = `data-hash="${esc(r.hash)}" data-field="${col}"`;
   if (CHOICES[col]) {
     const options = ['', ...CHOICES[col]].map(o => `<option value="${esc(o)}"${o === value ? ' selected' : ''}>${esc(o) || '—'}</option>`).join('');
     return `<td class="c-${col}"><select ${attrs}>${options}</select></td>`;
   }
-  return `<td class="c-${col}"><input ${attrs} value="${esc(value)}"${col === 'category' ? ' list=categories' : ''}></td>`;
+  const input = `<input ${attrs} value="${esc(value)}"${col === 'category' ? ' list=categories' : ''}>`;
+  return `<td class="c-${col}">${extra ? `<div class=cell>${input}${extra}</div>` : input}</td>`;
+}
+
+function suggestCell(r, hint) {
+  const tip = `Local model suggestion (${Math.round(hint.probability * 100)}% sure). Click to apply it to every ${esc(r.counterparty)} transaction.`;
+  return editCell('category', r, `<button class=accept data-counterparty="${esc(r.counterparty)}" data-category="${esc(hint.category)}" title="${tip}">✓ ${esc(hint.category)}</button>`);
 }
 
 function rowHtml(r) {
@@ -221,12 +233,13 @@ function rowHtml(r) {
   const cls = r.status==='internal_transfer' ? 'transfer' : (amt<0 ? 'debit' : 'credit');
   const td = (col, value) => `<td class="c-${col}" title="${esc(value)}">${esc(value)}</td>`;
   const label = col => r.hash ? editCell(col, r) : td(col, r[col]);
+  const hint = !r.category && SUGGESTIONS[r.counterparty];
   return `<tr>
     ${td('transaction_date', r.transaction_date)}
     ${td('counterparty', r.counterparty)}
     ${td('description', r.description)}
     <td class="amount ${cls}">${amt<0?'−':'+'}${Math.abs(amt).toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
-    ${label('category')}
+    ${hint && r.hash ? suggestCell(r, hint) : label('category')}
     <td><span class=account>${esc(r.source_bank)}</span></td>
     ${td('payment_mode', r.payment_mode)}
     ${label('review_status')}
@@ -251,6 +264,23 @@ document.getElementById('tbody').addEventListener('change', async e => {
   } catch (err) {
     el.classList.add('failed');
     el.title = `Not saved: ${err.message}`;
+  }
+});
+
+document.getElementById('tbody').addEventListener('click', async e => {
+  const button = e.target.closest('button.accept');
+  if (!button) return;
+  const {counterparty, category} = button.dataset;
+  button.disabled = true;
+  try {
+    const res = await fetch('/accept', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({counterparty, category})});
+    if (!res.ok) throw new Error((await res.json()).error || res.status);
+    DATA.forEach(r => { if (r.counterparty === counterparty && !r.category) r.category = category; });
+    addCategory(category);
+    render();
+  } catch (err) {
+    button.disabled = false;
+    button.title = `Not saved: ${err.message}`;
   }
 });
 
@@ -355,15 +385,18 @@ def build_server(csv_path: str, port: int, settings: Settings | None = None) -> 
     def current_rows() -> list[dict]:
         rows = load_csv_data(csv_path) if Path(csv_path).exists() else []
         if settings:
-            overlay_labels(rows, settings.paths.annotations)
+            overlay_labels(rows, settings.paths.annotations, settings.paths.category_rules)
         return rows
 
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
             if self.path == "/" or self.path == "/index.html":
                 locked = locked_statements(settings) if settings else []
-                html = HTML_TEMPLATE.replace("{{DATA}}", _script_json(current_rows())).replace(
-                    "{{LOCKED}}", _script_json(locked)
+                suggestions = confident_suggestions(settings.paths.suggestions) if settings else {}
+                html = (
+                    HTML_TEMPLATE.replace("{{DATA}}", _script_json(current_rows()))
+                    .replace("{{LOCKED}}", _script_json(locked))
+                    .replace("{{SUGGESTIONS}}", _script_json(suggestions))
                 )
                 self._send(200, "text/html; charset=utf-8", html.encode())
             elif self.path == "/data":
@@ -372,7 +405,7 @@ def build_server(csv_path: str, port: int, settings: Settings | None = None) -> 
                 self._send(404, "text/plain", b"")
 
         def do_POST(self):
-            if self.path not in ("/unlock", "/annotate") or settings is None:
+            if self.path not in ("/unlock", "/annotate", "/accept") or settings is None:
                 self._send_json(404, {"error": "not found"})
                 return
             # JSON-only + same-origin: a page on another site cannot trigger processing through the browser.
@@ -389,6 +422,9 @@ def build_server(csv_path: str, port: int, settings: Settings | None = None) -> 
                 return
             if self.path == "/annotate":
                 self._annotate(settings)
+                return
+            if self.path == "/accept":
+                self._accept(settings)
                 return
             try:
                 body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
@@ -410,6 +446,15 @@ def build_server(csv_path: str, port: int, settings: Settings | None = None) -> 
                 body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
                 set_label(settings.paths.annotations, str(body["hash"]), str(body["field"]), str(body["value"]))
             except (KeyError, ValueError) as exc:  # bad request from the page, not a server fault
+                self._send_json(400, {"error": str(exc)})
+                return
+            self._send_json(200, {"ok": True})
+
+        def _accept(self, settings: Settings) -> None:
+            try:
+                body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
+                set_rule(settings.paths.category_rules, str(body["counterparty"]), str(body["category"]))
+            except (KeyError, ValueError) as exc:
                 self._send_json(400, {"error": str(exc)})
                 return
             self._send_json(200, {"ok": True})

@@ -8,6 +8,7 @@ from src.connectors.gmail import authorize, fetch_password_hints, gmail_service,
 from src.core.ingestion import discover_files
 from src.core.orchestrator import process_pipeline
 from src.core.statement_passwords import load_statement_passwords
+from src.core.suggestions import suggest_categories
 from src.exporters.report import summarize_pipeline_run
 from src.exporters.sheets import export_to_google_sheets
 
@@ -34,6 +35,26 @@ def run_process_command(settings: Settings) -> list[str]:
     """Process statements, using any saved statement passwords (dashboard/inline passwords still win)."""
     passwords = load_statement_passwords(settings.paths.statement_passwords)
     return summarize_pipeline_run(process_pipeline(settings, passwords=passwords))
+
+
+def run_suggest_command(settings: Settings, endpoint: str, limit: int | None) -> list[str]:
+    """Score counterparties with a local decision model; `fipro dashboard` then offers the confident answers."""
+    if not Path(settings.paths.dashboard_data).exists():
+        raise CommandInputError(f"{settings.paths.dashboard_data} not found. Run `fipro process` first.")
+    try:
+        scored = suggest_categories(
+            endpoint,
+            settings.paths.dashboard_data,
+            settings.paths.annotations,
+            settings.paths.category_rules,
+            settings.paths.suggestions,
+            limit,
+        )
+    except OSError as exc:
+        raise CommandInputError(f"Could not reach the model at {endpoint}: {exc}") from exc
+    except ValueError as exc:
+        raise CommandInputError(str(exc)) from exc
+    return [f"Scored {scored} counterpart{'y' if scored == 1 else 'ies'} → {settings.paths.suggestions}"]
 
 
 def _require_existing_file(
