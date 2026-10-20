@@ -7,7 +7,7 @@ from pathlib import Path
 
 from src.config import Settings
 from src.connectors.gmail import load_password_hints
-from src.core.annotations import overlay_labels, set_label, set_rule
+from src.core.annotations import overlay_labels, set_category_many, set_label, set_rule
 from src.core.ingestion import discover_files
 from src.core.orchestrator import process_pipeline
 from src.core.parser_registry import is_locked_statement
@@ -48,6 +48,16 @@ HTML_TEMPLATE = """
   td.c-category { max-width: 280px; }
   .cell { display: flex; gap: 4px; align-items: center; }
   .cell input { flex: 1; }
+  #modal { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none; align-items: center; justify-content: center; z-index: 50; }
+  #modal.open { display: flex; }
+  #modal .box { background: #1e293b; border: 1px solid #475569; border-radius: 10px; width: min(900px, 94vw); max-height: 86vh; display: flex; flex-direction: column; }
+  #modal h2 { font-size: 16px; padding: 16px 20px 4px; } #modal .sub { padding: 0 20px 10px; font-size: 12px; color: #94a3b8; }
+  #modal .list { overflow: auto; border-top: 1px solid #334155; border-bottom: 1px solid #334155; }
+  #modal .item { display: grid; grid-template-columns: 24px 90px 100px 1fr 60px; gap: 8px; padding: 6px 20px; font-size: 12px; align-items: center; }
+  #modal .item:hover { background: #0f1117; } #modal .item .d { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #modal .foot { padding: 12px 20px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; font-size: 13px; }
+  #modal .foot .sp { flex: 1; } #modal button { border: 0; border-radius: 6px; padding: 7px 14px; font-weight: 600; cursor: pointer; }
+  #modal button.go { background: #22c55e; color: #052e16; } #modal button.no { background: #334155; color: #e2e8f0; } #modal button:disabled { opacity: .5; }
   button.accept { flex: none; max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: #14532d; color: #bbf7d0; border: 1px solid #166534; border-radius: 4px; padding: 1px 6px; font-size: 11px; cursor: pointer; }
   td select, td input { background: transparent; border: 1px solid transparent; border-radius: 4px; color: inherit; font: inherit; padding: 3px 6px; }
   td select { appearance: none; width: auto; min-width: 0; cursor: pointer; }
@@ -109,6 +119,7 @@ HTML_TEMPLATE = """
   <span id=range>—</span>
   <span>Fipro</span>
 </div>
+<div id=modal><div class=box><h2 id=m_title></h2><div class=sub id=m_sub></div><div class=list id=m_list></div><div class=foot><label><input type=checkbox id=m_all checked> Select all</label><label id=m_rem_l><input type=checkbox id=m_rem checked> Remember for future statements</label><span class=sp id=m_err></span><button class=no id=m_cancel>Cancel</button><button class=go id=m_go></button></div></div></div>
 <script>
 const DATA = {{DATA}};
 const LOCKED = {{LOCKED}};
@@ -259,7 +270,7 @@ document.getElementById('tbody').addEventListener('change', async e => {
     const res = await fetch('/annotate', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({hash, field, value: el.value})});
     if (!res.ok) throw new Error((await res.json()).error || res.status);
     byHash.get(hash)[field] = el.value.trim();
-    if (field === 'category' && el.value.trim()) addCategory(el.value.trim());
+    if (field === 'category' && el.value.trim()) { addCategory(el.value.trim()); openReview(byHash.get(hash).counterparty, el.value.trim()); }
     el.classList.add('saved');
   } catch (err) {
     el.classList.add('failed');
@@ -267,21 +278,52 @@ document.getElementById('tbody').addEventListener('change', async e => {
   }
 });
 
-document.getElementById('tbody').addEventListener('click', async e => {
-  const button = e.target.closest('button.accept');
-  if (!button) return;
-  const {counterparty, category} = button.dataset;
-  button.disabled = true;
+// Review step: apply one approved category to the same counterparty's other uncategorized rows, minus any you untick.
+let pending = null;
+const $ = id => document.getElementById(id);
+function openReview(counterparty, category) {
+  if (!counterparty) return;
+  const rows = DATA.filter(r => r.hash && r.counterparty === counterparty && !r.category && true)
+    .sort((a, b) => a.transaction_date.localeCompare(b.transaction_date));
+  if (!rows.length) return;
+  pending = {counterparty, category, rows};
+  $('m_title').textContent = `Apply “${category}” to ${rows.length} transaction${rows.length === 1 ? '' : 's'}?`;
+  $('m_sub').textContent = `All ${counterparty} transactions that have no category yet. Untick any that don't belong.`;
+  $('m_list').replaceChildren(...rows.map((r, i) => {
+    const amt = parseFloat(r.amount) || 0, row = el('label', 'item');
+    row.innerHTML = `<input type=checkbox data-i=${i} checked><span>${esc(r.transaction_date)}</span><span>${amt < 0 ? '−' : '+'}${Math.abs(amt).toLocaleString('en-IN', {minimumFractionDigits: 2})}</span><span class=d title="${esc(r.description)}">${esc(r.description)}</span><span>${esc(r.source_bank)}</span>`;
+    return row;
+  }));
+  $('m_err').textContent = ''; $('m_all').checked = true; syncReview();
+  $('modal').classList.add('open');
+}
+function ticked() { return [...document.querySelectorAll('#m_list input:checked')].map(c => pending.rows[+c.dataset.i]); }
+function syncReview() {
+  const n = ticked().length, all = n === pending.rows.length;
+  $('m_all').checked = all;
+  $('m_rem').disabled = !all; if (!all) $('m_rem').checked = false;
+  $('m_rem_l').style.opacity = all ? 1 : .5;
+  $('m_go').textContent = `Apply to ${n}`; $('m_go').disabled = !n;
+}
+function closeReview() { $('modal').classList.remove('open'); pending = null; }
+$('m_list').addEventListener('change', syncReview);
+$('m_all').addEventListener('change', e => { document.querySelectorAll('#m_list input').forEach(c => c.checked = e.target.checked); if (e.target.checked) $('m_rem').checked = true; syncReview(); });
+$('m_cancel').addEventListener('click', closeReview);
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && pending) closeReview(); });
+$('m_go').addEventListener('click', async () => {
+  const chosen = ticked(), remember = $('m_rem').checked && chosen.length === pending.rows.length;
+  $('m_go').disabled = true;
   try {
-    const res = await fetch('/accept', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({counterparty, category})});
+    const res = await fetch('/accept', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({counterparty: pending.counterparty, category: pending.category, remember, hashes: chosen.map(r => r.hash)})});
     if (!res.ok) throw new Error((await res.json()).error || res.status);
-    DATA.forEach(r => { if (r.counterparty === counterparty && !r.category) r.category = category; });
-    addCategory(category);
-    render();
-  } catch (err) {
-    button.disabled = false;
-    button.title = `Not saved: ${err.message}`;
-  }
+    chosen.forEach(r => { r.category = pending.category; });
+    addCategory(pending.category);
+    closeReview(); render();
+  } catch (err) { $('m_err').textContent = `Not saved: ${err.message}`; $('m_go').disabled = false; }
+});
+document.getElementById('tbody').addEventListener('click', e => {
+  const button = e.target.closest('button.accept');
+  if (button) openReview(button.dataset.counterparty, button.dataset.category);
 });
 
 function addCategory(name) {
@@ -453,7 +495,11 @@ def build_server(csv_path: str, port: int, settings: Settings | None = None) -> 
         def _accept(self, settings: Settings) -> None:
             try:
                 body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
-                set_rule(settings.paths.category_rules, str(body["counterparty"]), str(body["category"]))
+                category = str(body["category"])
+                if body.get("remember"):  # every transaction of this counterparty was approved: one rule covers them
+                    set_rule(settings.paths.category_rules, str(body["counterparty"]), category)
+                else:  # some were unticked, so a rule would wrongly cover them: label only the approved ones
+                    set_category_many(settings.paths.annotations, [str(h) for h in body["hashes"]], category)
             except (KeyError, ValueError) as exc:
                 self._send_json(400, {"error": str(exc)})
                 return

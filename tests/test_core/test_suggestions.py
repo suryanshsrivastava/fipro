@@ -73,3 +73,14 @@ def test_accepted_rule_shows_on_rows_without_their_own_category(tmp_path):
     assert [r["category"] for r in rows] == ["Mine", "Entertainment/Eating out", ""]
     with pytest.raises(ValueError):
         set_rule(rules, "SWIGGY", "")
+
+
+def test_bulk_category_labels_only_the_approved_hashes_and_rejects_bad_input(tmp_path):
+    from src.core.annotations import set_category_many
+
+    path = str(tmp_path / "a.csv")
+    set_category_many(path, [HASH, "f" * 16], " City/Cab ")
+    assert {h: r["category"] for h, r in read_table(path, "hash").items()} == {HASH: "City/Cab", "f" * 16: "City/Cab"}
+    with pytest.raises(ValueError):
+        set_category_many(path, [HASH, "nope"], "X")
+    assert len(read_table(path, "hash")) == 2  # the failed call wrote nothing

@@ -67,6 +67,19 @@ def set_label(path: str, txn_hash: str, field: str, value: str) -> None:
     write_table(path, "hash", ANNOTATION_FIELDS, rows)
 
 
+def set_category_many(path: str, txn_hashes: list[str], category: str) -> None:
+    """Give each transaction its own category in one write; all-or-nothing if any hash or the category is invalid."""
+    category = category.strip()
+    if not category or len(category) > _MAX_TEXT:
+        raise ValueError("a category is required and must be at most 500 characters")
+    if not all(_HASH.fullmatch(h) for h in txn_hashes):
+        raise ValueError("not a transaction hash")
+    rows = read_table(path, "hash")
+    for h in txn_hashes:
+        rows.setdefault(h, {})["category"] = category
+    write_table(path, "hash", ANNOTATION_FIELDS, rows)
+
+
 def set_rule(path: str, counterparty: str, category: str) -> None:
     """Make ``category`` the category of every transaction with this counterparty (a transaction's own label still wins)."""
     counterparty, category = counterparty.strip().upper(), category.strip()
