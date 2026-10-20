@@ -52,6 +52,8 @@ HTML_TEMPLATE = """
   #modal .list { overflow: auto; border-top: 1px solid #334155; border-bottom: 1px solid #334155; }
   #modal .item { display: grid; grid-template-columns: 24px 90px 100px 1fr 60px; gap: 8px; padding: 6px 20px; font-size: 12px; align-items: center; }
   #modal .item:hover { background: #0f1117; } #modal .item .d { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #modal .other { display: none; padding: 10px 20px; font-size: 13px; background: #0f1117; border-bottom: 1px solid #334155; }
+  #modal .other.show { display: block; } #modal .other input { background: #334155; border: 1px solid #475569; color: #e2e8f0; border-radius: 6px; padding: 6px 10px; width: 320px; margin-left: 8px; }
   #modal .foot { padding: 12px 20px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; font-size: 13px; }
   #modal .foot .sp { flex: 1; } #modal button { border: 0; border-radius: 6px; padding: 7px 14px; font-weight: 600; cursor: pointer; }
   #modal button.go { background: #22c55e; color: #052e16; } #modal button.no { background: #334155; color: #e2e8f0; } #modal button:disabled { opacity: .5; }
@@ -116,7 +118,7 @@ HTML_TEMPLATE = """
   <span id=range>—</span>
   <span>Fipro</span>
 </div>
-<div id=modal><div class=box><h2 id=m_title></h2><div class=sub id=m_sub></div><div class=list id=m_list></div><div class=foot><label><input type=checkbox id=m_all checked> Select all</label><label id=m_rem_l><input type=checkbox id=m_rem checked> Remember for future statements</label><span class=sp id=m_err></span><button class=no id=m_cancel>Cancel</button><button class=go id=m_go></button></div></div></div>
+<div id=modal><div class=box><h2 id=m_title></h2><div class=sub id=m_sub></div><div class=list id=m_list></div><div class=other id=m_other><label>Unticked rows: <b id=m_other_n></b> — give them another category <input id=m_other_cat list=categories placeholder="e.g. City/Airport (a new name is fine)"></label></div><div class=foot><label><input type=checkbox id=m_all checked> Select all</label><label id=m_rem_l><input type=checkbox id=m_rem checked> Remember for future statements</label><span class=sp id=m_err></span><button class=no id=m_cancel>Cancel</button><button class=go id=m_go></button></div></div></div>
 <script>
 const DATA = {{DATA}};
 const LOCKED = {{LOCKED}};
@@ -295,7 +297,7 @@ function openReview(counterparty, category) {
     row.innerHTML = `<input type=checkbox data-i=${i} checked><span>${esc(r.transaction_date)}</span><span>${amt < 0 ? '−' : '+'}${Math.abs(amt).toLocaleString('en-IN', {minimumFractionDigits: 2})}</span><span class=d title="${esc(r.description)}">${esc(r.description)}</span><span>${esc(r.source_bank)}</span>`;
     return row;
   }));
-  $('m_err').textContent = ''; $('m_all').checked = true; syncReview();
+  $('m_err').textContent = ''; $('m_other_cat').value = ''; $('m_all').checked = true; syncReview();
   $('modal').classList.add('open');
 }
 function ticked() { return [...document.querySelectorAll('#m_list input:checked')].map(c => pending.rows[+c.dataset.i]); }
@@ -304,6 +306,8 @@ function syncReview() {
   $('m_all').checked = all;
   $('m_rem').disabled = !all; if (!all) $('m_rem').checked = false;
   $('m_rem_l').style.opacity = all ? 1 : .5;
+  const rest = pending.rows.length - n;
+  $('m_other').classList.toggle('show', rest > 0); $('m_other_n').textContent = `${rest} row${rest === 1 ? '' : 's'}`;
   $('m_go').textContent = `Apply to ${n}`; $('m_go').disabled = !n;
 }
 function closeReview() { $('modal').classList.remove('open'); pending = null; }
@@ -312,13 +316,18 @@ $('m_all').addEventListener('change', e => { document.querySelectorAll('#m_list 
 $('m_cancel').addEventListener('click', closeReview);
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && pending) closeReview(); });
 $('m_go').addEventListener('click', async () => {
-  const chosen = ticked(), remember = $('m_rem').checked && chosen.length === pending.rows.length;
+  const chosen = ticked(), rest = pending.rows.filter(r => !chosen.includes(r)), other = $('m_other_cat').value.trim();
+  const remember = $('m_rem').checked && !rest.length;
+  const save = async (category, rows, remember) => {
+    const res = await fetch('/accept', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({counterparty: pending.counterparty, category, remember, hashes: rows.map(r => r.hash)})});
+    if (!res.ok) throw new Error((await res.json()).error || res.status);
+    rows.forEach(r => { r.category = category; });
+    addCategory(category);
+  };
   $('m_go').disabled = true;
   try {
-    const res = await fetch('/accept', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({counterparty: pending.counterparty, category: pending.category, remember, hashes: chosen.map(r => r.hash)})});
-    if (!res.ok) throw new Error((await res.json()).error || res.status);
-    chosen.forEach(r => { r.category = pending.category; });
-    addCategory(pending.category);
+    await save(pending.category, chosen, remember);
+    if (other && rest.length) await save(other, rest, false);  // never a rule: these rows disagreed with the suggestion
     closeReview(); render();
   } catch (err) { $('m_err').textContent = `Not saved: ${err.message}`; $('m_go').disabled = false; }
 });
