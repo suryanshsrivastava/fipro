@@ -2,7 +2,7 @@ import json
 import threading
 import webbrowser
 from collections import defaultdict
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from src.config import Settings
@@ -45,9 +45,6 @@ HTML_TEMPLATE = """
   th[data-col=description], td.c-description { width: 100%; max-width: 0; overflow: hidden; text-overflow: ellipsis; }
   td.c-counterparty { max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
   td.c-category, td.c-notes { max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
-  td.c-category { max-width: 280px; }
-  .cell { display: flex; gap: 4px; align-items: center; }
-  .cell input { flex: 1; }
   #modal { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none; align-items: center; justify-content: center; z-index: 50; }
   #modal.open { display: flex; }
   #modal .box { background: #1e293b; border: 1px solid #475569; border-radius: 10px; width: min(900px, 94vw); max-height: 86vh; display: flex; flex-direction: column; }
@@ -167,10 +164,10 @@ function renderLocked() {
     return card;
   }));
 }
-const COLS = ['transaction_date','counterparty','description','amount','category','source_bank','payment_mode','review_status','need_want','frequency','splitwise','notes'];
+const COLS = ['transaction_date','counterparty','description','amount','category','suggested','source_bank','payment_mode','review_status','need_want','frequency','splitwise','notes'];
 // Labels you can edit in place; selects for the fixed vocabularies, text inputs for category and notes.
 const CHOICES = {review_status:['cleared','reconciled','waiting','doubt'], need_want:['Need','Want'], frequency:['Monthly','Once'], splitwise:['yes']};
-const HEADERS = {transaction_date:'date', source_bank:'bank', payment_mode:'mode', review_status:'status', need_want:'need/want', frequency:'freq'};
+const HEADERS = {suggested:'suggested', transaction_date:'date', source_bank:'bank', payment_mode:'mode', review_status:'status', need_want:'need/want', frequency:'freq'};
 const DIR = {transaction_date:1, description:1, amount:1, transaction_type:1, source_bank:1};
 let sortCol='transaction_date', sortDir=1, search='', bank='', type='';
 
@@ -207,7 +204,7 @@ function init() {
 }
 
 function toggleSort(col) {
-  if (sortCol===col) sortDir*=-1; else { sortCol=col; sortDir=1; }
+  if (sortCol===col) sortDir*=-1; else { sortCol=col; sortDir = col === 'suggested' ? -1 : 1; }  // suggestions first
   render();
 }
 
@@ -224,19 +221,23 @@ let view = [], rowH = 37, rowHMeasured = false, drawing = false;
 // Narrations and notes come from other people (UPI remarks), so they must never reach innerHTML raw.
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-function editCell(col, r, extra = '') {
+function editCell(col, r) {
   const value = r[col] || '', attrs = `data-hash="${esc(r.hash)}" data-field="${col}"`;
   if (CHOICES[col]) {
     const options = ['', ...CHOICES[col]].map(o => `<option value="${esc(o)}"${o === value ? ' selected' : ''}>${esc(o) || '—'}</option>`).join('');
     return `<td class="c-${col}"><select ${attrs}>${options}</select></td>`;
   }
   const input = `<input ${attrs} value="${esc(value)}"${col === 'category' ? ' list=categories' : ''}>`;
-  return `<td class="c-${col}">${extra ? `<div class=cell>${input}${extra}</div>` : input}</td>`;
+  return `<td class="c-${col}">${input}</td>`;
 }
 
-function suggestCell(r, hint) {
-  const tip = `Local model suggestion (${Math.round(hint.probability * 100)}% sure). Click to apply it to every ${esc(r.counterparty)} transaction.`;
-  return editCell('category', r, `<button class=accept data-counterparty="${esc(r.counterparty)}" data-category="${esc(hint.category)}" title="${tip}">✓ ${esc(hint.category)}</button>`);
+// A suggestion is offered only while the row has no category; sorting by this column brings them together.
+const suggestionFor = r => (!r.category && r.hash && SUGGESTIONS[r.counterparty]) || null;
+function suggestedCell(r) {
+  const hint = suggestionFor(r);
+  if (!hint) return '<td class="c-suggested"></td>';
+  const tip = `Local model suggestion (${Math.round(hint.probability * 100)}% sure). Click to review and apply it to every ${esc(r.counterparty)} transaction.`;
+  return `<td class="c-suggested"><button class=accept data-counterparty="${esc(r.counterparty)}" data-category="${esc(hint.category)}" title="${tip}">✓ ${esc(hint.category)}</button></td>`;
 }
 
 function rowHtml(r) {
@@ -244,13 +245,13 @@ function rowHtml(r) {
   const cls = r.status==='internal_transfer' ? 'transfer' : (amt<0 ? 'debit' : 'credit');
   const td = (col, value) => `<td class="c-${col}" title="${esc(value)}">${esc(value)}</td>`;
   const label = col => r.hash ? editCell(col, r) : td(col, r[col]);
-  const hint = !r.category && SUGGESTIONS[r.counterparty];
   return `<tr>
     ${td('transaction_date', r.transaction_date)}
     ${td('counterparty', r.counterparty)}
     ${td('description', r.description)}
     <td class="amount ${cls}">${amt<0?'−':'+'}${Math.abs(amt).toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
-    ${hint && r.hash ? suggestCell(r, hint) : label('category')}
+    ${label('category')}
+    ${suggestedCell(r)}
     <td><span class=account>${esc(r.source_bank)}</span></td>
     ${td('payment_mode', r.payment_mode)}
     ${label('review_status')}
@@ -370,6 +371,7 @@ function render() {
   });
   const sortFn = (a,b) => {
     let va=a[sortCol], vb=b[sortCol];
+    if (sortCol==='suggested') { va=suggestionFor(a)?.probability ?? -1; vb=suggestionFor(b)?.probability ?? -1; }
     if (sortCol==='amount') { va=parseFloat(va)||0; vb=parseFloat(vb)||0; }
     if (va<vb) return -sortDir; if (va>vb) return sortDir; return 0;
   };
@@ -423,7 +425,7 @@ def _script_json(value: object) -> str:
     return json.dumps(value, default=str).replace("<", "\\u003c")
 
 
-def build_server(csv_path: str, port: int, settings: Settings | None = None) -> HTTPServer:
+def build_server(csv_path: str, port: int, settings: Settings | None = None) -> ThreadingHTTPServer:
     def current_rows() -> list[dict]:
         rows = load_csv_data(csv_path) if Path(csv_path).exists() else []
         if settings:
@@ -517,7 +519,7 @@ def build_server(csv_path: str, port: int, settings: Settings | None = None) -> 
         def log_message(self, fmt, *args):
             pass  # silence request logs
 
-    server = HTTPServer(("127.0.0.1", port), Handler)  # port 0 picks a free port; handlers read the bound one
+    server = ThreadingHTTPServer(("127.0.0.1", port), Handler)  # port 0 picks a free port; handlers read the bound one
     return server
 
 
