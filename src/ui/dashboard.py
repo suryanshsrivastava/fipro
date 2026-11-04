@@ -302,7 +302,7 @@ document.getElementById('tbody').addEventListener('change', async e => {
     if (!res.ok) throw new Error((await res.json()).error || res.status);
     byHash.get(hash)[field] = el.value.trim();
     if (field === 'frequency') { byHash.get(hash).frequency_detected = ''; el.closest('td').classList.remove('auto'); }
-    if (field === 'category' && el.value.trim()) { addCategory(el.value.trim()); openReview(byHash.get(hash).counterparty, el.value.trim()); }
+    if (field === 'category' && el.value.trim()) { addCategory(el.value.trim()); openReview(byHash.get(hash).counterparty, el.value.trim(), byHash.get(hash)); }
     el.classList.add('saved');
   } catch (err) {
     el.classList.add('failed');
@@ -313,14 +313,17 @@ document.getElementById('tbody').addEventListener('change', async e => {
 // Review step: apply one approved category to the same counterparty's other uncategorized rows, minus any you untick.
 let pending = null;
 const $ = id => document.getElementById(id);
-function openReview(counterparty, category) {
-  if (!counterparty) return;
-  const rows = DATA.filter(r => r.hash && r.counterparty === counterparty && !r.category && true)
+// Rows with no counterparty (ATM withdrawals, cash deposits) are grouped by payment mode and direction instead.
+const sameGroup = (r, counterparty, like) => counterparty ? r.counterparty === counterparty
+  : !r.counterparty && r.payment_mode === like.payment_mode && r.transaction_type === like.transaction_type;
+function openReview(counterparty, category, like) {
+  if (!counterparty && !like) return;
+  const rows = DATA.filter(r => r.hash && sameGroup(r, counterparty, like) && !r.category)
     .sort((a, b) => a.transaction_date.localeCompare(b.transaction_date));
   if (!rows.length) return;
   pending = {counterparty, category, rows};
   $('m_title').textContent = `Apply “${category}” to ${rows.length} transaction${rows.length === 1 ? '' : 's'}?`;
-  $('m_sub').textContent = `All ${counterparty} transactions that have no category yet. Untick any that don't belong.`;
+  $('m_sub').textContent = `All ${counterparty || `${like.payment_mode} ${like.transaction_type}`} transactions that have no category yet. Untick any that don't belong.`;
   $('m_list').replaceChildren(...rows.map((r, i) => {
     const amt = parseFloat(r.amount) || 0, row = el('label', 'item');
     row.innerHTML = `<input type=checkbox data-i=${i} checked><span>${esc(r.transaction_date)}</span><span>${amt < 0 ? '−' : '+'}${Math.abs(amt).toLocaleString('en-IN', {minimumFractionDigits: 2})}</span><span class=d title="${esc(r.description)}">${esc(r.description)}</span><span>${esc(r.source_bank)}</span>`;
@@ -333,7 +336,8 @@ function ticked() { return [...document.querySelectorAll('#m_list input:checked'
 function syncReview() {
   const n = ticked().length, all = n === pending.rows.length;
   $('m_all').checked = all;
-  $('m_rem').disabled = !all; if (!all) $('m_rem').checked = false;
+  $('m_rem').disabled = !all || !pending.counterparty; if (!all || !pending.counterparty) $('m_rem').checked = false;
+  $('m_rem_l').style.display = pending.counterparty ? '' : 'none';
   $('m_rem_l').style.opacity = all ? 1 : .5;
   const rest = pending.rows.length - n;
   $('m_other').classList.toggle('show', rest > 0); $('m_other_n').textContent = `${rest} row${rest === 1 ? '' : 's'}`;
@@ -346,7 +350,7 @@ $('m_cancel').addEventListener('click', closeReview);
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && pending) closeReview(); });
 $('m_go').addEventListener('click', async () => {
   const chosen = ticked(), rest = pending.rows.filter(r => !chosen.includes(r)), other = $('m_other_cat').value.trim();
-  const remember = $('m_rem').checked && !rest.length;
+  const remember = $('m_rem').checked && !rest.length && !!pending.counterparty;
   const save = async (category, rows, remember) => {
     const res = await fetch('/accept', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({counterparty: pending.counterparty, category, remember, hashes: rows.map(r => r.hash)})});
     if (!res.ok) throw new Error((await res.json()).error || res.status);
