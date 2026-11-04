@@ -29,10 +29,10 @@ HTML_TEMPLATE = """
   header { background: #1e293b; border-bottom: 1px solid #334155; padding: 16px 24px; position: sticky; top: 0; z-index: 100; }
   h1 { font-size: 20px; font-weight: 600; color: #f1f5f9; margin-bottom: 4px; }
   .subtitle { font-size: 13px; color: #94a3b8; }
-  .toolbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; padding: 14px 24px; background: #1e293b; border-bottom: 1px solid #1e293b; position: sticky; top: 0; z-index: 90; }
+  .toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 14px 24px; background: #1e293b; border-bottom: 1px solid #1e293b; position: sticky; top: 0; z-index: 90; }
   .toolbar input, .toolbar select { background: #334155; border: 1px solid #475569; color: #e2e8f0; border-radius: 6px; padding: 7px 12px; font-size: 13px; }
-  .toolbar input { width: 220px; }
-  .stat-badge { background: #334155; border: 1px solid #475569; border-radius: 6px; padding: 6px 14px; font-size: 12px; display: flex; gap: 6px; align-items: center; }
+  .toolbar input { width: 180px; }
+  .stat-badge { background: #334155; border: 1px solid #475569; border-radius: 6px; padding: 6px 10px; font-size: 12px; white-space: nowrap; display: flex; gap: 6px; align-items: center; }
   .stat-badge .val { color: #38bdf8; font-weight: 600; }
   .table-wrap { overflow-x: clip; padding: 0 12px 24px; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -48,7 +48,7 @@ HTML_TEMPLATE = """
   #confirm_all { display: none; cursor: pointer; }
   td.c-counterparty { max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
   td.c-category, td.c-notes { max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
-  #modal { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none; align-items: center; justify-content: center; z-index: 50; }
+  #modal { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none; align-items: center; justify-content: center; z-index: 200; }
   #modal.open { display: flex; }
   #modal .box { background: #1e293b; border: 1px solid #475569; border-radius: 10px; width: min(900px, 94vw); max-height: 86vh; display: flex; flex-direction: column; }
   #modal h2 { font-size: 16px; padding: 16px 20px 4px; } #modal .sub { padding: 0 20px 10px; font-size: 12px; color: #94a3b8; }
