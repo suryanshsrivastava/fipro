@@ -103,6 +103,7 @@ HTML_TEMPLATE = """
   <datalist id=categories></datalist>
   <select id=category_filter onchange=\"render()\"><option value=\"\">All categories</option><option value=__none__>Uncategorized</option></select>
   <select id=type_filter onchange=\"render()\"><option value=\"\">All types</option><option value=debit>Debit</option><option value=credit>Credit</option><option value=internal_transfer>Transfer</option></select>
+  <select id=freq_filter onchange=\"render()\"><option value=\"\">Any frequency</option><option value=Monthly>Monthly (recurring)</option><option value=Once>Once</option></select>
   <div class=stat-badge>Total <span class=val id=total>0</span></div>
   <div class=stat-badge>Filtered <span class=val id=filtered>0</span></div>
   <div class=stat-badge>Net <span class=val id=net>0</span></div>
@@ -381,9 +382,11 @@ function render() {
   bank = document.getElementById('bank_filter').value;
   type = document.getElementById('type_filter').value;
   const category = document.getElementById('category_filter').value;
+  const freq = document.getElementById('freq_filter').value;
   let rows = DATA.filter(r => {
     if (search && !r.description.toLowerCase().includes(search)) return false;
     if (bank && r.source_bank !== bank) return false;
+    if (freq && r.frequency !== freq) return false;
     if (category === '__none__' ? r.category : (category && r.category !== category)) return false;
     if (type === 'internal_transfer') return r.status === 'internal_transfer';
     if (type && r.transaction_type !== type) return false;
