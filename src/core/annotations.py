@@ -13,6 +13,7 @@ import os
 import re
 from pathlib import Path
 
+from src.core.recurring import detect_monthly
 from src.models.transactions import Transaction
 
 ANNOTATION_FIELDS = ("review_status", "category", "need_want", "frequency", "splitwise", "notes")
@@ -108,12 +109,13 @@ def overlay_labels(rows: list[dict], annotations_path: str, rules_path: str) -> 
 def apply_annotations(transactions: list[Transaction], annotations_path: str, rules_path: str) -> None:
     annotations = read_table(annotations_path, "hash")
     rules = {name.upper(): row for name, row in read_table(rules_path, "counterparty").items()}
+    monthly = detect_monthly(transactions)
     for txn in transactions:
         own = annotations.get(txn.hash, {})
         rule = rules.get(txn.counterparty, {}) if txn.counterparty else {}
         txn.category = own.get("category") or rule.get("category") or None
         txn.need_want = own.get("need_want") or rule.get("need_want") or ""
-        txn.frequency = own.get("frequency") or rule.get("frequency") or ""
+        txn.frequency = own.get("frequency") or rule.get("frequency") or ("Monthly" if txn.hash in monthly else "")
         txn.review_status = own.get("review_status", "")
         txn.splitwise = own.get("splitwise", "").strip().lower() in _TRUE
         if own.get("notes"):
