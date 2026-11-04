@@ -123,7 +123,7 @@ HTML_TEMPLATE = """
   <span id=range>—</span>
   <span>Fipro</span>
 </div>
-<div id=modal><div class=box><h2 id=m_title></h2><div class=sub id=m_sub></div><div class=list id=m_list></div><div class=other id=m_other><label>Unticked rows: <b id=m_other_n></b> — give them another category <input id=m_other_cat list=categories placeholder="e.g. City/Airport (a new name is fine)"></label></div><div class=foot><label><input type=checkbox id=m_all checked> Select all</label><label id=m_rem_l><input type=checkbox id=m_rem checked> Remember for future statements</label><span class=sp id=m_err></span><button class=no id=m_cancel>Cancel</button><button class=go id=m_go></button></div></div></div>
+<div id=modal><div class=box><h2 id=m_title></h2><div class=sub id=m_sub></div><div class=list id=m_list></div><div class=other id=m_other><label>Unticked rows: <b id=m_other_n></b> — optionally give them another category <input id=m_other_cat list=categories placeholder="Leave empty to keep them uncategorised"></label></div><div class=foot><label><input type=checkbox id=m_all checked> Select all</label><label id=m_rem_l><input type=checkbox id=m_rem checked> Remember for future statements</label><span class=sp id=m_err></span><button class=no id=m_cancel>Cancel</button><button class=go id=m_go></button></div></div></div>
 <script>
 const DATA = {{DATA}};
 const LOCKED = {{LOCKED}};
@@ -326,33 +326,21 @@ function openReview(counterparty, category) {
     row.innerHTML = `<input type=checkbox data-i=${i} checked><span>${esc(r.transaction_date)}</span><span>${amt < 0 ? '−' : '+'}${Math.abs(amt).toLocaleString('en-IN', {minimumFractionDigits: 2})}</span><span class=d title="${esc(r.description)}">${esc(r.description)}</span><span>${esc(r.source_bank)}</span>`;
     return row;
   }));
-  $('m_err').textContent = ''; $('m_other_cat').value = ''; delete $('m_other_cat').dataset.touched; $('m_all').checked = true; syncReview();
+  $('m_err').textContent = ''; $('m_other_cat').value = ''; $('m_all').checked = true; syncReview();
   $('modal').classList.add('open');
 }
 function ticked() { return [...document.querySelectorAll('#m_list input:checked')].map(c => pending.rows[+c.dataset.i]); }
-// Prefill for unticked rows: the category most used by already-labelled rows of a similar size, preferring the same payee.
-function alternativeFor(rows) {
-  const amts = rows.map(r => Math.abs(parseFloat(r.amount) || 0)).sort((a, b) => a - b), mid = amts[amts.length >> 1];
-  const key = pending.counterparty.split(' ').slice(0, 2).join(' ');
-  const similar = DATA.filter(r => r.category && r.category !== pending.category && Math.abs(Math.abs(parseFloat(r.amount) || 0) - mid) <= mid * 0.25);
-  const pool = [similar.filter(r => r.counterparty.startsWith(key)), similar].find(p => p.length) || [];
-  const counts = {};
-  pool.forEach(r => { counts[r.category] = (counts[r.category] || 0) + 1; });
-  return Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0];
-}
 function syncReview() {
   const n = ticked().length, all = n === pending.rows.length;
   $('m_all').checked = all;
   $('m_rem').disabled = !all; if (!all) $('m_rem').checked = false;
   $('m_rem_l').style.opacity = all ? 1 : .5;
   const rest = pending.rows.length - n;
-  if (rest > 0 && !$('m_other_cat').dataset.touched) $('m_other_cat').value = alternativeFor(pending.rows.filter(r => !ticked().includes(r))) || '';
   $('m_other').classList.toggle('show', rest > 0); $('m_other_n').textContent = `${rest} row${rest === 1 ? '' : 's'}`;
   $('m_go').textContent = `Apply to ${n}`; $('m_go').disabled = !n;
 }
 function closeReview() { $('modal').classList.remove('open'); pending = null; }
 $('m_list').addEventListener('change', syncReview);
-$('m_other_cat').addEventListener('input', e => { e.target.dataset.touched = 1; });
 $('m_all').addEventListener('change', e => { document.querySelectorAll('#m_list input').forEach(c => c.checked = e.target.checked); if (e.target.checked) $('m_rem').checked = true; syncReview(); });
 $('m_cancel').addEventListener('click', closeReview);
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && pending) closeReview(); });
