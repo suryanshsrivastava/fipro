@@ -223,3 +223,22 @@ def test_authorize_reconsents_offline_when_refresh_fails(oauth):
 def test_authorize_without_token_or_client_explains_setup(tmp_path):
     with pytest.raises(FileNotFoundError, match="Gmail OAuth client credentials not found"):
         authorize(str(tmp_path / "missing.json"), str(tmp_path / "token.json"))
+
+
+def test_fetch_statement_attachments_saves_new_files_and_never_overwrites(tmp_path):
+    message = _message("m1", "hi")
+    message["payload"]["parts"][1]["filename"] = "card.pdf"
+    message["payload"]["parts"].append({"filename": "logo.png", "body": {"attachmentId": "a2"}})
+
+    class Att(FakeGmail):
+        def attachments(self):
+            return type("A", (), {"get": lambda _s, **_k: _Exec({"data": _b64("PDFBYTES")})})()
+
+    gmail = Att({"q": ["m1"]}, {"m1": message})
+    from src.connectors.gmail import fetch_statement_attachments
+
+    saved = fetch_statement_attachments(gmail, {"HDFC_Cards": "q"}, str(tmp_path))
+    assert [p.relative_to(tmp_path).as_posix() for p in saved] == ["hdfc_cards/2026-07-15_m1_card.pdf"]
+    assert saved[0].read_bytes() == b"PDFBYTES"
+    assert saved[0].stat().st_mode & 0o222 == 0
+    assert fetch_statement_attachments(gmail, {"HDFC_Cards": "q"}, str(tmp_path)) == []

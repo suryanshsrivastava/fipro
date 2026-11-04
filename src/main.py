@@ -6,6 +6,7 @@ from src.core.application import (
     CommandInputError,
     prepare_dashboard_launch,
     run_gmail_command,
+    run_gmail_statements_command,
     run_process_command,
     run_sheets_command,
     run_status_command,
@@ -36,6 +37,9 @@ def main():
         "--creds", default="config/google_credentials.json", help="Google service account credentials JSON"
     )
     parser.add_argument("--title", default="Fipro Transactions", help="Spreadsheet title for sheets export")
+    parser.add_argument(
+        "--statements", action="store_true", help="With `gmail`: save statement attachments to the corpus"
+    )
     parser.add_argument("--open", action="store_true", help="Open dashboard automatically")
     args = parser.parse_args()
 
@@ -56,7 +60,7 @@ def main():
         sheets_csv = args.csv or f"{settings.paths.output}/goodbudget_export.csv"
         cmd_sheets(sheets_csv, args.creds, args.title)
     elif args.command == "gmail":
-        cmd_gmail(settings)
+        cmd_gmail(settings, args.statements)
     else:
         cmd_process(settings)
 
@@ -96,9 +100,12 @@ def cmd_sheets(csv_path: str, creds_path: str, title: str):
     _print_lines(result.lines)
 
 
-def cmd_gmail(settings: Settings):
+def cmd_gmail(settings: Settings, statements: bool = False):
     try:
-        lines = run_gmail_command(settings.gmail, settings.paths.password_hints)
+        if statements:
+            lines = run_gmail_statements_command(settings.gmail, settings.paths.input)
+        else:
+            lines = run_gmail_command(settings.gmail, settings.paths.password_hints)
     except (CommandInputError, FileNotFoundError) as exc:
         print(exc, file=sys.stderr)
         if isinstance(exc, FileNotFoundError):
