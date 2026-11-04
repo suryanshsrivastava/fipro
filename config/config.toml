@@ -58,3 +58,8 @@ max_messages = 10
 SBI = "from:sbi.co.in password"
 HDFC = "from:hdfcbank.net password"
 AXIS = "from:axisbank.com password"
+
+[gmail.statements]
+# corpus folder -> Gmail search; `fipro gmail --statements` saves new PDF/Excel attachments to data/<folder>/.
+# Sender addresses are unverified; check one statement email and adjust.
+hdfc_cards = "from:hdfcbank.net has:attachment filename:pdf statement"

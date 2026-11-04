@@ -23,6 +23,7 @@ from typing import Any
 
 GMAIL_SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 
+_STATEMENT_EXTENSIONS = {".pdf", ".xls", ".xlsx"}
 _SENTENCE_BREAK = re.compile(r"(?<=[.!?])\s+|\n+")
 _ABOUT_THE_FILE = re.compile(r"\b(open|attach\w*|statement|pdf|file|protected|encrypted)\b", re.IGNORECASE)
 _PASSWORD_RULE = re.compile(
@@ -102,6 +103,55 @@ def fetch_password_hints(service: Any, queries: Mapping[str, str], max_messages:
             )
             break
     return hints
+
+
+def fetch_statement_attachments(
+    service: Any, queries: Mapping[str, str], dest_root: str, max_messages: int = 10
+) -> list[Path]:
+    """Save PDF/Excel attachments of mail matching each folder's query to ``dest_root/<folder>/``.
+
+    Files are named ``<date>_<message id>_<original name>``; one that already exists is skipped,
+    so re-running never overwrites. New files are made read-only like the rest of the corpus.
+    """
+    messages = service.users().messages()
+    saved: list[Path] = []
+    for folder, query in queries.items():
+        target = Path(dest_root) / Path(folder.lower()).name
+        listing = messages.list(userId="me", q=query, maxResults=max_messages).execute()
+        for ref in listing.get("messages", []):
+            message = messages.get(userId="me", id=ref["id"], format="full").execute()
+            received = datetime.fromtimestamp(int(message["internalDate"]) / 1000, UTC).date().isoformat()
+            for part in _attachment_parts(message.get("payload", {})):
+                name = Path(part["filename"]).name
+                if Path(name).suffix.lower() not in _STATEMENT_EXTENSIONS:
+                    continue
+                path = target / f"{received}_{message['id']}_{name}"
+                if path.exists():
+                    continue
+                body = part["body"]
+                data = body.get("data")
+                if data is None:
+                    attachment = messages.attachments().get(
+                        userId="me", messageId=message["id"], id=body["attachmentId"]
+                    )
+                    data = attachment.execute()["data"]
+                target.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(base64.urlsafe_b64decode(data + "=" * (-len(data) % 4)))
+                path.chmod(0o444)
+                saved.append(path)
+    return saved
+
+
+def _attachment_parts(payload: dict) -> list[dict]:
+    parts: list[dict] = []
+    stack = [payload]
+    while stack:
+        part = stack.pop()
+        stack.extend(reversed(part.get("parts", [])))
+        body = part.get("body", {})
+        if part.get("filename") and (body.get("attachmentId") or body.get("data")):
+            parts.append(part)
+    return parts
 
 
 def extract_password_hint(text: str) -> str | None:
