@@ -39,3 +39,16 @@ def test_detected_frequency_is_flagged_and_own_label_is_not(tmp_path):
     apply_annotations(txns, ann, rules)
     assert [t.frequency_detected for t in txns] == [False, True, True]
     assert {t.frequency for t in txns} == {"Monthly"}
+
+
+def test_atm_withdrawal_and_cash_deposit_become_labelled_transfers():
+    from src.core.transfer_detector import detect_cash_movements
+    from src.models.transactions import TransactionStatus
+
+    atm = Transaction(date(2026, 1, 5), "ATM WDL ATM CASH 1234", Decimal("500"), TransactionType.DEBIT, "SBI", "f")
+    dep = Transaction(date(2026, 1, 6), "CASH DEPOSIT SELF AT X", Decimal("200"), TransactionType.CREDIT, "SBI", "f")
+    pos = Transaction(date(2026, 1, 7), "POS ATM PURCH SHOP", Decimal("10"), TransactionType.DEBIT, "SBI", "f")
+    detect_cash_movements([atm, dep, pos])
+    assert (atm.status, atm.category) == (TransactionStatus.TRANSFER, "Cash/Withdrawal")
+    assert (dep.status, dep.category) == (TransactionStatus.TRANSFER, "Cash/Deposit")
+    assert (pos.status, pos.category) == (TransactionStatus.PENDING, None)

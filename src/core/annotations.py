@@ -115,7 +115,7 @@ def apply_annotations(transactions: list[Transaction], annotations_path: str, ru
     for txn in transactions:
         own = annotations.get(txn.hash, {})
         rule = rules.get(txn.counterparty, {}) if txn.counterparty else {}
-        txn.category = own.get("category") or rule.get("category") or None
+        txn.category = own.get("category") or rule.get("category") or txn.category
         txn.need_want = own.get("need_want") or rule.get("need_want") or ""
         labelled = own.get("frequency") or rule.get("frequency") or ""
         txn.frequency_detected = not labelled and txn.hash in monthly
