@@ -44,6 +44,8 @@ HTML_TEMPLATE = """
   tr { border-bottom: 1px solid #1e293b; transition: background 0.1s; }
   th[data-col=description], td.c-description { width: 100%; max-width: 0; overflow: hidden; text-overflow: ellipsis; }
   td.c-frequency.auto select { font-style: italic; color: #8a6d00; }
+  button.confirm { margin-left: 4px; cursor: pointer; }
+  #confirm_all { display: none; cursor: pointer; }
   td.c-counterparty { max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
   td.c-category, td.c-notes { max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
   #modal { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none; align-items: center; justify-content: center; z-index: 50; }
@@ -105,6 +107,7 @@ HTML_TEMPLATE = """
   <select id=category_filter onchange=\"render()\"><option value=\"\">All categories</option><option value=__none__>Uncategorized</option></select>
   <select id=type_filter onchange=\"render()\"><option value=\"\">All types</option><option value=debit>Debit</option><option value=credit>Credit</option><option value=internal_transfer>Transfer</option></select>
   <select id=freq_filter onchange=\"render()\"><option value=\"\">Any frequency</option><option value=detected>Detected monthly</option><option value=Monthly>Monthly (recurring)</option><option value=Once>Once</option></select>
+  <button id=confirm_all onclick=\"confirmShown()\">✓ Confirm all</button>
   <div class=stat-badge>Total <span class=val id=total>0</span></div>
   <div class=stat-badge>Filtered <span class=val id=filtered>0</span></div>
   <div class=stat-badge>Net <span class=val id=net>0</span></div>
@@ -230,7 +233,7 @@ function editCell(col, r) {
   if (CHOICES[col]) {
     const options = ['', ...CHOICES[col]].map(o => `<option value="${esc(o)}"${o === value ? ' selected' : ''}>${esc(o) || '—'}</option>`).join('');
     const auto = col === 'frequency' && r.frequency_detected ? ' auto" title="Detected: same payee, similar amount, same day each month. Pick a value to override.' : '';
-    return `<td class="c-${col}${auto}"><select ${attrs}>${options}</select></td>`;
+    return `<td class="c-${col}${auto}"><select ${attrs}>${options}</select>${auto ? `<button class=confirm data-hash="${esc(r.hash)}" title="Confirm as Monthly">✓</button>` : ''}</td>`;
   }
   const input = `<input ${attrs} value="${esc(value)}"${col === 'category' ? ' list=categories' : ''}>`;
   return `<td class="c-${col}">${input}</td>`;
@@ -268,6 +271,26 @@ function rowHtml(r) {
 }
 
 const byHash = new Map(DATA.map(r => [r.hash, r]));
+async function confirmMonthly(hash) {
+  const res = await fetch('/annotate', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({hash, field: 'frequency', value: 'Monthly'})});
+  if (!res.ok) throw new Error((await res.json()).error || res.status);
+  const r = byHash.get(hash); r.frequency = 'Monthly'; r.frequency_detected = '';
+}
+// One request at a time: each save rewrites annotations.csv, so concurrent saves could lose labels.
+async function confirmShown() {
+  const todo = view.filter(r => r.frequency_detected), btn = document.getElementById('confirm_all');
+  if (!todo.length || !confirm(`Confirm ${todo.length} detected payments as Monthly?`)) return;
+  btn.disabled = true;
+  try { for (const r of todo) await confirmMonthly(r.hash); }
+  catch (err) { alert(`Stopped: ${err.message}`); }
+  btn.disabled = false;
+  render();
+}
+document.getElementById('tbody').addEventListener('click', async e => {
+  const b = e.target.closest('button.confirm');
+  if (!b) return;
+  try { await confirmMonthly(b.dataset.hash); render(); } catch (err) { b.title = `Not saved: ${err.message}`; }
+});
 document.getElementById('tbody').addEventListener('change', async e => {
   const el = e.target, {hash, field} = el.dataset;
   if (!field) return;
@@ -386,6 +409,7 @@ function render() {
   type = document.getElementById('type_filter').value;
   const category = document.getElementById('category_filter').value;
   const freq = document.getElementById('freq_filter').value;
+  document.getElementById('confirm_all').style.display = freq === 'detected' ? 'inline-block' : 'none';
   let rows = DATA.filter(r => {
     if (search && !r.description.toLowerCase().includes(search)) return false;
     if (bank && r.source_bank !== bank) return false;
