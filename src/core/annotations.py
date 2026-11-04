@@ -102,6 +102,8 @@ def overlay_labels(rows: list[dict], annotations_path: str, rules_path: str) -> 
         for field, value in own.items():
             if field in ANNOTATION_FIELDS and value:
                 row[field] = value
+        if own.get("frequency"):
+            row["frequency_detected"] = ""
         if not own.get("category"):
             row["category"] = rules.get(row.get("counterparty", ""), {}).get("category") or row.get("category", "")
 
@@ -115,7 +117,9 @@ def apply_annotations(transactions: list[Transaction], annotations_path: str, ru
         rule = rules.get(txn.counterparty, {}) if txn.counterparty else {}
         txn.category = own.get("category") or rule.get("category") or None
         txn.need_want = own.get("need_want") or rule.get("need_want") or ""
-        txn.frequency = own.get("frequency") or rule.get("frequency") or ("Monthly" if txn.hash in monthly else "")
+        labelled = own.get("frequency") or rule.get("frequency") or ""
+        txn.frequency_detected = not labelled and txn.hash in monthly
+        txn.frequency = labelled or ("Monthly" if txn.frequency_detected else "")
         txn.review_status = own.get("review_status", "")
         txn.splitwise = own.get("splitwise", "").strip().lower() in _TRUE
         if own.get("notes"):

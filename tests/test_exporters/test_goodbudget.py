@@ -77,6 +77,7 @@ def test_export_dashboard_data_uses_rich_columns(tmp_path):
         "review_status",
         "need_want",
         "frequency",
+        "frequency_detected",
         "splitwise",
     ]
     assert rows[0]["source_file"] == "sample.xls"

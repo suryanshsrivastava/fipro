@@ -43,6 +43,7 @@ HTML_TEMPLATE = """
   th.sorted .arrow { opacity: 1; }
   tr { border-bottom: 1px solid #1e293b; transition: background 0.1s; }
   th[data-col=description], td.c-description { width: 100%; max-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  td.c-frequency.auto select { font-style: italic; color: #8a6d00; }
   td.c-counterparty { max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
   td.c-category, td.c-notes { max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
   #modal { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none; align-items: center; justify-content: center; z-index: 50; }
@@ -103,7 +104,7 @@ HTML_TEMPLATE = """
   <datalist id=categories></datalist>
   <select id=category_filter onchange=\"render()\"><option value=\"\">All categories</option><option value=__none__>Uncategorized</option></select>
   <select id=type_filter onchange=\"render()\"><option value=\"\">All types</option><option value=debit>Debit</option><option value=credit>Credit</option><option value=internal_transfer>Transfer</option></select>
-  <select id=freq_filter onchange=\"render()\"><option value=\"\">Any frequency</option><option value=Monthly>Monthly (recurring)</option><option value=Once>Once</option></select>
+  <select id=freq_filter onchange=\"render()\"><option value=\"\">Any frequency</option><option value=detected>Detected monthly</option><option value=Monthly>Monthly (recurring)</option><option value=Once>Once</option></select>
   <div class=stat-badge>Total <span class=val id=total>0</span></div>
   <div class=stat-badge>Filtered <span class=val id=filtered>0</span></div>
   <div class=stat-badge>Net <span class=val id=net>0</span></div>
@@ -228,7 +229,8 @@ function editCell(col, r) {
   const value = r[col] || '', attrs = `data-hash="${esc(r.hash)}" data-field="${col}"`;
   if (CHOICES[col]) {
     const options = ['', ...CHOICES[col]].map(o => `<option value="${esc(o)}"${o === value ? ' selected' : ''}>${esc(o) || '—'}</option>`).join('');
-    return `<td class="c-${col}"><select ${attrs}>${options}</select></td>`;
+    const auto = col === 'frequency' && r.frequency_detected ? ' auto" title="Detected: same payee, similar amount, same day each month. Pick a value to override.' : '';
+    return `<td class="c-${col}${auto}"><select ${attrs}>${options}</select></td>`;
   }
   const input = `<input ${attrs} value="${esc(value)}"${col === 'category' ? ' list=categories' : ''}>`;
   return `<td class="c-${col}">${input}</td>`;
@@ -274,6 +276,7 @@ document.getElementById('tbody').addEventListener('change', async e => {
     const res = await fetch('/annotate', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({hash, field, value: el.value})});
     if (!res.ok) throw new Error((await res.json()).error || res.status);
     byHash.get(hash)[field] = el.value.trim();
+    if (field === 'frequency') { byHash.get(hash).frequency_detected = ''; el.closest('td').classList.remove('auto'); }
     if (field === 'category' && el.value.trim()) { addCategory(el.value.trim()); openReview(byHash.get(hash).counterparty, el.value.trim()); }
     el.classList.add('saved');
   } catch (err) {
@@ -386,7 +389,7 @@ function render() {
   let rows = DATA.filter(r => {
     if (search && !r.description.toLowerCase().includes(search)) return false;
     if (bank && r.source_bank !== bank) return false;
-    if (freq && r.frequency !== freq) return false;
+    if (freq === 'detected' ? !r.frequency_detected : (freq && r.frequency !== freq)) return false;
     if (category === '__none__' ? r.category : (category && r.category !== category)) return false;
     if (type === 'internal_transfer') return r.status === 'internal_transfer';
     if (type && r.transaction_type !== type) return false;
