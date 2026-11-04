@@ -82,6 +82,7 @@ class Transaction:
     review_status: str = ""
     need_want: str = ""
     frequency: str = ""
+    frequency_detected: bool = False  # frequency was inferred from the pattern, not labelled
     splitwise: bool = False
     raw_data: dict | None = None
 

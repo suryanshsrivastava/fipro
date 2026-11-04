@@ -21,6 +21,8 @@ statement_passwords = "corpus/state/statement_passwords.json"
 # transaction hash; category_rules.csv maps a counterparty to a category. Both must survive re-runs.
 annotations = "corpus/state/annotations.csv"
 category_rules = "corpus/state/category_rules.csv"
+# Category suggestions from a local decision model (`fipro suggest`); the dashboard offers them, nothing applies itself.
+suggestions = "corpus/state/suggestions.csv"
 
 [processing]
 supported_extensions = ["xls", "xlsx"]

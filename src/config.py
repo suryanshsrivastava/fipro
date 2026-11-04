@@ -26,6 +26,7 @@ class PathSettings:
     statement_passwords: str = "corpus/state/statement_passwords.json"
     annotations: str = "corpus/state/annotations.csv"
     category_rules: str = "corpus/state/category_rules.csv"
+    suggestions: str = "corpus/state/suggestions.csv"
 
     @classmethod
     def from_config(cls, config: dict) -> PathSettings:
@@ -38,6 +39,7 @@ class PathSettings:
             statement_passwords=_str(config, "paths.statement_passwords", d.statement_passwords),
             annotations=_str(config, "paths.annotations", d.annotations),
             category_rules=_str(config, "paths.category_rules", d.category_rules),
+            suggestions=_str(config, "paths.suggestions", d.suggestions),
         )
 
 

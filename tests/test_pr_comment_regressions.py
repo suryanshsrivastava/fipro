@@ -98,7 +98,7 @@ def test_serve_dashboard_does_not_open_browser_without_flag(tmp_path: Path, monk
         def serve_forever(self):
             return None
 
-    monkeypatch.setattr(dashboard, "HTTPServer", FakeHTTPServer)
+    monkeypatch.setattr(dashboard, "ThreadingHTTPServer", FakeHTTPServer)
     monkeypatch.setattr(dashboard.webbrowser, "open", opened_urls.append)
 
     dashboard.serve_dashboard(str(csv_path), port=9090, open_browser=False)

@@ -13,6 +13,7 @@ import os
 import re
 from pathlib import Path
 
+from src.core.recurring import detect_monthly
 from src.models.transactions import Transaction
 
 ANNOTATION_FIELDS = ("review_status", "category", "need_want", "frequency", "splitwise", "notes")
@@ -67,24 +68,58 @@ def set_label(path: str, txn_hash: str, field: str, value: str) -> None:
     write_table(path, "hash", ANNOTATION_FIELDS, rows)
 
 
-def overlay_labels(rows: list[dict], annotations_path: str) -> None:
-    """Show labels saved since the last `fipro process` on exported rows (a row's own label wins)."""
+def set_category_many(path: str, txn_hashes: list[str], category: str) -> None:
+    """Give each transaction its own category in one write; all-or-nothing if any hash or the category is invalid."""
+    category = category.strip()
+    if not category or len(category) > _MAX_TEXT:
+        raise ValueError("a category is required and must be at most 500 characters")
+    if not all(_HASH.fullmatch(h) for h in txn_hashes):
+        raise ValueError("not a transaction hash")
+    rows = read_table(path, "hash")
+    for h in txn_hashes:
+        rows.setdefault(h, {})["category"] = category
+    write_table(path, "hash", ANNOTATION_FIELDS, rows)
+
+
+def set_rule(path: str, counterparty: str, category: str) -> None:
+    """Make ``category`` the category of every transaction with this counterparty (a transaction's own label still wins)."""
+    counterparty, category = counterparty.strip().upper(), category.strip()
+    if not counterparty or not category:
+        raise ValueError("a rule needs a counterparty and a category")
+    if max(len(counterparty), len(category)) > _MAX_TEXT:
+        raise ValueError(f"rule text is longer than {_MAX_TEXT} characters")
+    rows = {name.upper(): row for name, row in read_table(path, "counterparty").items()}
+    rows.setdefault(counterparty, {})["category"] = category
+    write_table(path, "counterparty", RULE_FIELDS, rows)
+
+
+def overlay_labels(rows: list[dict], annotations_path: str, rules_path: str) -> None:
+    """Show labels saved since the last `fipro process` on exported rows (a row's own label wins over a rule)."""
     annotations = read_table(annotations_path, "hash")
+    rules = {name.upper(): row for name, row in read_table(rules_path, "counterparty").items()}
     for row in rows:
-        for field, value in annotations.get(row.get("hash", ""), {}).items():
+        own = annotations.get(row.get("hash", ""), {})
+        for field, value in own.items():
             if field in ANNOTATION_FIELDS and value:
                 row[field] = value
+        if own.get("frequency"):
+            row["frequency_detected"] = ""
+        if not own.get("category"):
+            row["category"] = rules.get(row.get("counterparty", ""), {}).get("category") or row.get("category", "")
 
 
 def apply_annotations(transactions: list[Transaction], annotations_path: str, rules_path: str) -> None:
     annotations = read_table(annotations_path, "hash")
     rules = {name.upper(): row for name, row in read_table(rules_path, "counterparty").items()}
+    monthly = detect_monthly(transactions)
     for txn in transactions:
         own = annotations.get(txn.hash, {})
         rule = rules.get(txn.counterparty, {}) if txn.counterparty else {}
-        txn.category = own.get("category") or rule.get("category") or None
+        txn.category = own.get("category") or rule.get("category") or txn.category
         txn.need_want = own.get("need_want") or rule.get("need_want") or ""
-        txn.frequency = own.get("frequency") or rule.get("frequency") or ""
+        labelled = own.get("frequency") or rule.get("frequency") or ""
+        txn.frequency_detected = not labelled and txn.hash in monthly
+        txn.frequency = labelled or ("Monthly" if txn.frequency_detected else "")
         txn.review_status = own.get("review_status", "")
         txn.splitwise = own.get("splitwise", "").strip().lower() in _TRUE
         if own.get("notes"):
