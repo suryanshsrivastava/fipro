@@ -233,7 +233,7 @@ function editCell(col, r) {
   if (CHOICES[col]) {
     const options = ['', ...CHOICES[col]].map(o => `<option value="${esc(o)}"${o === value ? ' selected' : ''}>${esc(o) || '—'}</option>`).join('');
     const auto = col === 'frequency' && r.frequency_detected ? ' auto" title="Detected: same payee, similar amount, same day each month. Pick a value to override.' : '';
-    return `<td class="c-${col}${auto}"><select ${attrs}>${options}</select>${auto ? `<button class=confirm data-hash="${esc(r.hash)}" title="Confirm as Monthly">✓</button>` : ''}</td>`;
+    return `<td class="c-${col}${auto}"><select ${attrs}>${options}</select>${auto ? `<button class=confirm data-hash="${esc(r.hash)}" title="Confirm Monthly for every detected payment to this payee">✓</button>` : ''}</td>`;
   }
   const input = `<input ${attrs} value="${esc(value)}"${col === 'category' ? ' list=categories' : ''}>`;
   return `<td class="c-${col}">${input}</td>`;
@@ -289,7 +289,9 @@ async function confirmShown() {
 document.getElementById('tbody').addEventListener('click', async e => {
   const b = e.target.closest('button.confirm');
   if (!b) return;
-  try { await confirmMonthly(b.dataset.hash); render(); } catch (err) { b.title = `Not saved: ${err.message}`; }
+  const who = byHash.get(b.dataset.hash).counterparty;
+  const group = DATA.filter(r => r.frequency_detected && (who ? r.counterparty === who : r.hash === b.dataset.hash));
+  try { for (const r of group) await confirmMonthly(r.hash); render(); } catch (err) { b.title = `Not saved: ${err.message}`; }
 });
 document.getElementById('tbody').addEventListener('change', async e => {
   const el = e.target, {hash, field} = el.dataset;
