@@ -52,3 +52,16 @@ def test_atm_withdrawal_and_cash_deposit_become_labelled_transfers():
     assert (atm.status, atm.category) == (TransactionStatus.TRANSFER, "Cash/Withdrawal")
     assert (dep.status, dep.category) == (TransactionStatus.TRANSFER, "Cash/Deposit")
     assert (pos.status, pos.category) == (TransactionStatus.PENDING, None)
+
+
+def test_settlement_label_makes_a_transfer_only_when_labelled(tmp_path):
+    from src.core.annotations import apply_annotations, set_label
+    from src.models.transactions import TransactionStatus
+
+    labelled = _debit(date(2026, 1, 5), "40", who="ARPITA")
+    other = _debit(date(2026, 1, 6), "40", who="UBER")
+    ann, rules = str(tmp_path / "a.csv"), str(tmp_path / "r.csv")
+    set_label(ann, labelled.hash, "category", "Settlements/Friends")
+    apply_annotations([labelled, other], ann, rules)
+    assert labelled.status == TransactionStatus.TRANSFER
+    assert other.status == TransactionStatus.PENDING

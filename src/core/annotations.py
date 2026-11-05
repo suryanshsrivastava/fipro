@@ -14,10 +14,11 @@ import re
 from pathlib import Path
 
 from src.core.recurring import detect_monthly
-from src.models.transactions import Transaction
+from src.models.transactions import Transaction, TransactionStatus
 
 ANNOTATION_FIELDS = ("review_status", "category", "need_want", "frequency", "splitwise", "notes")
 RULE_FIELDS = ("category", "need_want", "frequency")
+SETTLEMENT_PREFIX = "Settlements"
 _TRUE = {"1", "true", "yes", "y"}
 # Fields that take one of a fixed set of values; category and notes are free text.
 LABEL_CHOICES = {
@@ -116,6 +117,10 @@ def apply_annotations(transactions: list[Transaction], annotations_path: str, ru
         own = annotations.get(txn.hash, {})
         rule = rules.get(txn.counterparty, {}) if txn.counterparty else {}
         txn.category = own.get("category") or rule.get("category") or txn.category
+        if (txn.category or "").startswith(SETTLEMENT_PREFIX) and txn.status != TransactionStatus.TRANSFER:
+            # Only ever from your own label or rule: a UPI payment to a friend and to a vendor look identical.
+            txn.status = TransactionStatus.TRANSFER
+            txn.notes = "Settlement: not spend or income"
         txn.need_want = own.get("need_want") or rule.get("need_want") or ""
         labelled = own.get("frequency") or rule.get("frequency") or ""
         txn.frequency_detected = not labelled and txn.hash in monthly
