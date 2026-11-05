@@ -8,6 +8,7 @@ from pathlib import Path
 from src.config import Settings
 from src.connectors.gmail import load_password_hints
 from src.core.annotations import overlay_labels, set_category_many, set_label, set_rule
+from src.core.application import statement_gaps
 from src.core.ingestion import discover_files
 from src.core.orchestrator import process_pipeline
 from src.core.parser_registry import is_locked_statement
@@ -52,6 +53,7 @@ HTML_TEMPLATE = """
   #payees .item { display: grid; grid-template-columns: 1fr 60px 110px 190px 70px; gap: 8px; padding: 6px 20px; font-size: 12px; align-items: center; }
   #payees .item:hover { background: #0f1117; } #payees input { background: #334155; border: 1px solid #475569; color: #e2e8f0; border-radius: 6px; padding: 4px 8px; font-size: 12px; }
   #payees button { border: 0; border-radius: 6px; padding: 5px 10px; font-weight: 600; cursor: pointer; background: #334155; color: #e2e8f0; }
+  .cov { display: inline-block; margin: 6px 14px 0 0; font-size: 12px; color: #94a3b8; } .cov.gap { color: #f59e0b; font-weight: 600; }
   button.confirm { margin-left: 4px; cursor: pointer; }
   #confirm_all { display: none; cursor: pointer; }
   td.c-counterparty { max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
@@ -106,6 +108,7 @@ HTML_TEMPLATE = """
 <header>
   <h1>Fipro Dashboard</h1>
   <div class=subtitle id=summary>—</div>
+  <div class=subtitle id=coverage></div>
 </header>
 <section id=locked aria-label="Locked statements"></section>
 <div class=toolbar>
@@ -137,6 +140,7 @@ HTML_TEMPLATE = """
 <script>
 const DATA = {{DATA}};
 const LOCKED = {{LOCKED}};
+const GAPS = {{GAPS}};  // [bank, first uncovered day, last uncovered day]
 const SUGGESTIONS = {{SUGGESTIONS}};  // counterparty -> {category, probability}, from `fipro suggest`
 
 function el(tag, cls, text) {
@@ -203,6 +207,17 @@ function renderSummary() {
     dates.length ? `${count} · ${dates[0]} → ${dates[dates.length - 1]}` : count;
 }
 
+// Newest transaction per bank (what to download from) and any stretch no statement covers.
+function renderCoverage() {
+  const last = {};
+  DATA.forEach(r => { if (r.transaction_date && (!last[r.source_bank] || r.transaction_date > last[r.source_bank])) last[r.source_bank] = r.transaction_date; });
+  const today = new Date(), days = d => Math.round((today - new Date(d)) / 864e5);
+  const box = document.getElementById('coverage');
+  box.replaceChildren();
+  Object.entries(last).sort().forEach(([bank, d]) => box.append(el('span', 'cov', `${bank}: latest ${d} (${days(d)}d ago)`)));
+  GAPS.forEach(([bank, from, to]) => box.append(el('span', 'cov gap', `${bank}: no statement ${from} → ${to}`)));
+}
+
 function init() {
   const th = document.getElementById('thead');
   th.innerHTML = COLS.map(c => `<th data-col=${c} onclick=\"toggleSort('${c}')\">${HEADERS[c] || c.replace(/_/g,' ')}<span class=arrow>▼</span></th>`).join('');
@@ -215,6 +230,7 @@ function init() {
   search = document.getElementById('search').value;
   bank = sel.value; type = document.getElementById('type_filter').value;
   renderSummary();
+  renderCoverage();
   renderLocked();
   setStickyOffsets();
   render();
@@ -516,6 +532,7 @@ def build_server(csv_path: str, port: int, settings: Settings | None = None) -> 
                 html = (
                     HTML_TEMPLATE.replace("{{DATA}}", _script_json(current_rows()))
                     .replace("{{LOCKED}}", _script_json(locked))
+                    .replace("{{GAPS}}", _script_json(statement_gaps(settings.paths.input) if settings else []))
                     .replace("{{SUGGESTIONS}}", _script_json(suggestions))
                 )
                 self._send(200, "text/html; charset=utf-8", html.encode())
