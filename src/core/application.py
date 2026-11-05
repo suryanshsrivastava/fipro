@@ -1,7 +1,7 @@
 import csv
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -105,7 +105,31 @@ def run_latest_command(settings: Settings, *, today: date | None = None) -> list
     for bank, dates in sorted(spans.items()):
         last = date.fromisoformat(max(dates))
         lines.append(f"{bank}: latest transaction {last} ({(today - last).days} days ago); download {last} to {today}")
-    return lines or ["No transactions in the export."]
+    lines = lines or ["No transactions in the export."]
+    for bank, start, end in statement_gaps(settings.paths.input):
+        lines.append(f"{bank}: no statement covers {start} to {end}; download it")
+    return lines
+
+
+def statement_gaps(corpus: str, min_days: int = 31) -> list[tuple[str, date, date]]:
+    """Stretches longer than ``min_days`` that no statement's period covers, from each bank's audit_log.csv.
+
+    A statement's period runs from its first to its last transaction, so a shorter silence is ordinary inactivity.
+    """
+    gaps: list[tuple[str, date, date]] = []
+    for log in sorted(Path(corpus).glob("*/audit_log.csv")):
+        with open(log, newline="") as f:
+            periods = sorted(
+                (date.fromisoformat(r["period_start"]), date.fromisoformat(r["period_end"]))
+                for r in csv.DictReader(f)
+                if r.get("period_start") and r.get("period_end")
+            )
+        covered_to = None
+        for start, end in periods:
+            if covered_to is not None and (start - covered_to).days > min_days:
+                gaps.append((log.parent.name.upper(), covered_to + timedelta(days=1), start - timedelta(days=1)))
+            covered_to = max(covered_to, end) if covered_to else end
+    return gaps
 
 
 def prepare_dashboard_launch(
