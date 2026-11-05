@@ -1,5 +1,7 @@
+import csv
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -86,6 +88,24 @@ def run_status_command(
         lines.append(f"{bank}: {len(names)} file(s)")
         lines.extend(f"  - {name}" for name in names)
     return lines
+
+
+def run_latest_command(settings: Settings, *, today: date | None = None) -> list[str]:
+    """Per bank, the newest transaction date in the last export: download statements from there onwards."""
+    path = Path(settings.paths.dashboard_data)
+    if not path.exists():
+        raise CommandInputError(f"{path} not found. Run `fipro process` first.")
+    today = today or date.today()
+    spans: dict[str, list[str]] = {}
+    with open(path, newline="") as f:
+        for row in csv.DictReader(f):
+            if row.get("transaction_date"):
+                spans.setdefault(row["source_bank"], []).append(row["transaction_date"])
+    lines = []
+    for bank, dates in sorted(spans.items()):
+        last = date.fromisoformat(max(dates))
+        lines.append(f"{bank}: latest transaction {last} ({(today - last).days} days ago); download {last} to {today}")
+    return lines or ["No transactions in the export."]
 
 
 def prepare_dashboard_launch(

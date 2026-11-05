@@ -91,3 +91,18 @@ def test_run_process_command_reads_saved_statement_passwords(tmp_path: Path, mon
 
     assert run_process_command(settings) == ["ok"]
     assert captured["passwords"] == {"SBI": "from-file"}
+
+
+def test_latest_command_reports_each_banks_newest_date(tmp_path):
+    from datetime import date
+
+    from src.config import Settings
+    from src.core.application import run_latest_command
+
+    csv_path = tmp_path / "d.csv"
+    csv_path.write_text("transaction_date,source_bank\n2026-01-05,HDFC\n2026-03-01,HDFC\n2026-02-10,SBI\n")
+    settings = Settings.from_config({"paths": {"input": "in", "dashboard_data": str(csv_path)}})
+    assert run_latest_command(settings, today=date(2026, 3, 11)) == [
+        "HDFC: latest transaction 2026-03-01 (10 days ago); download 2026-03-01 to 2026-03-11",
+        "SBI: latest transaction 2026-02-10 (29 days ago); download 2026-02-10 to 2026-03-11",
+    ]
