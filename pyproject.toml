@@ -14,7 +14,7 @@ dependencies = [
   "tomli>=2.0.1",
   "msoffcrypto-tool>=5.4",
   "google-auth-oauthlib>=1.2",
-  "requests>=2.31",
+  "requests>=2.34.2",
   "google-api-python-client>=2.130",
 ]
 
