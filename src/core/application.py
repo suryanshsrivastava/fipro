@@ -4,7 +4,13 @@ from pathlib import Path
 from typing import Any
 
 from src.config import GmailSettings, Settings
-from src.connectors.gmail import authorize, fetch_password_hints, gmail_service, save_password_hints
+from src.connectors.gmail import (
+    authorize,
+    fetch_password_hints,
+    fetch_statement_attachments,
+    gmail_service,
+    save_password_hints,
+)
 from src.core.ingestion import discover_files
 from src.core.orchestrator import process_pipeline
 from src.core.statement_passwords import load_statement_passwords
@@ -128,6 +134,18 @@ def run_gmail_command(gmail: GmailSettings, hints_path: str, *, service: Any = N
         else:
             lines.append(f"{bank}: no password hint found in Gmail")
     lines.append(f"Saved to {hints_path}")
+    return lines
+
+
+def run_gmail_statements_command(gmail: GmailSettings, input_root: str, *, service: Any = None) -> list[str]:
+    """Save new statement attachments from Gmail into the corpus, one folder per [gmail.statements] entry."""
+    if not gmail.statements:
+        raise CommandInputError("No Gmail search queries configured under [gmail.statements] in config.toml")
+    if service is None:
+        service = gmail_service(authorize(gmail.credentials, gmail.token))
+    saved = fetch_statement_attachments(service, gmail.statements, input_root, max_messages=gmail.max_messages)
+    lines = [f"Saved {path}" for path in saved]
+    lines.append(f"{len(saved)} new statement file(s) in {input_root}")
     return lines
 
 

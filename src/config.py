@@ -103,6 +103,7 @@ class GmailSettings:
     token: str = "config/gmail_token.json"
     max_messages: int = 10
     queries: Mapping[str, str] = field(default_factory=dict)
+    statements: Mapping[str, str] = field(default_factory=dict)  # corpus folder -> Gmail search
 
     @classmethod
     def from_config(cls, config: dict) -> GmailSettings:
@@ -112,6 +113,7 @@ class GmailSettings:
             token=_str(config, "gmail.token", d.token),
             max_messages=_int(config, "gmail.max_messages", d.max_messages),
             queries=_str_map(config, "gmail.queries"),
+            statements=_str_map(config, "gmail.statements"),
         )
 
 

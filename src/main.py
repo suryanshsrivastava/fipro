@@ -6,6 +6,7 @@ from src.core.application import (
     CommandInputError,
     prepare_dashboard_launch,
     run_gmail_command,
+    run_gmail_statements_command,
     run_process_command,
     run_sheets_command,
     run_status_command,
@@ -44,6 +45,9 @@ def main():
         "--endpoint", default="http://127.0.0.1:9931", help="Local llama.cpp server for `suggest` (must be localhost)"
     )
     parser.add_argument("--limit", type=int, default=None, help="Score at most this many counterparties in `suggest`")
+    parser.add_argument(
+        "--statements", action="store_true", help="With `gmail`: save statement attachments to the corpus"
+    )
     parser.add_argument("--open", action="store_true", help="Open dashboard automatically")
     args = parser.parse_args()
 
@@ -64,7 +68,7 @@ def main():
         sheets_csv = args.csv or f"{settings.paths.output}/goodbudget_export.csv"
         cmd_sheets(sheets_csv, args.creds, args.title)
     elif args.command == "gmail":
-        cmd_gmail(settings)
+        cmd_gmail(settings, args.statements)
     elif args.command == "suggest":
         cmd_suggest(settings, args.endpoint, args.limit)
     else:
@@ -114,9 +118,12 @@ def cmd_suggest(settings: Settings, endpoint: str, limit: int | None):
     _print_lines(lines)
 
 
-def cmd_gmail(settings: Settings):
+def cmd_gmail(settings: Settings, statements: bool = False):
     try:
-        lines = run_gmail_command(settings.gmail, settings.paths.password_hints)
+        if statements:
+            lines = run_gmail_statements_command(settings.gmail, settings.paths.input)
+        else:
+            lines = run_gmail_command(settings.gmail, settings.paths.password_hints)
     except (CommandInputError, FileNotFoundError) as exc:
         print(exc, file=sys.stderr)
         if isinstance(exc, FileNotFoundError):
