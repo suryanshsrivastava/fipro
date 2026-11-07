@@ -9,6 +9,7 @@ from src.core.application import (
     run_process_command,
     run_sheets_command,
     run_status_command,
+    run_suggest_command,
 )
 from src.ui.dashboard import serve_dashboard
 from src.utils.logger import setup_logging
@@ -28,7 +29,10 @@ def main():
     parser = argparse.ArgumentParser(description="Fipro — Bank statement processor")
     parser.add_argument("--config", default="config/config.toml", help="Path to config.toml")
     parser.add_argument(
-        "command", nargs="?", default="process", choices=["process", "status", "dashboard", "sheets", "gmail"]
+        "command",
+        nargs="?",
+        default="process",
+        choices=["process", "status", "dashboard", "sheets", "gmail", "suggest"],
     )
     parser.add_argument("--csv", default=None, help="CSV path override for dashboard or sheets")
     parser.add_argument("--port", type=int, default=8080, help="Dashboard port (default: 8080)")
@@ -36,6 +40,10 @@ def main():
         "--creds", default="config/google_credentials.json", help="Google service account credentials JSON"
     )
     parser.add_argument("--title", default="Fipro Transactions", help="Spreadsheet title for sheets export")
+    parser.add_argument(
+        "--endpoint", default="http://127.0.0.1:9931", help="Local llama.cpp server for `suggest` (must be localhost)"
+    )
+    parser.add_argument("--limit", type=int, default=None, help="Score at most this many counterparties in `suggest`")
     parser.add_argument("--open", action="store_true", help="Open dashboard automatically")
     args = parser.parse_args()
 
@@ -57,6 +65,8 @@ def main():
         cmd_sheets(sheets_csv, args.creds, args.title)
     elif args.command == "gmail":
         cmd_gmail(settings)
+    elif args.command == "suggest":
+        cmd_suggest(settings, args.endpoint, args.limit)
     else:
         cmd_process(settings)
 
@@ -94,6 +104,14 @@ def cmd_sheets(csv_path: str, creds_path: str, title: str):
             print("    and save it to config/google_credentials.json", file=sys.stderr)
         sys.exit(1)
     _print_lines(result.lines)
+
+
+def cmd_suggest(settings: Settings, endpoint: str, limit: int | None):
+    try:
+        lines = run_suggest_command(settings, endpoint, limit)
+    except CommandInputError as exc:
+        _exit_with_error(str(exc))
+    _print_lines(lines)
 
 
 def cmd_gmail(settings: Settings):

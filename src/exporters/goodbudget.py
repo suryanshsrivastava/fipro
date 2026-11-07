@@ -22,6 +22,7 @@ DASHBOARD_FIELDNAMES = [
     "review_status",
     "need_want",
     "frequency",
+    "frequency_detected",
     "splitwise",
 ]
 
@@ -60,6 +61,7 @@ def export_dashboard_data(transactions: list[Transaction], output_path: str) -> 
                     "review_status": txn.review_status,
                     "need_want": txn.need_want,
                     "frequency": txn.frequency,
+                    "frequency_detected": "yes" if txn.frequency_detected else "",
                     "splitwise": "yes" if txn.splitwise else "",
                 }
             )

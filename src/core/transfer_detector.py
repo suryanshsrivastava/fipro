@@ -42,3 +42,23 @@ def is_transfer_pair(txn1: Transaction, txn2: Transaction) -> bool:
     if txn1.amount != txn2.amount:
         return False
     return txn1.transaction_type != txn2.transaction_type
+
+
+def detect_cash_movements(transactions: list[Transaction]) -> list[Transaction]:
+    """Treat ATM withdrawals and cash deposits as transfers to and from a Cash account, labelled Cash/*.
+
+    The money has not been spent yet, so these stay out of the spend export; the category keeps them findable.
+    """
+    for txn in transactions:
+        if txn.status == TransactionStatus.TRANSFER:
+            continue
+        if txn.transaction_type == TransactionType.DEBIT and txn.payment_mode == "ATM":
+            category, note = "Cash/Withdrawal", "Cash withdrawal: moved to Cash account"
+        elif txn.transaction_type == TransactionType.CREDIT and txn.description.upper().startswith("CASH DEPOSIT"):
+            category, note = "Cash/Deposit", "Cash deposit: moved from Cash account"
+        else:
+            continue
+        txn.status = TransactionStatus.TRANSFER
+        txn.category = category
+        txn.notes = note
+    return transactions
