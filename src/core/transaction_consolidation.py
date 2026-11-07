@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from datetime import date
 
 from src.core.deduplicator import deduplicate
-from src.core.transfer_detector import detect_transfers
+from src.core.transfer_detector import detect_cash_movements, detect_transfers
 from src.models.result import ProcessingResult
 from src.models.transactions import Transaction
 from src.utils.report_helpers import filter_transactions_for_export
@@ -37,7 +37,7 @@ def consolidate_transactions(
     """Dedupe overlapping statements, order oldest to newest, detect transfers and filter for export."""
     deduplicated_transactions, duplicates_by_source = deduplicate(all_transactions)
     _sort_oldest_first(deduplicated_transactions)
-    deduplicated_transactions = detect_transfers(deduplicated_transactions)
+    deduplicated_transactions = detect_cash_movements(detect_transfers(deduplicated_transactions))
     transactions_by_source: dict[str, list[Transaction]] = {}
     for transaction in deduplicated_transactions:
         transactions_by_source.setdefault(transaction.source_file, []).append(transaction)

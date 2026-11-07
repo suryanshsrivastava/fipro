@@ -4,6 +4,7 @@ import tempfile
 from pathlib import Path
 
 from src.config import Settings
+from src.core.annotations import apply_annotations
 from src.core.audit_log import write_audit_logs
 from src.core.external_account_detector import detect_external_account_payments
 from src.core.ingestion import discover_files
@@ -93,6 +94,9 @@ def process_pipeline(settings: Settings, passwords: dict[str, str] | None = None
         include_internal_transfers=settings.processing.export_internal_transfers,
     )
     detect_external_account_payments(consolidation.deduplicated_transactions, settings.external_accounts)
+    apply_annotations(
+        consolidation.deduplicated_transactions, settings.paths.annotations, settings.paths.category_rules
+    )
     apply_processing_metrics(extraction.results, consolidation)
 
     output_dir = Path(settings.paths.output)
