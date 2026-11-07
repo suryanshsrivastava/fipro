@@ -12,6 +12,8 @@ from datetime import date
 from decimal import Decimal
 from enum import Enum
 
+from src.utils.narration import counterparty, payment_mode
+
 
 class TransactionType(Enum):
     """Transaction type enumeration."""
@@ -76,6 +78,11 @@ class Transaction:
     external_account_name: str | None = None
     status: TransactionStatus = TransactionStatus.PENDING
     notes: str | None = None
+    # Filled from corpus/state/annotations.csv and category_rules.csv, never from the statement itself.
+    review_status: str = ""
+    need_want: str = ""
+    frequency: str = ""
+    splitwise: bool = False
     raw_data: dict | None = None
 
     # Metadata
@@ -100,6 +107,14 @@ class Transaction:
     def narration_key(self) -> str:
         """The description with all whitespace removed: the form used to compare narrations across statements."""
         return "".join(self.description.split())
+
+    @property
+    def payment_mode(self) -> str:
+        return payment_mode(self.description)
+
+    @property
+    def counterparty(self) -> str:
+        return counterparty(self.description)
 
     @property
     def signed_amount(self) -> Decimal:

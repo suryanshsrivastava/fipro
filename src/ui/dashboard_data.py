@@ -14,6 +14,7 @@ def load_csv_data(csv_path: str) -> list[dict]:
             signed_amount = 0.0
         normalized_rows.append(
             {
+                "hash": row.get("hash") or "",
                 "transaction_date": row.get("transaction_date") or row.get("Date") or "",
                 "description": row.get("description") or row.get("Name") or "",
                 "amount": amount,
@@ -22,6 +23,18 @@ def load_csv_data(csv_path: str) -> list[dict]:
                 "source_file": row.get("source_file") or "",
                 "status": row.get("status") or row.get("Status") or "",
                 "notes": row.get("notes") or row.get("Notes") or "",
+                **{
+                    key: row.get(key) or ""
+                    for key in (
+                        "payment_mode",
+                        "counterparty",
+                        "category",
+                        "review_status",
+                        "need_want",
+                        "frequency",
+                        "splitwise",
+                    )
+                },
             }
         )
     return normalized_rows

@@ -17,6 +17,10 @@ password_hints = "corpus/state/password_hints.json"
 # Bank -> statement password, so locked statements can be processed without re-entering them.
 # Holds the passwords themselves (unlike password_hints, which holds only the hint sentence).
 statement_passwords = "corpus/state/statement_passwords.json"
+# Hand-maintained labels (status, category, need/want, frequency, splitwise, notes). annotations.csv is keyed by
+# transaction hash; category_rules.csv maps a counterparty to a category. Both must survive re-runs.
+annotations = "corpus/state/annotations.csv"
+category_rules = "corpus/state/category_rules.csv"
 
 [processing]
 supported_extensions = ["xls", "xlsx"]

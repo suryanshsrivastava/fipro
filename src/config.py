@@ -24,6 +24,8 @@ class PathSettings:
     dashboard_data: str = "corpus/output/dashboard_data.csv"
     password_hints: str = "corpus/state/password_hints.json"
     statement_passwords: str = "corpus/state/statement_passwords.json"
+    annotations: str = "corpus/state/annotations.csv"
+    category_rules: str = "corpus/state/category_rules.csv"
 
     @classmethod
     def from_config(cls, config: dict) -> PathSettings:
@@ -34,6 +36,8 @@ class PathSettings:
             dashboard_data=_str(config, "paths.dashboard_data", d.dashboard_data),
             password_hints=_str(config, "paths.password_hints", d.password_hints),
             statement_passwords=_str(config, "paths.statement_passwords", d.statement_passwords),
+            annotations=_str(config, "paths.annotations", d.annotations),
+            category_rules=_str(config, "paths.category_rules", d.category_rules),
         )
 
 
