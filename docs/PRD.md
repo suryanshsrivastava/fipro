@@ -596,7 +596,6 @@ fipro/
 │
 ├── .gitignore
 ├── pyproject.toml
-├── requirements.txt
 ├── README.md
 └── AGENTS.md                      # AI/Dev guidelines
 ```
