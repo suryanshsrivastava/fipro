@@ -8,6 +8,7 @@ from pathlib import Path
 from src.config import Settings
 from src.connectors.gmail import load_password_hints
 from src.core.annotations import overlay_labels, set_category_many, set_label, set_rule
+from src.core.application import statement_gaps
 from src.core.ingestion import discover_files
 from src.core.orchestrator import process_pipeline
 from src.core.parser_registry import is_locked_statement
@@ -44,6 +45,15 @@ HTML_TEMPLATE = """
   tr { border-bottom: 1px solid #1e293b; transition: background 0.1s; }
   th[data-col=description], td.c-description { width: 100%; max-width: 0; overflow: hidden; text-overflow: ellipsis; }
   td.c-frequency.auto select { font-style: italic; color: #8a6d00; }
+  #payees { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none; align-items: center; justify-content: center; z-index: 150; }
+  #payees.open { display: flex; }
+  #payees .box { background: #1e293b; border: 1px solid #475569; border-radius: 10px; width: min(900px, 94vw); max-height: 86vh; display: flex; flex-direction: column; }
+  #payees h2 { font-size: 16px; padding: 16px 20px 4px; } #payees .sub { padding: 0 20px 10px; font-size: 12px; color: #94a3b8; }
+  #payees .list { overflow: auto; border-top: 1px solid #334155; border-bottom: 1px solid #334155; }
+  #payees .item { display: grid; grid-template-columns: 1fr 60px 110px 190px 70px; gap: 8px; padding: 6px 20px; font-size: 12px; align-items: center; }
+  #payees .item:hover { background: #0f1117; } #payees input { background: #334155; border: 1px solid #475569; color: #e2e8f0; border-radius: 6px; padding: 4px 8px; font-size: 12px; }
+  #payees button { border: 0; border-radius: 6px; padding: 5px 10px; font-weight: 600; cursor: pointer; background: #334155; color: #e2e8f0; }
+  .cov { display: inline-block; margin: 6px 14px 0 0; font-size: 12px; color: #94a3b8; } .cov.gap { color: #f59e0b; font-weight: 600; }
   button.confirm { margin-left: 4px; cursor: pointer; }
   #confirm_all { display: none; cursor: pointer; }
   td.c-counterparty { max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
@@ -98,6 +108,7 @@ HTML_TEMPLATE = """
 <header>
   <h1>Fipro Dashboard</h1>
   <div class=subtitle id=summary>—</div>
+  <div class=subtitle id=coverage></div>
 </header>
 <section id=locked aria-label="Locked statements"></section>
 <div class=toolbar>
@@ -107,6 +118,7 @@ HTML_TEMPLATE = """
   <select id=category_filter onchange=\"render()\"><option value=\"\">All categories</option><option value=__none__>Uncategorized</option></select>
   <select id=type_filter onchange=\"render()\"><option value=\"\">All types</option><option value=debit>Debit</option><option value=credit>Credit</option><option value=internal_transfer>Transfer</option></select>
   <select id=freq_filter onchange=\"render()\"><option value=\"\">Any frequency</option><option value=detected>Detected monthly</option><option value=Monthly>Monthly (recurring)</option><option value=Once>Once</option></select>
+  <button id=payees_btn onclick=\"openPayees()\">Review payees</button>
   <button id=confirm_all onclick=\"confirmShown()\">✓ Confirm all</button>
   <div class=stat-badge>Total <span class=val id=total>0</span></div>
   <div class=stat-badge>Filtered <span class=val id=filtered>0</span></div>
@@ -123,10 +135,12 @@ HTML_TEMPLATE = """
   <span id=range>—</span>
   <span>Fipro</span>
 </div>
+<div id=payees><div class=box><h2>Review payees</h2><div class=sub>Uncategorised payees by number of transactions. Label each once: a friend as Settlements/Friends (kept out of spend and income), a driver or shop as a normal category. Nothing is guessed.</div><div class=list id=p_list></div><div style="padding:12px 20px;text-align:right"><button id=p_close>Close</button></div></div></div>
 <div id=modal><div class=box><h2 id=m_title></h2><div class=sub id=m_sub></div><div class=list id=m_list></div><div class=other id=m_other><label>Unticked rows: <b id=m_other_n></b> — optionally give them another category <input id=m_other_cat list=categories placeholder="Leave empty to keep them uncategorised"></label></div><div class=foot><label><input type=checkbox id=m_all checked> Select all</label><label id=m_rem_l><input type=checkbox id=m_rem checked> Remember for future statements</label><span class=sp id=m_err></span><button class=no id=m_cancel>Cancel</button><button class=go id=m_go></button></div></div></div>
 <script>
 const DATA = {{DATA}};
 const LOCKED = {{LOCKED}};
+const GAPS = {{GAPS}};  // [bank, first uncovered day, last uncovered day]
 const SUGGESTIONS = {{SUGGESTIONS}};  // counterparty -> {category, probability}, from `fipro suggest`
 
 function el(tag, cls, text) {
@@ -193,6 +207,17 @@ function renderSummary() {
     dates.length ? `${count} · ${dates[0]} → ${dates[dates.length - 1]}` : count;
 }
 
+// Newest transaction per bank (what to download from) and any stretch no statement covers.
+function renderCoverage() {
+  const last = {};
+  DATA.forEach(r => { if (r.transaction_date && (!last[r.source_bank] || r.transaction_date > last[r.source_bank])) last[r.source_bank] = r.transaction_date; });
+  const today = new Date(), days = d => Math.round((today - new Date(d)) / 864e5);
+  const box = document.getElementById('coverage');
+  box.replaceChildren();
+  Object.entries(last).sort().forEach(([bank, d]) => box.append(el('span', 'cov', `${bank}: latest ${d} (${days(d)}d ago)`)));
+  GAPS.forEach(([bank, from, to]) => box.append(el('span', 'cov gap', `${bank}: no statement ${from} → ${to}`)));
+}
+
 function init() {
   const th = document.getElementById('thead');
   th.innerHTML = COLS.map(c => `<th data-col=${c} onclick=\"toggleSort('${c}')\">${HEADERS[c] || c.replace(/_/g,' ')}<span class=arrow>▼</span></th>`).join('');
@@ -205,6 +230,7 @@ function init() {
   search = document.getElementById('search').value;
   bank = sel.value; type = document.getElementById('type_filter').value;
   renderSummary();
+  renderCoverage();
   renderLocked();
   setStickyOffsets();
   render();
@@ -271,6 +297,26 @@ function rowHtml(r) {
 }
 
 const byHash = new Map(DATA.map(r => [r.hash, r]));
+function payeeGroups() {
+  const g = new Map();
+  DATA.filter(r => r.hash && r.counterparty && !r.category && r.status !== 'internal_transfer').forEach(r => {
+    const e = g.get(r.counterparty) || {name: r.counterparty, n: 0, total: 0, like: r};
+    e.n++; e.total += parseFloat(r.amount) || 0; g.set(r.counterparty, e);
+  });
+  return [...g.values()].sort((a, b) => b.n - a.n || Math.abs(b.total) - Math.abs(a.total));
+}
+function openPayees() {
+  const rows = payeeGroups().slice(0, 300);
+  $('p_list').replaceChildren(...rows.map(e => {
+    const row = el('div', 'item');
+    row.innerHTML = `<span title="${esc(e.name)}">${esc(e.name)}</span><span>${e.n}</span><span>${e.total < 0 ? '−' : '+'}${Math.abs(e.total).toLocaleString('en-IN', {maximumFractionDigits: 0})}</span><input list=categories placeholder="category…"><button>Friend</button>`;
+    const go = category => { if (category) { $('payees').classList.remove('open'); openReview(e.name, category, e.like); } };
+    row.querySelector('input').addEventListener('change', ev => go(ev.target.value.trim()));
+    row.querySelector('button').addEventListener('click', () => go('Settlements/Friends'));
+    return row;
+  }));
+  $('payees').classList.add('open');
+}
 async function confirmMonthly(hash) {
   const res = await fetch('/annotate', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({hash, field: 'frequency', value: 'Monthly'})});
   if (!res.ok) throw new Error((await res.json()).error || res.status);
@@ -313,6 +359,7 @@ document.getElementById('tbody').addEventListener('change', async e => {
 // Review step: apply one approved category to the same counterparty's other uncategorized rows, minus any you untick.
 let pending = null;
 const $ = id => document.getElementById(id);
+$('p_close').addEventListener('click', () => $('payees').classList.remove('open'));
 // Rows with no counterparty (ATM withdrawals, cash deposits) are grouped by payment mode and direction instead.
 const sameGroup = (r, counterparty, like) => counterparty ? r.counterparty === counterparty
   : !r.counterparty && r.payment_mode === like.payment_mode && r.transaction_type === like.transaction_type;
@@ -485,6 +532,7 @@ def build_server(csv_path: str, port: int, settings: Settings | None = None) -> 
                 html = (
                     HTML_TEMPLATE.replace("{{DATA}}", _script_json(current_rows()))
                     .replace("{{LOCKED}}", _script_json(locked))
+                    .replace("{{GAPS}}", _script_json(statement_gaps(settings.paths.input) if settings else []))
                     .replace("{{SUGGESTIONS}}", _script_json(suggestions))
                 )
                 self._send(200, "text/html; charset=utf-8", html.encode())

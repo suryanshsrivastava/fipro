@@ -7,6 +7,7 @@ from src.core.application import (
     prepare_dashboard_launch,
     run_gmail_command,
     run_gmail_statements_command,
+    run_latest_command,
     run_process_command,
     run_sheets_command,
     run_status_command,
@@ -33,7 +34,7 @@ def main():
         "command",
         nargs="?",
         default="process",
-        choices=["process", "status", "dashboard", "sheets", "gmail", "suggest"],
+        choices=["process", "status", "dashboard", "sheets", "gmail", "suggest", "latest"],
     )
     parser.add_argument("--csv", default=None, help="CSV path override for dashboard or sheets")
     parser.add_argument("--port", type=int, default=8080, help="Dashboard port (default: 8080)")
@@ -67,6 +68,11 @@ def main():
     elif args.command == "sheets":
         sheets_csv = args.csv or f"{settings.paths.output}/goodbudget_export.csv"
         cmd_sheets(sheets_csv, args.creds, args.title)
+    elif args.command == "latest":
+        try:
+            _print_lines(run_latest_command(settings))
+        except CommandInputError as exc:
+            _exit_with_error(str(exc))
     elif args.command == "gmail":
         cmd_gmail(settings, args.statements)
     elif args.command == "suggest":
