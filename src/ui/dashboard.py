@@ -117,6 +117,7 @@ HTML_TEMPLATE = """
   <datalist id=categories></datalist>
   <select id=category_filter onchange=\"render()\"><option value=\"\">All categories</option><option value=__none__>Uncategorized</option></select>
   <select id=type_filter onchange=\"render()\"><option value=\"\">All types</option><option value=debit>Debit</option><option value=credit>Credit</option><option value=internal_transfer>Transfer</option></select>
+  <select id=month_filter onchange=\"localStorage.month=this.value;render()\"><option value=\"\">All months</option></select>
   <select id=freq_filter onchange=\"render()\"><option value=\"\">Any frequency</option><option value=detected>Detected monthly</option><option value=Monthly>Monthly (recurring)</option><option value=Once>Once</option></select>
   <button id=payees_btn onclick=\"openPayees()\">Review payees</button>
   <button id=confirm_all onclick=\"confirmShown()\">✓ Confirm all</button>
@@ -224,6 +225,10 @@ function init() {
   const banks = [...new Set(DATA.map(r=>r.source_bank))].sort();
   const sel = document.getElementById('bank_filter');
   sel.innerHTML = '<option value=\"\">All banks</option>' + banks.map(b=>`<option value=${b}>${b}</option>`).join('');
+  const months = [...new Set(DATA.map(r => r.transaction_date.slice(0, 7)).filter(Boolean))].sort().reverse();
+  const mf = document.getElementById('month_filter');
+  mf.insertAdjacentHTML('beforeend', months.map(m => `<option value=${m}>${m}</option>`).join(''));
+  mf.value = months.includes(localStorage.month) ? localStorage.month : '';
   const cats = [...new Set(DATA.map(r=>r.category).filter(Boolean))].sort();
   document.getElementById('category_filter').insertAdjacentHTML('beforeend', cats.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join(''));
   cats.forEach(addCategory);
@@ -460,10 +465,12 @@ function render() {
   type = document.getElementById('type_filter').value;
   const category = document.getElementById('category_filter').value;
   const freq = document.getElementById('freq_filter').value;
+  const month = document.getElementById('month_filter').value;
   document.getElementById('confirm_all').style.display = freq === 'detected' ? 'inline-block' : 'none';
   let rows = DATA.filter(r => {
     if (search && !r.description.toLowerCase().includes(search)) return false;
     if (bank && r.source_bank !== bank) return false;
+    if (month && !r.transaction_date.startsWith(month)) return false;
     if (freq === 'detected' ? !r.frequency_detected : (freq && r.frequency !== freq)) return false;
     if (category === '__none__' ? r.category : (category && r.category !== category)) return false;
     if (type === 'internal_transfer') return r.status === 'internal_transfer';
