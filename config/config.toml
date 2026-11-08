@@ -25,7 +25,7 @@ category_rules = "corpus/state/category_rules.csv"
 suggestions = "corpus/state/suggestions.csv"
 
 [processing]
-supported_extensions = ["xls", "xlsx"]
+supported_extensions = ["xls", "xlsx", "pdf"]
 skip_internal_transfers = false
 
 [banks.hdfc]

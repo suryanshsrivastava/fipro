@@ -45,7 +45,7 @@ class PathSettings:
 
 @dataclass(frozen=True, slots=True)
 class ProcessingSettings:
-    supported_extensions: tuple[str, ...] = ("xls", "xlsx")
+    supported_extensions: tuple[str, ...] = ("xls", "xlsx", "pdf")
     fail_on_file_error: bool = False
     # Whether internal transfers stay in exports and reports.
     export_internal_transfers: bool = True

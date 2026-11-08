@@ -30,7 +30,7 @@ def test_input_path_is_required():
 def test_empty_extension_list_means_unset():
     config = {"paths": {"input": "in"}, "processing": {"supported_extensions": []}}
 
-    assert Settings.from_config(config).processing.supported_extensions == ("xls", "xlsx")
+    assert Settings.from_config(config).processing.supported_extensions == ("xls", "xlsx", "pdf")
 
 
 def test_internal_transfer_flags_resolve_to_one_value():
