@@ -60,6 +60,35 @@ HTML_TEMPLATE = """
   #screen-review button { border: 0; border-radius: 6px; padding: 5px 10px; font-weight: 600; cursor: pointer; background: #334155; color: #e2e8f0; }
   #screen-review .done { padding: 28px; text-align: center; color: #4ade80; }
   #tabs .n { margin-left: 6px; font-size: 11px; background: #f59e0b; color: #0f1117; border-radius: 9px; padding: 1px 6px; font-weight: 700; }
+  #tabs { display: flex; gap: 6px; margin-top: 10px; }
+  #tabs button { background: transparent; border: 1px solid #475569; color: #94a3b8; border-radius: 6px; padding: 5px 14px; font-size: 13px; cursor: pointer; }
+  #tabs button.on { background: #38bdf8; border-color: #38bdf8; color: #0f1117; font-weight: 600; }
+  #screen-month { padding: 20px 24px 40px; max-width: 1280px; }
+  #screen-month[hidden], #screen-tx[hidden] { display: none; }
+  .m-head { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+  .m-head h2 { font-size: 20px; min-width: 190px; text-align: center; }
+  .m-head button, .m-head select { background: #334155; border: 1px solid #475569; color: #e2e8f0; border-radius: 6px; padding: 6px 12px; font-size: 13px; cursor: pointer; }
+  .m-head button:disabled { opacity: .35; cursor: default; }
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+  .card { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 14px 16px; }
+  .card h3 { font-size: 12px; font-weight: 500; color: #94a3b8; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 8px; }
+  .kpi .v { font-size: 26px; font-weight: 600; } .kpi .d { font-size: 12px; margin-top: 4px; color: #94a3b8; }
+  .up { color: #f87171; } .down { color: #4ade80; } .good-up { color: #4ade80; } .good-down { color: #f87171; }
+  .grid2 { display: grid; grid-template-columns: 3fr 2fr; gap: 12px; margin-bottom: 12px; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .bar-row { display: grid; grid-template-columns: minmax(120px, 230px) 1fr 100px; gap: 10px; align-items: center; font-size: 13px; padding: 4px 0; cursor: pointer; }
+  .bar-row:hover .name { color: #38bdf8; } .bar-row .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bar { position: relative; height: 10px; background: #0f1117; border-radius: 5px; }
+  .bar i { position: absolute; left: 0; top: 0; bottom: 0; background: #38bdf8; border-radius: 5px; }
+  .bar i.warn { background: #f59e0b; } .bar b { position: absolute; top: -3px; bottom: -3px; width: 2px; background: #e2e8f0; opacity: .7; }
+  .amt { text-align: right; font-variant-numeric: tabular-nums; }
+  .note { font-size: 12px; color: #94a3b8; margin-top: 8px; } .note button { margin-left: 8px; background: #f59e0b; color: #0f1117; border: 0; border-radius: 6px; padding: 3px 10px; font-weight: 600; cursor: pointer; }
+  .stack { display: flex; height: 14px; border-radius: 7px; overflow: hidden; background: #0f1117; margin: 6px 0 10px; }
+  .legend { font-size: 12px; color: #94a3b8; display: flex; gap: 14px; flex-wrap: wrap; } .legend span::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; background: var(--c); }
+  svg.days { width: 100%; height: 120px; } svg.days rect { fill: #38bdf8; } svg.days rect:hover { fill: #f1f5f9; }
+  @media (max-width: 900px) { .kpis, .grid2, .grid3 { grid-template-columns: 1fr; } }
+  #coverage { display: flex; flex-wrap: wrap; column-gap: 18px; row-gap: 2px; margin-top: 4px; }
+  .cov { font-size: 12px; color: #94a3b8; white-space: nowrap; } .cov.gap { color: #f59e0b; font-weight: 600; }
   button.confirm { margin-left: 4px; cursor: pointer; }
   #confirm_all { display: none; cursor: pointer; }
   td.c-counterparty { max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
