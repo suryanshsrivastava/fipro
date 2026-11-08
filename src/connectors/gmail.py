@@ -14,7 +14,8 @@ from __future__ import annotations
 import base64
 import json
 import re
-from collections.abc import Mapping
+import time
+from collections.abc import Callable, Mapping
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from html.parser import HTMLParser
@@ -157,24 +158,55 @@ def _attachment_parts(payload: dict) -> list[dict]:
 _ALERT_REFERENCE = re.compile(r"reference\s*(?:no\.?|number)?\s*:?\s*(\d{12})", re.IGNORECASE)
 
 
-def fetch_alert_times(service: Any, query: str, max_messages: int = 500) -> dict[str, str]:
-    """UPI reference -> local ``YYYY-MM-DD HH:MM`` the alert email arrived, for mail matching ``query``."""
+# Gmail allows 250 quota units a minute per user and a full message read costs 5, so about 50 reads a minute.
+_READ_PAUSE = 1.3
+
+
+def _execute(request: Any, wait: float = 20.0, tries: int = 6) -> Any:
+    """Run a Gmail request, waiting and retrying when the per-minute quota is exhausted."""
+    from googleapiclient.errors import HttpError
+
+    for _ in range(tries - 1):
+        try:
+            return request.execute()
+        except HttpError as exc:
+            if exc.resp.status not in (403, 429) or "rateLimitExceeded" not in str(exc):
+                raise
+            time.sleep(wait)
+    return request.execute()
+
+
+def fetch_alert_times(
+    service: Any,
+    query: str,
+    max_messages: int = 500,
+    *,
+    pause: float = _READ_PAUSE,
+    on_progress: Callable[[dict[str, str]], object] | None = None,
+) -> dict[str, str]:
+    """UPI reference -> local ``YYYY-MM-DD HH:MM`` the alert email arrived, for mail matching ``query``.
+
+    Reads are paced to stay under Gmail's quota; ``on_progress`` gets the times found so far every 25 messages,
+    so an interrupted run keeps what it has.
+    """
     messages = service.users().messages()
     times: dict[str, str] = {}
     seen, token = 0, None
     while seen < max_messages:
-        listing = messages.list(
-            userId="me", q=query, maxResults=min(100, max_messages - seen), pageToken=token
-        ).execute()
+        request = messages.list(userId="me", q=query, maxResults=min(100, max_messages - seen), pageToken=token)
+        listing = _execute(request)
         for ref in listing.get("messages", []):
             seen += 1
-            message = messages.get(userId="me", id=ref["id"], format="full").execute()
+            time.sleep(pause)
+            message = _execute(messages.get(userId="me", id=ref["id"], format="full"))
             match = _ALERT_REFERENCE.search(message_text(message.get("payload", {})) or message.get("snippet", ""))
             if match:
                 received = datetime.fromtimestamp(int(message["internalDate"]) / 1000).astimezone()
                 times[match.group(1)] = received.strftime("%Y-%m-%d %H:%M")
+            if on_progress and seen % 25 == 0:
+                on_progress(times)
         token = listing.get("nextPageToken")
-        if not token:
+        if not token or not listing.get("messages"):
             break
     return times
 

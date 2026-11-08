@@ -251,5 +251,29 @@ def test_fetch_alert_times_maps_reference_to_local_received_time():
         "a1", "Rs.500.00 is debited from your account. UPI transaction reference no.: 130868728616. Warm regards"
     )
     gmail = FakeGmail({"alerts": ["a1"]}, {"a1": alert})
-    times = fetch_alert_times(gmail, "alerts")
+    times = fetch_alert_times(gmail, "alerts", pause=0)
     assert list(times) == ["130868728616"] and len(times["130868728616"]) == 16
+
+
+def test_fetch_alert_times_waits_out_a_quota_error_and_retries(monkeypatch):
+    from googleapiclient.errors import HttpError
+    from httplib2 import Response
+
+    from src.connectors import gmail as gmail_module
+
+    monkeypatch.setattr(gmail_module.time, "sleep", lambda _s: None)
+    alert = _message("a1", "UPI transaction reference no.: 130868728616.")
+    fake = FakeGmail({"alerts": ["a1"]}, {"a1": alert})
+    real_get = fake.get
+    attempts = {"n": 0}
+
+    class Flaky:
+        def execute(self):
+            attempts["n"] += 1
+            if attempts["n"] == 1:
+                raise HttpError(Response({"status": 403}), b"rateLimitExceeded")
+            return real_get("me", "a1", "full").execute()
+
+    fake.get = lambda **_kw: Flaky()  # type: ignore[method-assign]
+    assert list(gmail_module.fetch_alert_times(fake, "alerts", pause=0)) == ["130868728616"]
+    assert attempts["n"] == 2

@@ -201,7 +201,12 @@ def run_gmail_alerts_command(gmail: GmailSettings, times_path: str, *, service: 
         raise CommandInputError("No alert search configured: set alerts under [gmail] in config.toml")
     if service is None:
         service = gmail_service(authorize(gmail.credentials, gmail.token))
-    times = fetch_alert_times(service, gmail.alerts, max_messages=gmail.alert_messages)
+    times = fetch_alert_times(
+        service,
+        gmail.alerts,
+        max_messages=gmail.alert_messages,
+        on_progress=lambda found: save_txn_times(found, times_path),
+    )
     added = save_txn_times(times, times_path)
     return [
         f"Read {len(times)} alert time(s), {added} new, saved to {times_path}",
