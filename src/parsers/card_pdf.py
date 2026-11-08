@@ -19,10 +19,10 @@ from src.models.transactions import Transaction, TransactionType
 
 logging.getLogger("pypdf").setLevel(logging.ERROR)  # warns about every embedded font it cannot decode
 
-Row = tuple[date, str, Decimal, TransactionType]
+Row = tuple[date, str, Decimal, TransactionType, str]  # the last item is the time of day, "" when the card gives none
 
 _HDFC_ROW = re.compile(
-    r"^(\d{2}/\d{2}/\d{4})\|\s*\d{2}:\d{2}\s+(.*?)\s+(\+\s+)?C\s*([\d,]+\.\d{2})\b"
+    r"^(\d{2}/\d{2}/\d{4})\|\s*(\d{2}:\d{2})\s+(.*?)\s+(\+\s+)?C\s*([\d,]+\.\d{2})\b"
 )  # "+" before the C marks a credit; "+ 15" inside the narration is reward points
 _UNI_VISA_ROW = re.compile(r"^(\d{2}/\d{2}/\d{4})\s+(.*?)\s+(CREDIT|DEBIT)\s+₹([\d,]+(?:\.\d+)?)\s*$")
 _DATE = re.compile(r"\d{2}/\d{2}/\d{4}")
@@ -55,16 +55,22 @@ def _day(text: str) -> date:
 def _hdfc_rows(lines: list[str]) -> Iterator[Row]:
     for line in lines:
         if match := _HDFC_ROW.match(line.strip()):
-            day, narration, credit, amount = match.groups()
+            day, clock, narration, credit, amount = match.groups()
             kind = TransactionType.CREDIT if credit else TransactionType.DEBIT
-            yield _day(day), _REWARD_POINTS.sub("", narration), _money(amount), kind
+            yield (
+                _day(day),
+                _REWARD_POINTS.sub("", narration),
+                _money(amount),
+                kind,
+                "" if clock == "00:00" else clock,
+            )  # 00:00 marks a posting, not a time
 
 
 def _uni_visa_rows(lines: list[str]) -> Iterator[Row]:
     for line in lines:
         if match := _UNI_VISA_ROW.match(line.strip()):
             day, narration, kind, amount = match.groups()
-            yield _day(day), narration, _money(amount), TransactionType[kind]
+            yield _day(day), narration, _money(amount), TransactionType[kind], ""
 
 
 def _uni_rupay_rows(lines: list[str]) -> Iterator[Row]:
@@ -76,7 +82,7 @@ def _uni_rupay_rows(lines: list[str]) -> Iterator[Row]:
         j = i + 1 if cells[i + 2] == "INR" else i + 2  # payments carry no reference line
         if j + 4 < len(cells) and cells[j + 1] == "INR" and cells[j + 4] in {"DR", "CR"}:
             kind = TransactionType.DEBIT if cells[j + 4] == "DR" else TransactionType.CREDIT
-            yield _day(cells[i]), cells[j], _money(cells[j + 2]), kind
+            yield _day(cells[i]), cells[j], _money(cells[j + 2]), kind, ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -110,10 +116,12 @@ def extract_card_transactions(card: CardLayout, filepath: str, password: str) ->
     """
     seen: Counter[tuple] = Counter()
     transactions = []
-    for day, narration, amount, kind in card.rows(read_pdf_lines(filepath, password)):
+    for day, narration, amount, kind, clock in card.rows(read_pdf_lines(filepath, password)):
         key = (day, narration, amount, kind)
         seen[key] += 1
         if seen[key] > 1:
             narration = f"{narration} #{seen[key]}"
-        transactions.append(Transaction(day, narration, amount, kind, card.bank, filepath))
+        transactions.append(
+            Transaction(day, narration, amount, kind, card.bank, filepath, raw_data={"time": clock} if clock else None)
+        )
     return transactions

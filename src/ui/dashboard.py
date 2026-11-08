@@ -54,8 +54,8 @@ HTML_TEMPLATE = """
   #screen-review h2 { font-size: 20px; } #screen-review .sub { font-size: 13px; color: #94a3b8; margin-bottom: 14px; }
   #screen-review select, #screen-review input { background: #334155; border: 1px solid #475569; color: #e2e8f0; border-radius: 6px; padding: 6px 10px; font-size: 13px; }
   #screen-review .list { background: #1e293b; border: 1px solid #334155; border-radius: 10px; overflow: hidden; }
-  #screen-review .item { display: grid; grid-template-columns: 220px 50px 100px 1fr 210px 80px; gap: 10px; padding: 8px 16px; font-size: 13px; align-items: center; border-bottom: 1px solid #0f1117; }
-  #screen-review .item:hover { background: #0f1117; } #screen-review .item .d { color: #64748b; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #screen-review .item { display: grid; grid-template-columns: 220px 50px 100px 92px 1fr 210px 80px; gap: 10px; padding: 8px 16px; font-size: 13px; align-items: center; border-bottom: 1px solid #0f1117; }
+  #screen-review .item:hover { background: #0f1117; } #screen-review .item .when { color: #94a3b8; font-size: 12px; font-variant-numeric: tabular-nums; } #screen-review .item .d { color: #64748b; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #screen-review .item span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #screen-review button { border: 0; border-radius: 6px; padding: 5px 10px; font-weight: 600; cursor: pointer; background: #334155; color: #e2e8f0; }
   .seg { display: inline-flex; gap: 0; margin-left: auto; } #screen-review .seg button { border-radius: 0; background: #1e293b; color: #94a3b8; border: 1px solid #475569; } #screen-review .seg button:first-child { border-radius: 6px 0 0 6px; } #screen-review .seg button:last-child { border-radius: 0 6px 6px 0; } #screen-review .seg button.on { background: #38bdf8; color: #0f1117; border-color: #38bdf8; }
@@ -355,7 +355,8 @@ const byHash = new Map(DATA.map(r => [r.hash, r]));
 function payeeGroups(month) {
   const g = new Map();
   DATA.filter(r => r.hash && r.counterparty && !r.category && r.status !== 'internal_transfer' && (!month || r.transaction_date.startsWith(month))).forEach(r => {
-    const e = g.get(r.counterparty) || {name: r.counterparty, n: 0, total: 0, like: r};
+    const e = g.get(r.counterparty) || {name: r.counterparty, n: 0, total: 0, like: r, last: r};
+    if ((r.transaction_date + (r.time || '')) > (e.last.transaction_date + (e.last.time || ''))) e.last = r;
     e.n++; e.total += parseFloat(r.amount) || 0; g.set(r.counterparty, e);
   });
   return [...g.values()].sort((a, b) => b.n - a.n || Math.abs(b.total) - Math.abs(a.total));
@@ -384,7 +385,7 @@ function renderCal() {
   const rows = by[calDay] || [];
   $('p_day').replaceChildren(...(calDay.startsWith(month) ? [el('div', 'sub', `${new Date(calDay).toLocaleDateString('en-IN', {weekday: 'long', day: 'numeric', month: 'long'})} · ${rows.length} transaction${rows.length === 1 ? '' : 's'} (transfers left out)`), ...rows.map(r => {
     const item = el('div', 'item'), amt = parseFloat(r.amount) || 0;
-    item.innerHTML = `<span>${esc(r.source_bank)}</span><span class=d title="${esc(r.description)}">${esc(r.counterparty || r.description)}</span><span class=a>${amt < 0 ? '−' : '+'}${inr(Math.abs(amt))}</span><input list=categories placeholder="category…" value="${esc(r.category)}">`;
+    item.innerHTML = `<span>${esc(r.time || r.source_bank)}</span><span class=d title="${esc(r.description)}">${esc(r.counterparty || r.description)}</span><span class=a>${amt < 0 ? '−' : '+'}${inr(Math.abs(amt))}</span><input list=categories placeholder="category…" value="${esc(r.category)}">`;
     item.querySelector('input').addEventListener('change', async ev => {
       const category = ev.target.value.trim();
       const res = await fetch('/annotate', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({hash: r.hash, field: 'category', value: category})});
@@ -406,7 +407,7 @@ function fillReview() {
   $('review_n').textContent = rows.length ? (rows.length > 99 ? '99+' : rows.length) : '';
   $('p_list').replaceChildren(...(rows.length ? rows.slice(0, 300).map(e => {
     const row = el('div', 'item');
-    row.innerHTML = `<span title="${esc(e.name)}">${esc(e.name)}</span><span>${e.n}</span><span>${e.total < 0 ? '−' : '+'}${Math.abs(e.total).toLocaleString('en-IN', {maximumFractionDigits: 0})}</span><span class=d title="${esc(e.like.description)}">${esc(e.like.description)}</span><input list=categories placeholder="category…"><button>Friend</button>`;
+    row.innerHTML = `<span title="${esc(e.name)}">${esc(e.name)}</span><span>${e.n}</span><span>${e.total < 0 ? '−' : '+'}${Math.abs(e.total).toLocaleString('en-IN', {maximumFractionDigits: 0})}</span><span class=when title="Most recent payment">${esc(e.last.transaction_date.slice(5))}${e.last.time ? ' ' + esc(e.last.time) : ''}</span><span class=d title="${esc(e.like.description)}">${esc(e.like.description)}</span><input list=categories placeholder="category…"><button>Friend</button>`;
     const go = category => { if (category) openReview(e.name, category, e.like); };
     row.querySelector('input').addEventListener('change', ev => go(ev.target.value.trim()));
     row.querySelector('button').addEventListener('click', () => go('Settlements/Friends'));

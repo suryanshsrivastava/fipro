@@ -71,6 +71,7 @@ def test_export_dashboard_data_uses_rich_columns(tmp_path):
         "status",
         "notes",
         "balance",
+        "time",
         "payment_mode",
         "counterparty",
         "category",

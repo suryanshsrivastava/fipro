@@ -25,8 +25,8 @@ def test_hdfc_marks_credit_by_plus_before_the_rupee_and_drops_reward_points():
         ],
     )
     assert rows == [
-        (date(2026, 10, 1), "RAZ*SHOP MUMBAI", Decimal("710.63"), D),
-        (date(2026, 10, 15), "BPPY PYMT X (Ref# 390160555012606)", Decimal("10170.00"), C),
+        (date(2026, 10, 1), "RAZ*SHOP MUMBAI", Decimal("710.63"), D, "04:50"),
+        (date(2026, 10, 15), "BPPY PYMT X (Ref# 390160555012606)", Decimal("10170.00"), C, "08:52"),
     ]
 
 
@@ -36,8 +36,8 @@ def test_uni_visa_reads_one_line_rows():
         ["16/09/2026 RAZORPAY PMT UNI MOBILEAPP- API CREDIT ₹128.59", "01/10/2026 AMP CODE CA* DEBIT ₹1,919.9"],
     )
     assert rows == [
-        (date(2026, 9, 16), "RAZORPAY PMT UNI MOBILEAPP- API", Decimal("128.59"), C),
-        (date(2026, 10, 1), "AMP CODE CA*", Decimal("1919.9"), D),
+        (date(2026, 9, 16), "RAZORPAY PMT UNI MOBILEAPP- API", Decimal("128.59"), C, ""),
+        (date(2026, 10, 1), "AMP CODE CA*", Decimal("1919.9"), D, ""),
     ]
 
 
@@ -46,8 +46,8 @@ def test_uni_rupay_reads_rows_with_and_without_a_reference_line():
     lines += ["16/09/2026", "RAZORPAY PMT", "INR", "40,453.76", "40,453.76", "CR", "Transaction Details"]
     lines += ["13/10/2026", "|   Statement Period :", "14 Sep, 2026 to 13 Oct, 2026"]  # header date, not a row
     assert _rows("uni_rupay", lines) == [
-        (date(2026, 9, 25), "UPI-AMAZON INDIA", Decimal("292.00"), D),
-        (date(2026, 9, 16), "RAZORPAY PMT", Decimal("40453.76"), C),
+        (date(2026, 9, 25), "UPI-AMAZON INDIA", Decimal("292.00"), D, ""),
+        (date(2026, 9, 16), "RAZORPAY PMT", Decimal("40453.76"), C, ""),
     ]
 
 

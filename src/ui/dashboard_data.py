@@ -26,6 +26,7 @@ def load_csv_data(csv_path: str) -> list[dict]:
                 **{
                     key: row.get(key) or ""
                     for key in (
+                        "time",
                         "payment_mode",
                         "counterparty",
                         "category",

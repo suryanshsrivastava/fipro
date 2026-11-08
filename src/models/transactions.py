@@ -110,6 +110,11 @@ class Transaction:
         return "".join(self.description.split())
 
     @property
+    def time(self) -> str:
+        """Time of day (HH:MM) when the statement gives one, else \"\"; only HDFC card statements do."""
+        return str((self.raw_data or {}).get("time", "")) if self.source_bank in CARD_BANKS else ""
+
+    @property
     def payment_mode(self) -> str:
         return payment_mode(self.description)
 
