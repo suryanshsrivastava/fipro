@@ -18,7 +18,7 @@ from src.core.ingestion import discover_files
 from src.core.orchestrator import process_pipeline
 from src.core.statement_passwords import load_statement_passwords
 from src.core.suggestions import suggest_categories
-from src.core.txn_times import save_txn_times
+from src.core.txn_times import load_txn_times, save_txn_times
 from src.exporters.report import summarize_pipeline_run
 from src.exporters.sheets import export_to_google_sheets
 
@@ -201,13 +201,15 @@ def run_gmail_alerts_command(gmail: GmailSettings, times_path: str, *, service: 
         raise CommandInputError("No alert search configured: set alerts under [gmail] in config.toml")
     if service is None:
         service = gmail_service(authorize(gmail.credentials, gmail.token))
+    known = set(load_txn_times(times_path))
     times = fetch_alert_times(
         service,
         gmail.alerts,
         max_messages=gmail.alert_messages,
         on_progress=lambda found: save_txn_times(found, times_path),
     )
-    added = save_txn_times(times, times_path)
+    save_txn_times(times, times_path)
+    added = len(times.keys() - known)
     return [
         f"Read {len(times)} alert time(s), {added} new, saved to {times_path}",
         "Run `fipro process` to apply them.",
