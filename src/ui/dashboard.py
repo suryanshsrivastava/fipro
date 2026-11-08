@@ -64,7 +64,7 @@ HTML_TEMPLATE = """
   .cal .day { background: #1e293b; border: 1px solid #334155; border-radius: 8px; min-height: 78px; padding: 6px 8px; cursor: pointer; font-size: 12px; display: flex; flex-direction: column; gap: 3px; }
   .cal .day.empty { background: transparent; border-color: transparent; cursor: default; } .cal .day.none { opacity: .45; } .cal .day:not(.empty):hover, .cal .day.sel { border-color: #38bdf8; }
   .cal .day .n { color: #94a3b8; } .cal .day .out { font-variant-numeric: tabular-nums; } .cal .day .todo { align-self: flex-start; background: #f59e0b; color: #0f1117; border-radius: 9px; padding: 0 7px; font-weight: 700; font-size: 11px; } .cal .day .ok { color: #4ade80; font-size: 11px; } .cal .day .rec { color: #38bdf8; font-size: 11px; }
-  #p_day .sub { padding: 10px 16px 4px; margin: 0; } #p_day .item { grid-template-columns: 100px 1fr 160px 210px; } #p_day .item .a { text-align: right; font-variant-numeric: tabular-nums; }
+  #p_day .sub { padding: 10px 16px 4px; margin: 0; } #p_day .item { grid-template-columns: 60px 100px 1fr 120px 210px; } #p_day .item .a { text-align: right; font-variant-numeric: tabular-nums; }
   #screen-review .done { padding: 28px; text-align: center; color: #4ade80; }
   #tabs .n { margin-left: 6px; font-size: 11px; background: #f59e0b; color: #0f1117; border-radius: 9px; padding: 1px 6px; font-weight: 700; }
   #tabs { display: flex; gap: 6px; margin-top: 10px; }
@@ -385,7 +385,7 @@ function renderCal() {
   const rows = by[calDay] || [];
   $('p_day').replaceChildren(...(calDay.startsWith(month) ? [el('div', 'sub', `${new Date(calDay).toLocaleDateString('en-IN', {weekday: 'long', day: 'numeric', month: 'long'})} · ${rows.length} transaction${rows.length === 1 ? '' : 's'} (transfers left out)`), ...rows.map(r => {
     const item = el('div', 'item'), amt = parseFloat(r.amount) || 0;
-    item.innerHTML = `<span>${esc(r.time || r.source_bank)}</span><span class=d title="${esc(r.description)}">${esc(r.counterparty || r.description)}</span><span class=a>${amt < 0 ? '−' : '+'}${inr(Math.abs(amt))}</span><input list=categories placeholder="category…" value="${esc(r.category)}">`;
+    item.innerHTML = `<span class=when>${esc(r.time) || '—'}</span><span>${esc(r.source_bank)}</span><span class=d title="${esc(r.description)}">${esc(r.counterparty || r.description)}</span><span class=a>${amt < 0 ? '−' : '+'}${inr(Math.abs(amt))}</span><input list=categories placeholder="category…" value="${esc(r.category)}">`;
     item.querySelector('input').addEventListener('change', async ev => {
       const category = ev.target.value.trim();
       const res = await fetch('/annotate', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({hash: r.hash, field: 'category', value: category})});
