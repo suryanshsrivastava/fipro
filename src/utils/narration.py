@@ -25,6 +25,18 @@ _COUNTERPARTY = (
 )
 
 
+# Card statements name the merchant and city, not a payment rail. Keep in step with CARD_LAYOUTS (tested).
+CARD_BANKS = frozenset({"HDFC_REGALIA", "HDFC_SWIGGY", "UNI_VISA", "UNI_RUPAY"})
+_CARD_CHARGES = re.compile(r"^(LATE FEE|FINANCE CHARGES|IGST|CGST|SGST|ANNUAL FEE|JOINING FEE)", re.I)
+_CARD_NOISE = re.compile(r"\s*\(Ref#[^)]*\)|\s*#\d+$|^UPI-", re.I)
+
+
+def card_merchant(description: str) -> str:
+    """The merchant of a card statement row, upper-cased; every fee and tax line is one ``CARD CHARGES`` payee."""
+    text = " ".join(_CARD_NOISE.sub("", description).split())
+    return "CARD CHARGES" if _CARD_CHARGES.match(text) else text.upper()
+
+
 def payment_mode(description: str) -> str:
     for mode, pattern in _MODES:
         if pattern.search(description):

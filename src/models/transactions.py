@@ -12,7 +12,7 @@ from datetime import date
 from decimal import Decimal
 from enum import Enum
 
-from src.utils.narration import counterparty, payment_mode
+from src.utils.narration import CARD_BANKS, card_merchant, counterparty, payment_mode
 
 
 class TransactionType(Enum):
@@ -115,7 +115,8 @@ class Transaction:
 
     @property
     def counterparty(self) -> str:
-        return counterparty(self.description)
+        named = counterparty(self.description)
+        return named or (card_merchant(self.description) if self.source_bank in CARD_BANKS else "")
 
     @property
     def signed_amount(self) -> Decimal:

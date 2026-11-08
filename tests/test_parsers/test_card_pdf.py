@@ -64,3 +64,17 @@ def test_identical_same_day_rows_stay_distinct_after_hashing(monkeypatch):
 
 def test_every_card_has_its_own_folder():
     assert len({c.folder for c in CARD_LAYOUTS}) == len(CARD_LAYOUTS)
+
+
+def test_card_rows_get_a_payee_and_fees_share_one():
+    from src.utils.narration import CARD_BANKS, card_merchant
+
+    assert {c.bank for c in CARD_LAYOUTS} == CARD_BANKS
+    assert card_merchant("Swiggy InstamartBANGALORE") == "SWIGGY INSTAMARTBANGALORE"
+    assert card_merchant("UPI-ZEPTO #2") == "ZEPTO"
+    for fee in (
+        "LATE FEE (Ref# 19999999981013999211830)",
+        "IGST-VPS2726470743900-RATE 18.0 -07",
+        "FINANCE CHARGES (Ref# 1)",
+    ):
+        assert card_merchant(fee) == "CARD CHARGES"

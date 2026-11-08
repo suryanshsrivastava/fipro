@@ -135,7 +135,7 @@ HTML_TEMPLATE = """
   <span id=range>—</span>
   <span>Fipro</span>
 </div>
-<div id=payees><div class=box><h2>Review payees</h2><div class=sub>Uncategorised payees by number of transactions. Label each once: a friend as Settlements/Friends (kept out of spend and income), a driver or shop as a normal category. Nothing is guessed.</div><div class=list id=p_list></div><div style="padding:12px 20px;text-align:right"><button id=p_close>Close</button></div></div></div>
+<div id=payees><div class=box><h2>Review payees</h2><div class=sub style="padding-bottom:4px">Month: <select id=p_month></select></div><div class=sub>Uncategorised payees by number of transactions. Label each once: a friend as Settlements/Friends (kept out of spend and income), a driver or shop as a normal category. Nothing is guessed.</div><div class=list id=p_list></div><div style="padding:12px 20px;text-align:right"><button id=p_close>Close</button></div></div></div>
 <div id=modal><div class=box><h2 id=m_title></h2><div class=sub id=m_sub></div><div class=list id=m_list></div><div class=other id=m_other><label>Unticked rows: <b id=m_other_n></b> — optionally give them another category <input id=m_other_cat list=categories placeholder="Leave empty to keep them uncategorised"></label></div><div class=foot><label><input type=checkbox id=m_all checked> Select all</label><label id=m_rem_l><input type=checkbox id=m_rem checked> Remember for future statements</label><span class=sp id=m_err></span><button class=no id=m_cancel>Cancel</button><button class=go id=m_go></button></div></div></div>
 <script>
 const DATA = {{DATA}};
@@ -297,16 +297,16 @@ function rowHtml(r) {
 }
 
 const byHash = new Map(DATA.map(r => [r.hash, r]));
-function payeeGroups() {
+function payeeGroups(month) {
   const g = new Map();
-  DATA.filter(r => r.hash && r.counterparty && !r.category && r.status !== 'internal_transfer').forEach(r => {
+  DATA.filter(r => r.hash && r.counterparty && !r.category && r.status !== 'internal_transfer' && (!month || r.transaction_date.startsWith(month))).forEach(r => {
     const e = g.get(r.counterparty) || {name: r.counterparty, n: 0, total: 0, like: r};
     e.n++; e.total += parseFloat(r.amount) || 0; g.set(r.counterparty, e);
   });
   return [...g.values()].sort((a, b) => b.n - a.n || Math.abs(b.total) - Math.abs(a.total));
 }
-function openPayees() {
-  const rows = payeeGroups().slice(0, 300);
+function fillPayees() {
+  const rows = payeeGroups($('p_month').value).slice(0, 300);
   $('p_list').replaceChildren(...rows.map(e => {
     const row = el('div', 'item');
     row.innerHTML = `<span title="${esc(e.name)}">${esc(e.name)}</span><span>${e.n}</span><span>${e.total < 0 ? '−' : '+'}${Math.abs(e.total).toLocaleString('en-IN', {maximumFractionDigits: 0})}</span><input list=categories placeholder="category…"><button>Friend</button>`;
@@ -315,6 +315,15 @@ function openPayees() {
     row.querySelector('button').addEventListener('click', () => go('Settlements/Friends'));
     return row;
   }));
+}
+// Months with uncategorised payees, newest first; opens on the latest month with at least 20 such rows.
+function openPayees() {
+  const counts = {};
+  DATA.filter(r => r.hash && r.counterparty && !r.category && r.status !== 'internal_transfer').forEach(r => { const m = r.transaction_date.slice(0, 7); counts[m] = (counts[m] || 0) + 1; });
+  const months = Object.keys(counts).sort().reverse();
+  $('p_month').innerHTML = '<option value="">All months</option>' + months.map(m => `<option value="${m}">${m} (${counts[m]})</option>`).join('');
+  $('p_month').value = months.find(m => counts[m] >= 20) || '';
+  fillPayees();
   $('payees').classList.add('open');
 }
 async function confirmMonthly(hash) {
@@ -359,6 +368,7 @@ document.getElementById('tbody').addEventListener('change', async e => {
 // Review step: apply one approved category to the same counterparty's other uncategorized rows, minus any you untick.
 let pending = null;
 const $ = id => document.getElementById(id);
+$('p_month').addEventListener('change', fillPayees);
 $('p_close').addEventListener('click', () => $('payees').classList.remove('open'));
 // Rows with no counterparty (ATM withdrawals, cash deposits) are grouped by payment mode and direction instead.
 const sameGroup = (r, counterparty, like) => counterparty ? r.counterparty === counterparty
