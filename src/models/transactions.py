@@ -111,8 +111,8 @@ class Transaction:
 
     @property
     def time(self) -> str:
-        """Time of day (HH:MM) when the statement gives one, else \"\"; only HDFC card statements do."""
-        return str((self.raw_data or {}).get("time", "")) if self.source_bank in CARD_BANKS else ""
+        """Time of day (HH:MM): printed on HDFC card statements, or taken from a UPI alert email; else ""."""
+        return str((self.raw_data or {}).get("time", ""))
 
     @property
     def payment_mode(self) -> str:

@@ -80,7 +80,7 @@ def test_defaults_match_shipped_config_toml():
     assert shipped.processing == defaults.processing
     assert shipped.goodbudget == defaults.goodbudget
     assert shipped.log_level == defaults.log_level
-    assert replace(shipped.gmail, queries={}, statements={}) == GmailSettings()
+    assert replace(shipped.gmail, queries={}, statements={}, alerts="") == GmailSettings()
 
 
 def test_queries_are_a_read_only_copy_of_the_config_table():

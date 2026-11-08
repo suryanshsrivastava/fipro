@@ -23,6 +23,7 @@ annotations = "corpus/state/annotations.csv"
 category_rules = "corpus/state/category_rules.csv"
 # Category suggestions from a local decision model (`fipro suggest`); the dashboard offers them, nothing applies itself.
 suggestions = "corpus/state/suggestions.csv"
+txn_times = "corpus/state/txn_times.csv"      # reference -> time, from UPI alert emails
 
 [processing]
 supported_extensions = ["xls", "xlsx", "pdf"]
@@ -58,6 +59,9 @@ payment_keywords = ["CREDIT CARD", "CC PAYMENT", "CARD PAYMENT", "CRED"]
 credentials = "config/gmail_credentials.json"   # OAuth "Desktop app" client JSON (gitignored)
 token = "config/gmail_token.json"               # created on first consent (gitignored)
 max_messages = 10
+# `fipro gmail --alerts`: read UPI alert emails to learn each payment's time of day (paths.txn_times).
+alerts = "from:alerts@hdfcbank.bank.in"
+alert_messages = 500
 
 [gmail.queries]
 # Gmail search syntax; adjust if your bank's sender differs.

@@ -242,3 +242,14 @@ def test_fetch_statement_attachments_saves_new_files_and_never_overwrites(tmp_pa
     assert saved[0].read_bytes() == b"PDFBYTES"
     assert saved[0].stat().st_mode & 0o222 == 0
     assert fetch_statement_attachments(gmail, {"HDFC_Cards": "q"}, str(tmp_path)) == []
+
+
+def test_fetch_alert_times_maps_reference_to_local_received_time():
+    from src.connectors.gmail import fetch_alert_times
+
+    alert = _message(
+        "a1", "Rs.500.00 is debited from your account. UPI transaction reference no.: 130868728616. Warm regards"
+    )
+    gmail = FakeGmail({"alerts": ["a1"]}, {"a1": alert})
+    times = fetch_alert_times(gmail, "alerts")
+    assert list(times) == ["130868728616"] and len(times["130868728616"]) == 16

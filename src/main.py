@@ -5,6 +5,7 @@ from src.config import Settings, load_settings
 from src.core.application import (
     CommandInputError,
     prepare_dashboard_launch,
+    run_gmail_alerts_command,
     run_gmail_command,
     run_gmail_statements_command,
     run_latest_command,
@@ -46,6 +47,7 @@ def main():
         "--endpoint", default="http://127.0.0.1:9931", help="Local llama.cpp server for `suggest` (must be localhost)"
     )
     parser.add_argument("--limit", type=int, default=None, help="Score at most this many counterparties in `suggest`")
+    parser.add_argument("--alerts", action="store_true", help="With `gmail`: learn payment times from UPI alert emails")
     parser.add_argument(
         "--statements", action="store_true", help="With `gmail`: save statement attachments to the corpus"
     )
@@ -74,7 +76,7 @@ def main():
         except CommandInputError as exc:
             _exit_with_error(str(exc))
     elif args.command == "gmail":
-        cmd_gmail(settings, args.statements)
+        cmd_gmail(settings, args.statements, args.alerts)
     elif args.command == "suggest":
         cmd_suggest(settings, args.endpoint, args.limit)
     else:
@@ -124,9 +126,11 @@ def cmd_suggest(settings: Settings, endpoint: str, limit: int | None):
     _print_lines(lines)
 
 
-def cmd_gmail(settings: Settings, statements: bool = False):
+def cmd_gmail(settings: Settings, statements: bool = False, alerts: bool = False):
     try:
-        if statements:
+        if alerts:
+            lines = run_gmail_alerts_command(settings.gmail, settings.paths.txn_times)
+        elif statements:
             lines = run_gmail_statements_command(settings.gmail, settings.paths.input)
         else:
             lines = run_gmail_command(settings.gmail, settings.paths.password_hints)

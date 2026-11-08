@@ -65,3 +65,20 @@ def test_settlement_label_makes_a_transfer_only_when_labelled(tmp_path):
     apply_annotations([labelled, other], ann, rules)
     assert labelled.status == TransactionStatus.TRANSFER
     assert other.status == TransactionStatus.PENDING
+
+
+D_ = TransactionType.DEBIT
+
+
+def test_alert_times_fill_bank_rows_by_reference_and_ignore_other_days(tmp_path):
+    from src.core.txn_times import apply_txn_times, save_txn_times
+
+    path = str(tmp_path / "times.csv")
+    save_txn_times({"130868728616": "2026-10-07 21:23", "111111111111": "2026-09-01 08:00"}, path)
+    hit = Transaction(
+        date(2026, 10, 7), "UPI-AMBRESH-X@IBL-KKBK0008054-130868728616-UPI", Decimal("200"), D_, "HDFC", "f"
+    )
+    wrong_day = Transaction(date(2026, 10, 7), "UPI-Y-111111111111-UPI", Decimal("5"), D_, "HDFC", "f")
+    unknown = Transaction(date(2026, 10, 7), "UPI-Z-222222222222-UPI", Decimal("5"), D_, "HDFC", "f")
+    assert apply_txn_times([hit, wrong_day, unknown], path) == 1
+    assert (hit.time, wrong_day.time, unknown.time) == ("21:23", "", "")

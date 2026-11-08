@@ -27,6 +27,7 @@ class PathSettings:
     annotations: str = "corpus/state/annotations.csv"
     category_rules: str = "corpus/state/category_rules.csv"
     suggestions: str = "corpus/state/suggestions.csv"
+    txn_times: str = "corpus/state/txn_times.csv"
 
     @classmethod
     def from_config(cls, config: dict) -> PathSettings:
@@ -40,6 +41,7 @@ class PathSettings:
             annotations=_str(config, "paths.annotations", d.annotations),
             category_rules=_str(config, "paths.category_rules", d.category_rules),
             suggestions=_str(config, "paths.suggestions", d.suggestions),
+            txn_times=_str(config, "paths.txn_times", d.txn_times),
         )
 
 
@@ -102,6 +104,8 @@ class GmailSettings:
     credentials: str = "config/gmail_credentials.json"
     token: str = "config/gmail_token.json"
     max_messages: int = 10
+    alerts: str = ""  # Gmail search for UPI alert emails; empty disables `gmail --alerts`
+    alert_messages: int = 500
     queries: Mapping[str, str] = field(default_factory=dict)
     statements: Mapping[str, str] = field(default_factory=dict)  # corpus folder -> Gmail search
 
@@ -112,6 +116,8 @@ class GmailSettings:
             credentials=_str(config, "gmail.credentials", d.credentials),
             token=_str(config, "gmail.token", d.token),
             max_messages=_int(config, "gmail.max_messages", d.max_messages),
+            alerts=_str(config, "gmail.alerts", d.alerts),
+            alert_messages=_int(config, "gmail.alert_messages", d.alert_messages),
             queries=_str_map(config, "gmail.queries"),
             statements=_str_map(config, "gmail.statements"),
         )

@@ -8,6 +8,7 @@ from typing import Any
 from src.config import GmailSettings, Settings
 from src.connectors.gmail import (
     authorize,
+    fetch_alert_times,
     fetch_password_hints,
     fetch_statement_attachments,
     gmail_service,
@@ -17,6 +18,7 @@ from src.core.ingestion import discover_files
 from src.core.orchestrator import process_pipeline
 from src.core.statement_passwords import load_statement_passwords
 from src.core.suggestions import suggest_categories
+from src.core.txn_times import save_txn_times
 from src.exporters.report import summarize_pipeline_run
 from src.exporters.sheets import export_to_google_sheets
 
@@ -191,6 +193,20 @@ def run_gmail_statements_command(gmail: GmailSettings, input_root: str, *, servi
     lines = [f"Saved {path}" for path in saved]
     lines.append(f"{len(saved)} new statement file(s) in {input_root}")
     return lines
+
+
+def run_gmail_alerts_command(gmail: GmailSettings, times_path: str, *, service: Any = None) -> list[str]:
+    """Read UPI alert emails and save each payment's time, keyed by UPI reference."""
+    if not gmail.alerts:
+        raise CommandInputError("No alert search configured: set alerts under [gmail] in config.toml")
+    if service is None:
+        service = gmail_service(authorize(gmail.credentials, gmail.token))
+    times = fetch_alert_times(service, gmail.alerts, max_messages=gmail.alert_messages)
+    added = save_txn_times(times, times_path)
+    return [
+        f"Read {len(times)} alert time(s), {added} new, saved to {times_path}",
+        "Run `fipro process` to apply them.",
+    ]
 
 
 def run_sheets_command(

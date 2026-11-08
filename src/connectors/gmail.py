@@ -154,6 +154,31 @@ def _attachment_parts(payload: dict) -> list[dict]:
     return parts
 
 
+_ALERT_REFERENCE = re.compile(r"reference\s*(?:no\.?|number)?\s*:?\s*(\d{12})", re.IGNORECASE)
+
+
+def fetch_alert_times(service: Any, query: str, max_messages: int = 500) -> dict[str, str]:
+    """UPI reference -> local ``YYYY-MM-DD HH:MM`` the alert email arrived, for mail matching ``query``."""
+    messages = service.users().messages()
+    times: dict[str, str] = {}
+    seen, token = 0, None
+    while seen < max_messages:
+        listing = messages.list(
+            userId="me", q=query, maxResults=min(100, max_messages - seen), pageToken=token
+        ).execute()
+        for ref in listing.get("messages", []):
+            seen += 1
+            message = messages.get(userId="me", id=ref["id"], format="full").execute()
+            match = _ALERT_REFERENCE.search(message_text(message.get("payload", {})) or message.get("snippet", ""))
+            if match:
+                received = datetime.fromtimestamp(int(message["internalDate"]) / 1000).astimezone()
+                times[match.group(1)] = received.strftime("%Y-%m-%d %H:%M")
+        token = listing.get("nextPageToken")
+        if not token:
+            break
+    return times
+
+
 def extract_password_hint(text: str) -> str | None:
     """Pick the sentence that best describes how the statement password is formed."""
     best: str | None = None
