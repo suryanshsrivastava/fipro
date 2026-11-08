@@ -58,6 +58,13 @@ HTML_TEMPLATE = """
   #screen-review .item:hover { background: #0f1117; } #screen-review .item .d { color: #64748b; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #screen-review .item span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #screen-review button { border: 0; border-radius: 6px; padding: 5px 10px; font-weight: 600; cursor: pointer; background: #334155; color: #e2e8f0; }
+  .seg { display: inline-flex; gap: 0; margin-left: auto; } #screen-review .seg button { border-radius: 0; background: #1e293b; color: #94a3b8; border: 1px solid #475569; } #screen-review .seg button:first-child { border-radius: 6px 0 0 6px; } #screen-review .seg button:last-child { border-radius: 0 6px 6px 0; } #screen-review .seg button.on { background: #38bdf8; color: #0f1117; border-color: #38bdf8; }
+  #p_cal[hidden] { display: none; } .cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-bottom: 14px; }
+  .cal .dow { font-size: 11px; color: #64748b; text-transform: uppercase; text-align: center; padding: 2px 0; }
+  .cal .day { background: #1e293b; border: 1px solid #334155; border-radius: 8px; min-height: 78px; padding: 6px 8px; cursor: pointer; font-size: 12px; display: flex; flex-direction: column; gap: 3px; }
+  .cal .day.empty { background: transparent; border-color: transparent; cursor: default; } .cal .day.none { opacity: .45; } .cal .day:not(.empty):hover, .cal .day.sel { border-color: #38bdf8; }
+  .cal .day .n { color: #94a3b8; } .cal .day .out { font-variant-numeric: tabular-nums; } .cal .day .todo { align-self: flex-start; background: #f59e0b; color: #0f1117; border-radius: 9px; padding: 0 7px; font-weight: 700; font-size: 11px; } .cal .day .ok { color: #4ade80; font-size: 11px; } .cal .day .rec { color: #38bdf8; font-size: 11px; }
+  #p_day .sub { padding: 10px 16px 4px; margin: 0; } #p_day .item { grid-template-columns: 100px 1fr 160px 210px; } #p_day .item .a { text-align: right; font-variant-numeric: tabular-nums; }
   #screen-review .done { padding: 28px; text-align: center; color: #4ade80; }
   #tabs .n { margin-left: 6px; font-size: 11px; background: #f59e0b; color: #0f1117; border-radius: 9px; padding: 1px 6px; font-weight: 700; }
   #tabs { display: flex; gap: 6px; margin-top: 10px; }
@@ -149,9 +156,10 @@ HTML_TEMPLATE = """
 <section id=locked aria-label="Locked statements"></section>
 <div id=screen-month hidden></div>
 <section id=screen-review hidden>
-  <div class=head><h2>Review queue</h2><select id=p_month></select></div>
+  <div class=head><h2>Review queue</h2><select id=p_month></select><span class=seg><button data-rv=list class=on>List</button><button data-rv=cal>Calendar</button></span></div>
   <div class=sub>Payees with no category yet, most transactions first. Label each once: a friend as Settlements/Friends (kept out of spend and income), a driver or shop as a normal category. Nothing is guessed.</div>
   <div class=list id=p_list></div>
+  <div id=p_cal hidden><div class=cal id=p_grid></div><div class=list id=p_day></div></div>
 </section>
 <div id=screen-tx>
 <div class=toolbar>
@@ -352,6 +360,47 @@ function payeeGroups(month) {
   });
   return [...g.values()].sort((a, b) => b.n - a.n || Math.abs(b.total) - Math.abs(a.total));
 }
+let reviewView = localStorage.reviewView || 'list', calDay = '';
+function calMonth() {
+  const m = $('p_month').value;
+  if (m) return m;
+  const all = DATA.map(r => r.transaction_date.slice(0, 7)).filter(Boolean).sort();
+  return all[all.length - 1] || '';
+}
+function renderCal() {
+  const month = calMonth(); if (!month) return;
+  const [y, mo] = month.split('-').map(Number), n = new Date(y, mo, 0).getDate(), lead = (new Date(y, mo - 1, 1).getDay() + 6) % 7;
+  const by = {};
+  DATA.filter(r => r.hash && r.transaction_date.startsWith(month) && r.status !== 'internal_transfer').forEach(r => (by[r.transaction_date] ||= []).push(r));
+  const cells = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => `<div class=dow>${d}</div>`);
+  for (let i = 0; i < lead; i++) cells.push('<div class="day empty"></div>');
+  for (let d = 1; d <= n; d++) {
+    const key = `${month}-${String(d).padStart(2, '0')}`, rows = by[key] || [];
+    const todo = rows.filter(r => !r.category).length, spend = rows.reduce((a, r) => a + Math.min(parseFloat(r.amount) || 0, 0), 0), rec = rows.filter(r => r.frequency === 'Monthly').length;
+    cells.push(`<div class="day ${rows.length ? '' : 'none'} ${key === calDay ? 'sel' : ''}" data-day=${key}><span class=n>${d}</span>${rows.length ? `<span class=out>${spend ? '−' + inr(-spend) : '—'}</span>${todo ? `<span class=todo>${todo} to label</span>` : '<span class=ok>✓ labelled</span>'}${rec ? `<span class=rec>↻ ${rec} recurring</span>` : ''}` : ''}</div>`);
+  }
+  $('p_grid').innerHTML = cells.join('');
+  $('p_grid').querySelectorAll('[data-day]').forEach(c => c.onclick = () => { calDay = c.dataset.day; renderCal(); });
+  const rows = by[calDay] || [];
+  $('p_day').replaceChildren(...(calDay.startsWith(month) ? [el('div', 'sub', `${new Date(calDay).toLocaleDateString('en-IN', {weekday: 'long', day: 'numeric', month: 'long'})} · ${rows.length} transaction${rows.length === 1 ? '' : 's'} (transfers left out)`), ...rows.map(r => {
+    const item = el('div', 'item'), amt = parseFloat(r.amount) || 0;
+    item.innerHTML = `<span>${esc(r.source_bank)}</span><span class=d title="${esc(r.description)}">${esc(r.counterparty || r.description)}</span><span class=a>${amt < 0 ? '−' : '+'}${inr(Math.abs(amt))}</span><input list=categories placeholder="category…" value="${esc(r.category)}">`;
+    item.querySelector('input').addEventListener('change', async ev => {
+      const category = ev.target.value.trim();
+      const res = await fetch('/annotate', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({hash: r.hash, field: 'category', value: category})});
+      if (!res.ok) { ev.target.title = 'Not saved'; return; }
+      r.category = category; if (category) addCategory(category);
+      if (category && r.counterparty) openReview(r.counterparty, category, r); else { renderCal(); fillReviewMonths(); }
+    });
+    return item;
+  })] : []));
+}
+function setReviewView(v) {
+  reviewView = localStorage.reviewView = v;
+  document.querySelectorAll('[data-rv]').forEach(b => b.classList.toggle('on', b.dataset.rv === v));
+  $('p_list').hidden = v !== 'list'; $('p_cal').hidden = v !== 'cal';
+  if (v === 'cal') renderCal();
+}
 function fillReview() {
   const rows = payeeGroups($('p_month').value);
   $('review_n').textContent = rows.length ? (rows.length > 99 ? '99+' : rows.length) : '';
@@ -415,7 +464,8 @@ document.getElementById('tbody').addEventListener('change', async e => {
 // Review step: apply one approved category to the same counterparty's other uncategorized rows, minus any you untick.
 let pending = null;
 const $ = id => document.getElementById(id);
-$('p_month').addEventListener('change', fillReview);
+$('p_month').addEventListener('change', () => { fillReview(); if (reviewView === 'cal') renderCal(); });
+document.querySelectorAll('[data-rv]').forEach(b => b.addEventListener('click', () => setReviewView(b.dataset.rv)));
 // Rows with no counterparty (ATM withdrawals, cash deposits) are grouped by payment mode and direction instead.
 const sameGroup = (r, counterparty, like) => counterparty ? r.counterparty === counterparty
   : !r.counterparty && r.payment_mode === like.payment_mode && r.transaction_type === like.transaction_type;
@@ -464,7 +514,7 @@ $('m_go').addEventListener('click', async () => {
   try {
     await save(pending.category, chosen, remember);
     if (other && rest.length) await save(other, rest, false);  // never a rule: these rows disagreed with the suggestion
-    closeReview(); render(); fillReviewMonths(); fillReview();
+    closeReview(); render(); fillReviewMonths(); fillReview(); if (reviewView === 'cal') renderCal();
   } catch (err) { $('m_err').textContent = `Not saved: ${err.message}`; $('m_go').disabled = false; }
 });
 document.getElementById('tbody').addEventListener('click', e => {
@@ -631,7 +681,7 @@ function showTab(tab) {
 document.querySelectorAll('#tabs button').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
 
 init();
-fillReviewMonths(); fillReview();
+fillReviewMonths(); fillReview(); setReviewView(reviewView);
 showTab(localStorage.tab || 'month');
 </script>
 </body>
