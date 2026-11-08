@@ -48,42 +48,18 @@ HTML_TEMPLATE = """
   tr { border-bottom: 1px solid #1e293b; transition: background 0.1s; }
   th[data-col=description], td.c-description { width: 100%; max-width: 0; overflow: hidden; text-overflow: ellipsis; }
   td.c-frequency.auto select { font-style: italic; color: #8a6d00; }
-  #payees { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none; align-items: center; justify-content: center; z-index: 150; }
-  #payees.open { display: flex; }
-  #payees .box { background: #1e293b; border: 1px solid #475569; border-radius: 10px; width: min(900px, 94vw); max-height: 86vh; display: flex; flex-direction: column; }
-  #payees h2 { font-size: 16px; padding: 16px 20px 4px; } #payees .sub { padding: 0 20px 10px; font-size: 12px; color: #94a3b8; }
-  #payees .list { overflow: auto; border-top: 1px solid #334155; border-bottom: 1px solid #334155; }
-  #payees .item { display: grid; grid-template-columns: 1fr 60px 110px 190px 70px; gap: 8px; padding: 6px 20px; font-size: 12px; align-items: center; }
-  #payees .item:hover { background: #0f1117; } #payees input { background: #334155; border: 1px solid #475569; color: #e2e8f0; border-radius: 6px; padding: 4px 8px; font-size: 12px; }
-  #payees button { border: 0; border-radius: 6px; padding: 5px 10px; font-weight: 600; cursor: pointer; background: #334155; color: #e2e8f0; }
-  .cov { display: inline-block; margin: 6px 14px 0 0; font-size: 12px; color: #94a3b8; } .cov.gap { color: #f59e0b; font-weight: 600; }
-  #tabs { display: flex; gap: 6px; margin-top: 10px; }
-  #tabs button { background: transparent; border: 1px solid #475569; color: #94a3b8; border-radius: 6px; padding: 5px 14px; font-size: 13px; cursor: pointer; }
-  #tabs button.on { background: #38bdf8; border-color: #38bdf8; color: #0f1117; font-weight: 600; }
-  #screen-month { padding: 20px 24px 40px; max-width: 1280px; }
-  #screen-month[hidden], #screen-tx[hidden] { display: none; }
-  .m-head { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
-  .m-head h2 { font-size: 20px; min-width: 190px; text-align: center; }
-  .m-head button, .m-head select { background: #334155; border: 1px solid #475569; color: #e2e8f0; border-radius: 6px; padding: 6px 12px; font-size: 13px; cursor: pointer; }
-  .m-head button:disabled { opacity: .35; cursor: default; }
-  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
-  .card { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 14px 16px; }
-  .card h3 { font-size: 12px; font-weight: 500; color: #94a3b8; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 8px; }
-  .kpi .v { font-size: 26px; font-weight: 600; } .kpi .d { font-size: 12px; margin-top: 4px; color: #94a3b8; }
-  .up { color: #f87171; } .down { color: #4ade80; } .good-up { color: #4ade80; } .good-down { color: #f87171; }
-  .grid2 { display: grid; grid-template-columns: 3fr 2fr; gap: 12px; margin-bottom: 12px; }
-  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-  .bar-row { display: grid; grid-template-columns: 170px 1fr 92px; gap: 10px; align-items: center; font-size: 13px; padding: 4px 0; cursor: pointer; }
-  .bar-row:hover .name { color: #38bdf8; } .bar-row .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .bar { position: relative; height: 10px; background: #0f1117; border-radius: 5px; }
-  .bar i { position: absolute; left: 0; top: 0; bottom: 0; background: #38bdf8; border-radius: 5px; }
-  .bar i.warn { background: #f59e0b; } .bar b { position: absolute; top: -3px; bottom: -3px; width: 2px; background: #e2e8f0; opacity: .7; }
-  .amt { text-align: right; font-variant-numeric: tabular-nums; }
-  .note { font-size: 12px; color: #94a3b8; margin-top: 8px; } .note button { margin-left: 8px; background: #f59e0b; color: #0f1117; border: 0; border-radius: 6px; padding: 3px 10px; font-weight: 600; cursor: pointer; }
-  .stack { display: flex; height: 14px; border-radius: 7px; overflow: hidden; background: #0f1117; margin: 6px 0 10px; }
-  .legend { font-size: 12px; color: #94a3b8; display: flex; gap: 14px; flex-wrap: wrap; } .legend span::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; background: var(--c); }
-  svg.days { width: 100%; height: 120px; } svg.days rect { fill: #38bdf8; } svg.days rect:hover { fill: #f1f5f9; }
-  @media (max-width: 900px) { .kpis, .grid2, .grid3 { grid-template-columns: 1fr; } }
+  #screen-review { padding: 20px 24px 40px; max-width: 1280px; }
+  #screen-review[hidden] { display: none; }
+  #screen-review .head { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
+  #screen-review h2 { font-size: 20px; } #screen-review .sub { font-size: 13px; color: #94a3b8; margin-bottom: 14px; }
+  #screen-review select, #screen-review input { background: #334155; border: 1px solid #475569; color: #e2e8f0; border-radius: 6px; padding: 6px 10px; font-size: 13px; }
+  #screen-review .list { background: #1e293b; border: 1px solid #334155; border-radius: 10px; overflow: hidden; }
+  #screen-review .item { display: grid; grid-template-columns: 220px 50px 100px 1fr 210px 80px; gap: 10px; padding: 8px 16px; font-size: 13px; align-items: center; border-bottom: 1px solid #0f1117; }
+  #screen-review .item:hover { background: #0f1117; } #screen-review .item .d { color: #64748b; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #screen-review .item span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #screen-review button { border: 0; border-radius: 6px; padding: 5px 10px; font-weight: 600; cursor: pointer; background: #334155; color: #e2e8f0; }
+  #screen-review .done { padding: 28px; text-align: center; color: #4ade80; }
+  #tabs .n { margin-left: 6px; font-size: 11px; background: #f59e0b; color: #0f1117; border-radius: 9px; padding: 1px 6px; font-weight: 700; }
   button.confirm { margin-left: 4px; cursor: pointer; }
   #confirm_all { display: none; cursor: pointer; }
   td.c-counterparty { max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
@@ -139,10 +115,15 @@ HTML_TEMPLATE = """
   <h1>Fipro Dashboard</h1>
   <div class=subtitle id=summary>—</div>
   <div class=subtitle id=coverage></div>
-  <nav id=tabs><button data-tab=month>Monthly</button><button data-tab=tx>Transactions</button></nav>
+  <nav id=tabs><button data-tab=month>Monthly</button><button data-tab=tx>Transactions</button><button data-tab=review>Review<span class=n id=review_n></span></button></nav>
 </header>
 <section id=locked aria-label="Locked statements"></section>
 <div id=screen-month hidden></div>
+<section id=screen-review hidden>
+  <div class=head><h2>Review queue</h2><select id=p_month></select></div>
+  <div class=sub>Payees with no category yet, most transactions first. Label each once: a friend as Settlements/Friends (kept out of spend and income), a driver or shop as a normal category. Nothing is guessed.</div>
+  <div class=list id=p_list></div>
+</section>
 <div id=screen-tx>
 <div class=toolbar>
   <input type=text id=search placeholder=\"Search description...\" oninput=\"render()\">
@@ -152,7 +133,6 @@ HTML_TEMPLATE = """
   <select id=type_filter onchange=\"render()\"><option value=\"\">All types</option><option value=debit>Debit</option><option value=credit>Credit</option><option value=internal_transfer>Transfer</option></select>
   <select id=month_filter onchange=\"localStorage.month=this.value;render()\"><option value=\"\">All months</option></select>
   <select id=freq_filter onchange=\"render()\"><option value=\"\">Any frequency</option><option value=detected>Detected monthly</option><option value=Monthly>Monthly (recurring)</option><option value=Once>Once</option></select>
-  <button id=payees_btn onclick=\"openPayees()\">Review payees</button>
   <button id=confirm_all onclick=\"confirmShown()\">✓ Confirm all</button>
   <div class=stat-badge>Total <span class=val id=total>0</span></div>
   <div class=stat-badge>Filtered <span class=val id=filtered>0</span></div>
@@ -170,7 +150,6 @@ HTML_TEMPLATE = """
   <span>Fipro</span>
 </div>
 </div>
-<div id=payees><div class=box><h2>Review payees</h2><div class=sub style="padding-bottom:4px">Month: <select id=p_month></select></div><div class=sub>Uncategorised payees by number of transactions. Label each once: a friend as Settlements/Friends (kept out of spend and income), a driver or shop as a normal category. Nothing is guessed.</div><div class=list id=p_list></div><div style="padding:12px 20px;text-align:right"><button id=p_close>Close</button></div></div></div>
 <div id=modal><div class=box><h2 id=m_title></h2><div class=sub id=m_sub></div><div class=list id=m_list></div><div class=other id=m_other><label>Unticked rows: <b id=m_other_n></b> — optionally give them another category <input id=m_other_cat list=categories placeholder="Leave empty to keep them uncategorised"></label></div><div class=foot><label><input type=checkbox id=m_all checked> Select all</label><label id=m_rem_l><input type=checkbox id=m_rem checked> Remember for future statements</label><span class=sp id=m_err></span><button class=no id=m_cancel>Cancel</button><button class=go id=m_go></button></div></div></div>
 <script>
 const DATA = {{DATA}};
@@ -344,27 +323,27 @@ function payeeGroups(month) {
   });
   return [...g.values()].sort((a, b) => b.n - a.n || Math.abs(b.total) - Math.abs(a.total));
 }
-function fillPayees() {
-  const rows = payeeGroups($('p_month').value).slice(0, 300);
-  $('p_list').replaceChildren(...rows.map(e => {
+function fillReview() {
+  const rows = payeeGroups($('p_month').value);
+  $('review_n').textContent = rows.length ? (rows.length > 99 ? '99+' : rows.length) : '';
+  $('p_list').replaceChildren(...(rows.length ? rows.slice(0, 300).map(e => {
     const row = el('div', 'item');
-    row.innerHTML = `<span title="${esc(e.name)}">${esc(e.name)}</span><span>${e.n}</span><span>${e.total < 0 ? '−' : '+'}${Math.abs(e.total).toLocaleString('en-IN', {maximumFractionDigits: 0})}</span><input list=categories placeholder="category…"><button>Friend</button>`;
-    const go = category => { if (category) { $('payees').classList.remove('open'); openReview(e.name, category, e.like); } };
+    row.innerHTML = `<span title="${esc(e.name)}">${esc(e.name)}</span><span>${e.n}</span><span>${e.total < 0 ? '−' : '+'}${Math.abs(e.total).toLocaleString('en-IN', {maximumFractionDigits: 0})}</span><span class=d title="${esc(e.like.description)}">${esc(e.like.description)}</span><input list=categories placeholder="category…"><button>Friend</button>`;
+    const go = category => { if (category) openReview(e.name, category, e.like); };
     row.querySelector('input').addEventListener('change', ev => go(ev.target.value.trim()));
     row.querySelector('button').addEventListener('click', () => go('Settlements/Friends'));
     return row;
-  }));
+  }) : [el('div', 'done', 'Nothing left to review for this month ✓')]));
 }
 // Months with uncategorised payees, newest first; opens on the latest month with at least 20 such rows.
-function openPayees() {
+function fillReviewMonths(preferred) {
   const counts = {};
   DATA.filter(r => r.hash && r.counterparty && !r.category && r.status !== 'internal_transfer').forEach(r => { const m = r.transaction_date.slice(0, 7); counts[m] = (counts[m] || 0) + 1; });
-  const months = Object.keys(counts).sort().reverse();
+  const months = Object.keys(counts).sort().reverse(), keep = preferred ?? $('p_month').value;
   $('p_month').innerHTML = '<option value="">All months</option>' + months.map(m => `<option value="${m}">${m} (${counts[m]})</option>`).join('');
-  $('p_month').value = months.find(m => counts[m] >= 20) || '';
-  fillPayees();
-  $('payees').classList.add('open');
+  $('p_month').value = months.includes(keep) || keep === '' ? keep : (months.find(m => counts[m] >= 20) || '');
 }
+function openReviewTab(month) { fillReviewMonths(month); showTab('review'); }
 async function confirmMonthly(hash) {
   const res = await fetch('/annotate', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({hash, field: 'frequency', value: 'Monthly'})});
   if (!res.ok) throw new Error((await res.json()).error || res.status);
@@ -407,8 +386,7 @@ document.getElementById('tbody').addEventListener('change', async e => {
 // Review step: apply one approved category to the same counterparty's other uncategorized rows, minus any you untick.
 let pending = null;
 const $ = id => document.getElementById(id);
-$('p_month').addEventListener('change', fillPayees);
-$('p_close').addEventListener('click', () => $('payees').classList.remove('open'));
+$('p_month').addEventListener('change', fillReview);
 // Rows with no counterparty (ATM withdrawals, cash deposits) are grouped by payment mode and direction instead.
 const sameGroup = (r, counterparty, like) => counterparty ? r.counterparty === counterparty
   : !r.counterparty && r.payment_mode === like.payment_mode && r.transaction_type === like.transaction_type;
@@ -457,7 +435,7 @@ $('m_go').addEventListener('click', async () => {
   try {
     await save(pending.category, chosen, remember);
     if (other && rest.length) await save(other, rest, false);  // never a rule: these rows disagreed with the suggestion
-    closeReview(); render();
+    closeReview(); render(); fillReviewMonths(); fillReview();
   } catch (err) { $('m_err').textContent = `Not saved: ${err.message}`; $('m_go').disabled = false; }
 });
 document.getElementById('tbody').addEventListener('click', e => {
@@ -595,7 +573,7 @@ function renderMonth(data) {
   $('m_prev').onclick = () => loadMonth(months[i + 1]);
   $('m_next').onclick = () => loadMonth(months[i - 1]);
   $('m_pick').onchange = e => loadMonth(e.target.value);
-  if ($('m_review')) $('m_review').onclick = () => { openPayees(); $('p_month').value = s.month; fillPayees(); };
+  if ($('m_review')) $('m_review').onclick = () => openReviewTab(s.month);
   box.querySelectorAll('[data-drill]').forEach(r => r.onclick = () => drill(r.dataset.drill));
 }
 
@@ -616,11 +594,15 @@ function showTab(tab) {
   localStorage.tab = tab;
   $('screen-month').hidden = tab !== 'month'; $('screen-tx').hidden = tab !== 'tx';
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
-  if (tab === 'month') loadMonth(localStorage.analysisMonth); else { setStickyOffsets(); render(); }
+  $('screen-review').hidden = tab !== 'review';
+  if (tab === 'month') loadMonth(localStorage.analysisMonth);
+  else if (tab === 'review') { if (!$('p_month').options.length) fillReviewMonths(); fillReview(); }
+  else { setStickyOffsets(); render(); }
 }
 document.querySelectorAll('#tabs button').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
 
 init();
+fillReviewMonths(); fillReview();
 showTab(localStorage.tab || 'month');
 </script>
 </body>
