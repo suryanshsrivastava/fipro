@@ -168,6 +168,9 @@ HTML_TEMPLATE = """
   .lock-card button:disabled { opacity: 0.5; cursor: wait; }
   .lock-status { white-space: pre-wrap; font-size: 12px; color: #94a3b8; margin-top: 8px; }
   @media (max-width: 768px) { .toolbar { flex-direction: column; align-items: stretch; } .toolbar input { width: 100%; } }
+  .confetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 60; }
+  .party { position: fixed; top: 22%; left: 50%; transform: translateX(-50%); z-index: 61; background: #16a34a; color: #fff; font-weight: 700; font-size: 20px; padding: 14px 26px; border-radius: 12px; box-shadow: 0 10px 40px #0008; pointer-events: none; animation: pop 3.4s ease forwards; }
+  @keyframes pop { 0% { transform: translateX(-50%) scale(.6); opacity: 0; } 10% { transform: translateX(-50%) scale(1.08); opacity: 1; } 18% { transform: translateX(-50%) scale(1); } 85% { opacity: 1; } 100% { opacity: 0; } }
 </style>
 </head>
 <body>
@@ -406,7 +409,28 @@ async function labelTxn(r, category, input) {
   // A payee label offers to cover the payee's other rows; the refresh below follows when that dialog closes.
   if (category && r.counterparty) openReview(r.counterparty, category, r); else { refreshReview(); }
 }
-function refreshReview() { fillReviewMonths(); fillReview(); if (reviewView === 'cal') renderCal(); }
+// Celebrate when the last unlabelled payee row of a month gets a category.
+const openRows = m => DATA.filter(r => r.hash && r.counterparty && !r.category && r.status !== 'internal_transfer' && r.transaction_date.startsWith(m)).length;
+let openByMonth = {};
+function snapshotOpen() { const ms = new Set(DATA.map(r => r.transaction_date.slice(0, 7)).filter(Boolean)); openByMonth = Object.fromEntries([...ms].map(m => [m, openRows(m)])); }
+function checkMonthDone() {
+  const before = openByMonth; snapshotOpen();
+  Object.keys(openByMonth).sort().filter(m => before[m] > 0 && openByMonth[m] === 0).forEach(celebrate);
+}
+function celebrate(month) {
+  const msg = el('div', 'party', `${monthLabel(month)} fully labelled 🎉`); document.body.append(msg); setTimeout(() => msg.remove(), 3500);
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const cv = el('canvas', 'confetti'); cv.width = innerWidth; cv.height = innerHeight; document.body.append(cv);
+  const g = cv.getContext('2d'), colours = ['#f59e0b', '#38bdf8', '#22c55e', '#f43f5e', '#a78bfa', '#facc15'];
+  const bits = Array.from({length: 160}, (_, i) => ({x: innerWidth / 2, y: innerHeight * .3, vx: (Math.random() - .5) * 16, vy: -Math.random() * 14 - 3, w: 6 + Math.random() * 6, h: 4 + Math.random() * 5, a: Math.random() * 6, va: (Math.random() - .5) * .4, c: colours[i % colours.length]}));
+  const t0 = performance.now();
+  (function frame(t) {
+    const k = t - t0; g.clearRect(0, 0, cv.width, cv.height);
+    bits.forEach(b => { b.vy += .35; b.vx *= .99; b.x += b.vx; b.y += b.vy; b.a += b.va; g.save(); g.translate(b.x, b.y); g.rotate(b.a); g.globalAlpha = Math.max(0, 1 - k / 3200); g.fillStyle = b.c; g.fillRect(-b.w / 2, -b.h / 2, b.w, b.h); g.restore(); });
+    if (k < 3300) requestAnimationFrame(frame); else cv.remove();
+  })(t0);
+}
+function refreshReview() { fillReviewMonths(); fillReview(); if (reviewView === 'cal') renderCal(); checkMonthDone(); }
 function txnRow(r, view) {
   const amt = parseFloat(r.amount) || 0, sign = amt < 0 ? '−' : '+';
   const row = el('div', 'item trow ' + view);
@@ -565,7 +589,7 @@ $('m_go').addEventListener('click', async () => {
   try {
     await save(pending.category, chosen, remember);
     if (other && rest.length) await save(other, rest, false);  // never a rule: these rows disagreed with the suggestion
-    closeReview(); render(); fillReviewMonths(); fillReview(); if (reviewView === 'cal') renderCal();
+    closeReview(); render(); refreshReview();
   } catch (err) { $('m_err').textContent = `Not saved: ${err.message}`; $('m_go').disabled = false; }
 });
 document.getElementById('tbody').addEventListener('click', e => {
@@ -867,7 +891,7 @@ function showTab(tab) {
 document.querySelectorAll('#tabs button').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
 
 init();
-fillReviewMonths(); fillReview(); setReviewView(reviewView); updateWorkBadge(); loadTasks();
+snapshotOpen(); fillReviewMonths(); fillReview(); setReviewView(reviewView); updateWorkBadge(); loadTasks();
 showTab(localStorage.tab || 'month');
 </script>
 </body>
