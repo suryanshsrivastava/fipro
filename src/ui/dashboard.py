@@ -60,6 +60,9 @@ HTML_TEMPLATE = """
   #screen-review .drow { display: grid; grid-template-columns: 92px 52px 80px 90px 1fr; gap: 10px; font-size: 12px; padding: 3px 0; color: #cbd5e1; }
   #screen-review .drow .tm { color: #94a3b8; font-variant-numeric: tabular-nums; } #screen-review .drow .a { text-align: right; font-variant-numeric: tabular-nums; }
   #screen-review .drow .d { color: #64748b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #screen-review .trow.list { grid-template-columns: 84px 42px 62px 64px minmax(80px, 1fr) 150px 62px; gap: 8px; padding: 3px 0; font-size: 12px; } #screen-review .trow.cal { grid-template-columns: 42px 84px minmax(80px, 1fr) 70px 150px 62px; }
+  #screen-review .det { padding-right: 16px; } #screen-review .trow .tm { color: #94a3b8; font-variant-numeric: tabular-nums; } #screen-review .trow .a { text-align: right; font-variant-numeric: tabular-nums; }
+  #screen-review .trow .d { color: #64748b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } #screen-review .trow input { padding: 3px 8px; font-size: 12px; }
   #screen-review .item:hover { background: #0f1117; } #screen-review .item .when { color: #94a3b8; font-size: 12px; font-variant-numeric: tabular-nums; } #screen-review .item .d { color: #64748b; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #screen-review .item span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #screen-review button { border: 0; border-radius: 6px; padding: 5px 10px; font-weight: 600; cursor: pointer; background: #334155; color: #e2e8f0; }
@@ -374,6 +377,27 @@ function calMonth() {
   const all = DATA.map(r => r.transaction_date.slice(0, 7)).filter(Boolean).sort();
   return all[all.length - 1] || '';
 }
+// One transaction row for both Review views (calendar day panel and expanded payee): same fields, same labelling.
+async function labelTxn(r, category, input) {
+  const res = await fetch('/annotate', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({hash: r.hash, field: 'category', value: category})});
+  if (!res.ok) { if (input) input.title = 'Not saved'; return; }
+  r.category = category; if (category) addCategory(category);
+  // A payee label offers to cover the payee's other rows; the refresh below follows when that dialog closes.
+  if (category && r.counterparty) openReview(r.counterparty, category, r); else { refreshReview(); }
+}
+function refreshReview() { fillReviewMonths(); fillReview(); if (reviewView === 'cal') renderCal(); }
+function txnRow(r, view) {
+  const amt = parseFloat(r.amount) || 0, sign = amt < 0 ? '−' : '+';
+  const row = el('div', 'item trow ' + view);
+  const when = view === 'list' ? `<span>${esc(r.transaction_date)}</span><span class=tm>${esc(r.time) || '—'}</span>` : `<span class=tm>${esc(r.time) || '—'}</span>`;
+  const who = view === 'list' ? esc(r.description.replace(/\\s+/g, ' ')) : esc(r.counterparty || r.description);
+  const amount = `<span class=a>${sign}${inr(Math.abs(amt))}</span>`, bank = `<span>${esc(r.source_bank)}</span>`, what = `<span class=d title="${esc(r.description)}">${who}</span>`;
+  row.innerHTML = when + (view === 'list' ? amount + bank + what : bank + what + amount) + `<input list=categories placeholder="category…" value="${esc(r.category)}"><button class=friend title="Settlement with a friend: kept out of spend and income">Friend</button>`;
+  const input = row.querySelector('input');
+  input.addEventListener('change', () => labelTxn(r, input.value.trim(), input));
+  row.querySelector('button').addEventListener('click', () => labelTxn(r, 'Settlements/Friends', input));
+  return row;
+}
 function renderCal() {
   const month = calMonth(); if (!month) return;
   const [y, mo] = month.split('-').map(Number), n = new Date(y, mo, 0).getDate(), lead = (new Date(y, mo - 1, 1).getDay() + 6) % 7;
@@ -389,18 +413,7 @@ function renderCal() {
   $('p_grid').innerHTML = cells.join('');
   $('p_grid').querySelectorAll('[data-day]').forEach(c => c.onclick = () => { calDay = c.dataset.day; renderCal(); });
   const rows = by[calDay] || [];
-  $('p_day').replaceChildren(...(calDay.startsWith(month) ? [el('div', 'sub', `${new Date(calDay).toLocaleDateString('en-IN', {weekday: 'long', day: 'numeric', month: 'long'})} · ${rows.length} transaction${rows.length === 1 ? '' : 's'} (transfers left out)`), ...rows.map(r => {
-    const item = el('div', 'item'), amt = parseFloat(r.amount) || 0;
-    item.innerHTML = `<span class=when>${esc(r.time) || '—'}</span><span>${esc(r.source_bank)}</span><span class=d title="${esc(r.description)}">${esc(r.counterparty || r.description)}</span><span class=a>${amt < 0 ? '−' : '+'}${inr(Math.abs(amt))}</span><input list=categories placeholder="category…" value="${esc(r.category)}">`;
-    item.querySelector('input').addEventListener('change', async ev => {
-      const category = ev.target.value.trim();
-      const res = await fetch('/annotate', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({hash: r.hash, field: 'category', value: category})});
-      if (!res.ok) { ev.target.title = 'Not saved'; return; }
-      r.category = category; if (category) addCategory(category);
-      if (category && r.counterparty) openReview(r.counterparty, category, r); else { renderCal(); fillReviewMonths(); }
-    });
-    return item;
-  })] : []));
+  $('p_day').replaceChildren(...(calDay.startsWith(month) ? [el('div', 'sub', `${new Date(calDay).toLocaleDateString('en-IN', {weekday: 'long', day: 'numeric', month: 'long'})} · ${rows.length} transaction${rows.length === 1 ? '' : 's'} (transfers left out)`), ...rows.map(r => txnRow(r, 'cal'))] : []));
 }
 function setReviewView(v) {
   reviewView = localStorage.reviewView = v;
@@ -423,10 +436,8 @@ function fillReview() {
       const open = grp.querySelector('.det');
       if (open) { open.remove(); row.querySelector('.chev').textContent = '▸'; return; }
       const det = el('div', 'det');
-      det.innerHTML = [...e.rows].sort((a, b) => (b.transaction_date + (b.time || '')).localeCompare(a.transaction_date + (a.time || ''))).slice(0, 60).map(r => {
-        const amt = parseFloat(r.amount) || 0;
-        return `<div class=drow><span>${esc(r.transaction_date)}</span><span class=tm>${esc(r.time) || '—'}</span><span class=a>${amt < 0 ? '−' : '+'}${inr(Math.abs(amt))}</span><span>${esc(r.source_bank)}</span><span class=d title="${esc(r.description)}">${esc(r.description.replace(/\\s+/g, ' '))}</span></div>`;
-      }).join('') + (e.rows.length > 60 ? `<div class=drow><span class=d>…and ${e.rows.length - 60} older</span></div>` : '');
+      det.append(...[...e.rows].sort((a, b) => (b.transaction_date + (b.time || '')).localeCompare(a.transaction_date + (a.time || ''))).slice(0, 60).map(r => txnRow(r, 'list')));
+      if (e.rows.length > 60) det.append(el('div', 'drow', `…and ${e.rows.length - 60} older`));
       grp.append(det); row.querySelector('.chev').textContent = '▾';
     });
     return grp;
