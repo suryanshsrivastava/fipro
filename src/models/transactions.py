@@ -84,6 +84,7 @@ class Transaction:
     frequency: str = ""
     frequency_detected: bool = False  # frequency was inferred from the pattern, not labelled
     splitwise: bool = False
+    reimbursement: str = ""  # "", "filed" or "reimbursed"; only meaningful for Work/* spend
     raw_data: dict | None = None
 
     # Metadata

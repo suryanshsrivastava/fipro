@@ -1,6 +1,8 @@
 from datetime import date
 from decimal import Decimal
 
+import pytest
+
 from src.core.annotations import apply_annotations, write_table
 from src.models.transactions import Transaction, TransactionType
 
@@ -15,7 +17,7 @@ def test_own_annotation_beats_counterparty_rule_and_rule_fills_the_rest(tmp_path
     write_table(
         annotations,
         "hash",
-        ("review_status", "category", "need_want", "frequency", "splitwise", "notes"),
+        ("review_status", "category", "need_want", "frequency", "splitwise", "reimbursement", "notes"),
         {
             labelled.hash: {
                 "review_status": "reconciled",
@@ -127,3 +129,15 @@ def test_annotate_endpoint_saves_a_label_that_shows_on_reload_and_refuses_bad_re
         assert data[0]["category"] == "City/Cab"  # shown without re-running the pipeline
     finally:
         server.shutdown()
+
+
+def test_reimbursement_label_takes_only_filed_or_reimbursed(tmp_path):
+    from src.core.annotations import apply_annotations, set_label
+
+    txn = _txn(amount="900")
+    path, rules = str(tmp_path / "a.csv"), str(tmp_path / "r.csv")
+    with pytest.raises(ValueError):
+        set_label(path, txn.hash, "reimbursement", "paid")
+    set_label(path, txn.hash, "reimbursement", "filed")
+    apply_annotations([txn], path, rules)
+    assert txn.reimbursement == "filed"

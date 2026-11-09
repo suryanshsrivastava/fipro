@@ -35,6 +35,7 @@ def load_csv_data(csv_path: str) -> list[dict]:
                         "frequency",
                         "frequency_detected",
                         "splitwise",
+                        "reimbursement",
                     )
                 },
             }

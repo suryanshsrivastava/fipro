@@ -48,6 +48,14 @@ HTML_TEMPLATE = """
   tr { border-bottom: 1px solid #1e293b; transition: background 0.1s; }
   th[data-col=description], td.c-description { width: 100%; max-width: 0; overflow: hidden; text-overflow: ellipsis; }
   td.c-frequency.auto select { font-style: italic; color: #8a6d00; }
+  #screen-subs, #screen-work { padding: 20px 24px 40px; max-width: 1280px; } #screen-subs[hidden], #screen-work[hidden] { display: none; }
+  .tbl { width: 100%; border-collapse: collapse; font-size: 13px; } .tbl th { text-align: left; color: #94a3b8; font-weight: 500; font-size: 12px; padding: 6px 10px; cursor: default; background: transparent; position: static; }
+  .tbl td { padding: 7px 10px; border-top: 1px solid #0f1117; } .tbl tr.r:hover { background: #0f1117; } .tbl .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .tbl .nm { cursor: pointer; } .tbl .nm:hover { color: #38bdf8; } .tbl .sub2 td { color: #94a3b8; font-size: 12px; padding: 3px 10px 3px 30px; border: 0; background: #0f1117; }
+  .tbl select, .tbl input, .sw select { background: #334155; border: 1px solid #475569; color: #e2e8f0; border-radius: 6px; padding: 4px 8px; font-size: 12px; } .tbl input { width: 100%; }
+  .pill { font-size: 11px; border-radius: 9px; padding: 1px 8px; font-weight: 600; } .pill.act { background: #14532d; color: #86efac; } .pill.old { background: #334155; color: #94a3b8; }
+  .pill.todo { background: #f59e0b; color: #0f1117; } .pill.filed { background: #1e3a8a; color: #bfdbfe; } .pill.done { background: #14532d; color: #86efac; }
+  .tools { display: flex; gap: 10px; align-items: center; margin: 12px 0; } .tools button { background: #38bdf8; color: #0f1117; border: 0; border-radius: 6px; padding: 6px 12px; font-weight: 600; cursor: pointer; } .tools button.alt { background: #334155; color: #e2e8f0; }
   #screen-review { padding: 20px 24px 40px; max-width: 1280px; }
   #screen-review[hidden] { display: none; }
   #screen-review .head { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
@@ -159,7 +167,7 @@ HTML_TEMPLATE = """
   <h1>Fipro Dashboard</h1>
   <div class=subtitle id=summary>—</div>
   <div class=subtitle id=coverage></div>
-  <nav id=tabs><button data-tab=month>Monthly</button><button data-tab=tx>Transactions</button><button data-tab=review>Review<span class=n id=review_n></span></button></nav>
+  <nav id=tabs><button data-tab=month>Monthly</button><button data-tab=tx>Transactions</button><button data-tab=review>Review<span class=n id=review_n></span></button><button data-tab=subs>Subscriptions</button><button data-tab=work>Work claims<span class=n id=work_n></span></button></nav>
 </header>
 <section id=locked aria-label="Locked statements"></section>
 <div id=screen-month hidden></div>
@@ -169,6 +177,8 @@ HTML_TEMPLATE = """
   <div class=list id=p_list></div>
   <div id=p_cal hidden><div class=cal id=p_grid></div><div class=list id=p_day></div></div>
 </section>
+<section id=screen-subs hidden></section>
+<section id=screen-work hidden></section>
 <div id=screen-tx>
 <div class=toolbar>
   <input type=text id=search placeholder=\"Search description...\" oninput=\"render()\">
@@ -699,19 +709,114 @@ function drill(category) {
   showTab('tx');
 }
 
+
+// ---- Subscriptions screen ---------------------------------------------------------------------
+const isSub = r => /subscri/i.test(r.category || '');
+const addMonth = (iso, n) => { const d = new Date(iso + 'T00:00:00'); d.setMonth(d.getMonth() + n); return d.toISOString().slice(0, 10); };
+const spendRows = () => DATA.filter(r => r.hash && r.status !== 'internal_transfer' && (parseFloat(r.amount) || 0) < 0);
+const byDateDesc = (a, b) => (b.transaction_date + (b.time || '')).localeCompare(a.transaction_date + (a.time || ''));
+
+function subscriptionGroups() {
+  const latest = DATA.reduce((m, r) => r.transaction_date > m ? r.transaction_date : m, '');
+  const g = new Map();
+  spendRows().filter(r => isSub(r) || r.frequency === 'Monthly').forEach(r => {
+    const key = r.counterparty || r.description.replace(/\\s+/g, ' ').slice(0, 28);
+    const e = g.get(key) || {name: key, rows: [], sub: false}; e.rows.push(r); e.sub ||= isSub(r); g.set(key, e);
+  });
+  return [...g.values()].map(e => {
+    e.rows.sort(byDateDesc);
+    const last = e.rows[0], gap = (new Date(latest) - new Date(last.transaction_date)) / 864e5;
+    return {...e, last, amount: -parseFloat(last.amount), next: addMonth(last.transaction_date, 1), active: gap <= 45, category: last.category || ''};
+  }).sort((a, b) => b.active - a.active || b.amount - a.amount);
+}
+
+function renderSubs() {
+  const groups = subscriptionGroups(), subs = groups.filter(e => e.sub), other = groups.filter(e => !e.sub);
+  const monthly = list => list.filter(e => e.active).reduce((a, e) => a + e.amount, 0);
+  const table = (list, empty) => list.length ? `<table class=tbl><tr><th>Payee</th><th>Category</th><th class=num>Latest</th><th class=num>Paid</th><th>Last paid</th><th>Next expected</th><th>Status</th></tr>${list.map((e, i) => `<tr class=r><td class=nm data-g="${esc(e.name)}"><i class=chev>▸</i>${esc(e.name)}</td><td>${esc(e.category) || '—'}</td><td class=num>₹${inr(e.amount)}</td><td class=num>${e.rows.length}×</td><td>${esc(e.last.transaction_date)}</td><td>${e.active ? esc(e.next) : '—'}</td><td><span class='pill ${e.active ? 'act' : 'old'}'>${e.active ? 'active' : 'stopped?'}</span></td></tr>`).join('')}</table>` : `<div class=note>${empty}</div>`;
+  $('screen-subs').innerHTML = `<div class=m-head><h2 style="min-width:0">Subscriptions</h2></div>
+    <div class=kpis>
+      <div class='card kpi'><h3>Subscriptions / month</h3><div class=v>₹${inr(monthly(subs))}</div><div class=d>${subs.filter(e => e.active).length} active · labelled …/Subscriptions</div></div>
+      <div class='card kpi'><h3>Per year</h3><div class=v>₹${inr(monthly(subs) * 12)}</div><div class=d>at today's amounts</div></div>
+      <div class='card kpi'><h3>Other recurring / month</h3><div class=v>₹${inr(monthly(other))}</div><div class=d>${other.filter(e => e.active).length} active (rent, EMIs, bills…)</div></div>
+      <div class='card kpi'><h3>Possibly stopped</h3><div class=v>${groups.filter(e => !e.active).length}</div><div class=d>no payment in 45+ days</div></div>
+    </div>
+    <div class=card><h3>Subscriptions</h3>${table(subs, 'Nothing is labelled as a subscription yet. Give a recurring payee a category ending in /Subscriptions.')}</div>
+    <div class=card style="margin-top:12px"><h3>Other recurring payments (monthly, detected or labelled)</h3>${table(other, 'No other recurring payments detected.')}</div>
+    <div class=note>A payment counts as recurring when it is labelled Monthly, or detected: same payee, similar amount, same day each month for 3+ months. "Stopped?" means nothing was paid for 45 days up to the latest statement. Click a payee for its payments.</div>`;
+  $('screen-subs').querySelectorAll('td.nm').forEach(td => td.onclick = () => {
+    const tr = td.parentElement, nxt = tr.nextElementSibling;
+    if (nxt && nxt.classList.contains('sub2')) { while (tr.nextElementSibling?.classList.contains('sub2')) tr.nextElementSibling.remove(); td.querySelector('.chev').textContent = '▸'; return; }
+    const e = groups.find(x => x.name === td.dataset.g); td.querySelector('.chev').textContent = '▾';
+    e.rows.slice(0, 24).reverse().forEach(r => { const s = document.createElement('tr'); s.className = 'sub2'; s.innerHTML = `<td colspan=7>${esc(r.transaction_date)} ${esc(r.time || '')} · ₹${inr(-parseFloat(r.amount))} · ${esc(r.source_bank)}</td>`; tr.after(s); });
+  });
+}
+
+// ---- Work claims: Work/* spend to file for reimbursement -----------------------------------------
+let workFilter = localStorage.workFilter || 'todo';
+const workRows = () => DATA.filter(r => r.hash && r.status !== 'internal_transfer' && /^Work\\//.test(r.category || '') && ((parseFloat(r.amount) || 0) < 0 || /^(HDFC_|UNI_)/.test(r.source_bank))).sort(byDateDesc);  // only spend is claimable (card refunds net off); Work/Income credits are not
+const claimState = r => r.reimbursement || 'todo';
+const claimAmt = r => -(parseFloat(r.amount) || 0);
+
+function updateWorkBadge() { const n = workRows().filter(r => claimState(r) === 'todo').length; $('work_n').textContent = n ? n : ''; }
+
+async function setClaim(r, value) {
+  const res = await fetch('/annotate', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({hash: r.hash, field: 'reimbursement', value: value === 'todo' ? '' : value})});
+  if (!res.ok) throw new Error((await res.json()).error || res.status);
+  r.reimbursement = value === 'todo' ? '' : value;
+}
+
+function claimsCsv(rows) {
+  const q = v => '"' + String(v ?? '').replace(/"/g, '""') + '"';
+  return ['Date,Time,Payee,Category,Amount (INR),Bank,Narration', ...rows.map(r => [r.transaction_date, r.time, r.counterparty, r.category, claimAmt(r).toFixed(2), r.source_bank, r.description.replace(/\\s+/g, ' ')].map(q).join(','))].join('\\n');
+}
+
+function renderWork() {
+  const all = workRows(), sum = st => all.filter(r => claimState(r) === st).reduce((a, r) => a + claimAmt(r), 0), n = st => all.filter(r => claimState(r) === st).length;
+  const shown = workFilter === 'all' ? all : all.filter(r => claimState(r) === workFilter);
+  $('screen-work').innerHTML = `<div class=m-head><h2 style="min-width:0">Work claims</h2></div>
+    <div class=kpis>
+      <div class='card kpi'><h3>To file</h3><div class='v ${n('todo') ? 'up' : ''}'>₹${inr(sum('todo'))}</div><div class=d>${n('todo')} transactions</div></div>
+      <div class='card kpi'><h3>Filed, awaiting payback</h3><div class=v>₹${inr(sum('filed'))}</div><div class=d>${n('filed')} transactions</div></div>
+      <div class='card kpi'><h3>Reimbursed</h3><div class='v down'>₹${inr(sum('reimbursed'))}</div><div class=d>${n('reimbursed')} transactions</div></div>
+      <div class='card kpi'><h3>All Work/* spend</h3><div class=v>₹${inr(sum('todo') + sum('filed') + sum('reimbursed'))}</div><div class=d>${all.length} transactions</div></div>
+    </div>
+    <div class=tools><span class=sw>Show <select id=w_filter>${[['todo', 'To file'], ['filed', 'Filed'], ['reimbursed', 'Reimbursed'], ['all', 'All']].map(([v, l]) => `<option value=${v} ${v === workFilter ? 'selected' : ''}>${l}</option>`).join('')}</select></span>
+      <button id=w_csv>Download these ${shown.length} as CSV</button><button class=alt id=w_file>Mark these ${shown.length} as filed</button></div>
+    <div class=card>${shown.length ? `<table class=tbl><tr><th>Date</th><th>Time</th><th>Payee</th><th>Category</th><th class=num>Amount</th><th>Bank</th><th>Status</th><th style="width:22%">Note</th></tr>${shown.map((r, i) => `<tr class=r data-i=${i}><td>${esc(r.transaction_date)}</td><td>${esc(r.time) || '—'}</td><td title="${esc(r.description)}">${esc(r.counterparty || r.description.replace(/\\s+/g, ' ').slice(0, 30))}</td><td>${esc(r.category)}</td><td class=num>${claimAmt(r) < 0 ? '+' : ''}₹${inr(Math.abs(claimAmt(r)))}</td><td>${esc(r.source_bank)}</td><td><select>${[['todo', 'To file'], ['filed', 'Filed'], ['reimbursed', 'Reimbursed']].map(([v, l]) => `<option value=${v} ${v === claimState(r) ? 'selected' : ''}>${l}</option>`).join('')}</select></td><td><input value="${esc(r.notes)}" placeholder="invoice #, trip…"></td></tr>`).join('')}</table>` : `<div class=note>Nothing here. Label transactions with a Work/… category (Review tab) and they show up to claim.</div>`}</div>
+    <div class=note>Work/* transactions, from the Review or Transactions tabs. Card refunds show as a negative claim. Status and notes are saved as you change them.</div>`;
+  $('w_filter').onchange = e => { workFilter = localStorage.workFilter = e.target.value; renderWork(); };
+  $('w_csv').onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([claimsCsv(shown)], {type: 'text/csv'})); a.download = `work-claims-${new Date().toISOString().slice(0, 10)}.csv`; a.click(); };
+  $('w_file').onclick = async () => {
+    const todo = shown.filter(r => claimState(r) === 'todo');
+    if (!todo.length || !confirm(`Mark ${todo.length} transactions (₹${inr(todo.reduce((a, r) => a + claimAmt(r), 0))}) as filed?`)) return;
+    try { for (const r of todo) await setClaim(r, 'filed'); } catch (err) { alert(`Stopped: ${err.message}`); }
+    renderWork(); updateWorkBadge();
+  };
+  $('screen-work').querySelectorAll('tr.r').forEach(tr => {
+    const r = shown[+tr.dataset.i];
+    tr.querySelector('select').onchange = async e => { try { await setClaim(r, e.target.value); renderWork(); updateWorkBadge(); } catch (err) { e.target.title = `Not saved: ${err.message}`; } };
+    tr.querySelector('input').onchange = async e => {
+      const res = await fetch('/annotate', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({hash: r.hash, field: 'notes', value: e.target.value})});
+      if (res.ok) r.notes = e.target.value.trim(); else e.target.title = 'Not saved';
+    };
+  });
+}
+
 function showTab(tab) {
   localStorage.tab = tab;
-  $('screen-month').hidden = tab !== 'month'; $('screen-tx').hidden = tab !== 'tx';
+  for (const [t, id] of Object.entries({month: 'screen-month', tx: 'screen-tx', review: 'screen-review', subs: 'screen-subs', work: 'screen-work'})) $(id).hidden = tab !== t;
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
-  $('screen-review').hidden = tab !== 'review';
   if (tab === 'month') loadMonth(localStorage.analysisMonth);
+  else if (tab === 'subs') renderSubs();
+  else if (tab === 'work') renderWork();
   else if (tab === 'review') { if (!$('p_month').options.length) fillReviewMonths(); fillReview(); }
   else { setStickyOffsets(); render(); }
 }
 document.querySelectorAll('#tabs button').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
 
 init();
-fillReviewMonths(); fillReview(); setReviewView(reviewView);
+fillReviewMonths(); fillReview(); setReviewView(reviewView); updateWorkBadge();
 showTab(localStorage.tab || 'month');
 </script>
 </body>

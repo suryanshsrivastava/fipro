@@ -25,6 +25,7 @@ DASHBOARD_FIELDNAMES = [
     "frequency",
     "frequency_detected",
     "splitwise",
+    "reimbursement",
 ]
 
 
@@ -65,6 +66,7 @@ def export_dashboard_data(transactions: list[Transaction], output_path: str) -> 
                     "frequency": txn.frequency,
                     "frequency_detected": "yes" if txn.frequency_detected else "",
                     "splitwise": "yes" if txn.splitwise else "",
+                    "reimbursement": txn.reimbursement,
                 }
             )
 
