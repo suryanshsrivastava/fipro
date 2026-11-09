@@ -96,10 +96,17 @@ def save_rides(rides: list[dict[str, str]], path: str) -> int:
     return added
 
 
-def _fare_matches(ride: dict[str, str], amount: Decimal) -> bool:
+def _fare_matches(ride: dict[str, str], amount: Decimal, *, named: bool) -> bool:
+    """Rapido: the price agreed with the captain. Uber paid direct to a named driver: the fare rounded up or tipped.
+
+    A payment that only says "Uber" is the app charging the exact fare, so it must match to the rupee.
+    """
     fares = [Decimal(v) for v in (ride["fare"], ride["fare_alt"]) if v]
-    if ride["provider"] == "rapido":  # the price agreed with the captain; a tip or rounding moves the payment a little
-        return any(abs(amount - f) <= max(Decimal(10), f * Decimal("0.15")) for f in fares)
+    if ride["provider"] == "rapido" or named:
+        return any(
+            abs(amount - f) <= max(Decimal(10), f * Decimal("0.15" if ride["provider"] == "rapido" else "0.05"))
+            for f in fares
+        )
     return any(abs(amount - f) <= 1 for f in fares)
 
 
@@ -110,14 +117,14 @@ def _names(text: str) -> set[str]:
 def _is_match(ride: dict[str, str], txn: Transaction) -> bool:
     if txn.transaction_type != TransactionType.DEBIT or not ride["day"]:
         return False
-    if abs((date.fromisoformat(ride["day"]) - txn.transaction_date).days) > 1 or not _fare_matches(ride, txn.amount):
+    if abs((date.fromisoformat(ride["day"]) - txn.transaction_date).days) > 1:
         return False
     narration = txn.description.lower()
     first = (ride["driver"].split() or [""])[0].lower()
     named = len(first) >= 3 and first in _names(narration)
-    if ride["provider"] == "rapido":
-        return named
-    return named or "uber" in narration
+    if not _fare_matches(ride, txn.amount, named=named):
+        return False
+    return named or (ride["provider"] == "uber" and "uber" in narration)
 
 
 def match_rides(transactions: list[Transaction], rides: list[dict[str, str]]) -> tuple[int, list[dict[str, str]]]:

@@ -72,3 +72,12 @@ def test_rapido_invoice_without_a_driver_parses_but_never_matches():
     ride = parse_receipt("rapido", invoice)
     assert ride and (ride["fare"], ride["driver"]) == ("73.00", "")
     assert match_rides([_txn(date(2026, 11, 5), "73", "UPI-ANYONE-x@ybl-1-UPI")], [ride])[0] == 0
+
+
+def test_uber_paid_direct_to_the_named_driver_allows_a_rounded_up_fare_but_an_uber_charge_must_be_exact():
+    rides = [parse_receipt("uber", UBER)]  # driver HARENDRA, fare 848.03 / 640.04
+    rounded = _txn(date(2026, 11, 5), "650", "UPI-HARENDRA SINGH-x@ybl-1-UPI")
+    far = _txn(date(2026, 11, 5), "700", "UPI-HARENDRA SINGH-x@ybl-1-UPI")
+    uber_off = _txn(date(2026, 11, 5), "845", "UBER INDIA SYSTEMS")
+    assert match_rides([far, uber_off, rounded], rides)[0] == 1 and rounded.category == "City/Cab"
+    assert far.category is None and uber_off.category is None
