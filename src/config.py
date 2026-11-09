@@ -28,6 +28,7 @@ class PathSettings:
     category_rules: str = "corpus/state/category_rules.csv"
     suggestions: str = "corpus/state/suggestions.csv"
     txn_times: str = "corpus/state/txn_times.csv"
+    rides: str = "corpus/state/rides.csv"
 
     @classmethod
     def from_config(cls, config: dict) -> PathSettings:
@@ -42,6 +43,7 @@ class PathSettings:
             category_rules=_str(config, "paths.category_rules", d.category_rules),
             suggestions=_str(config, "paths.suggestions", d.suggestions),
             txn_times=_str(config, "paths.txn_times", d.txn_times),
+            rides=_str(config, "paths.rides", d.rides),
         )
 
 

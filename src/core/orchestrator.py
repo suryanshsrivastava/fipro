@@ -9,6 +9,7 @@ from src.core.audit_log import write_audit_logs
 from src.core.external_account_detector import detect_external_account_payments
 from src.core.ingestion import discover_files
 from src.core.parser_registry import get_default_parser_registry
+from src.core.rides import load_rides, match_rides
 from src.core.statement_extraction import extract_from_crawled_files
 from src.core.transaction_consolidation import ConsolidationResult, apply_processing_metrics, consolidate_transactions
 from src.core.txn_times import apply_txn_times
@@ -95,6 +96,7 @@ def process_pipeline(settings: Settings, passwords: dict[str, str] | None = None
         include_internal_transfers=settings.processing.export_internal_transfers,
     )
     detect_external_account_payments(consolidation.deduplicated_transactions, settings.external_accounts)
+    match_rides(consolidation.deduplicated_transactions, load_rides(settings.paths.rides))
     apply_annotations(
         consolidation.deduplicated_transactions, settings.paths.annotations, settings.paths.category_rules
     )
