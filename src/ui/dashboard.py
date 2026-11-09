@@ -11,6 +11,7 @@ from src.config import Settings
 from src.connectors.gmail import load_password_hints
 from src.core.annotations import overlay_labels, set_category_many, set_label, set_rule
 from src.core.application import statement_gaps
+from src.core.card_dues import card_dues
 from src.core.ingestion import discover_files
 from src.core.monthly import available_months, default_month, month_summary
 from src.core.orchestrator import process_pipeline
@@ -111,7 +112,7 @@ HTML_TEMPLATE = """
   svg.days { width: 100%; height: 120px; } svg.days rect { fill: #38bdf8; } svg.days rect:hover { fill: #f1f5f9; }
   @media (max-width: 900px) { .kpis, .grid2, .grid3 { grid-template-columns: 1fr; } }
   #coverage { display: flex; flex-wrap: wrap; column-gap: 18px; row-gap: 2px; margin-top: 4px; }
-  .cov { font-size: 12px; color: #94a3b8; white-space: nowrap; } .cov.gap { color: #f59e0b; font-weight: 600; }
+  .cov { font-size: 12px; color: #94a3b8; white-space: nowrap; } .cov.gap { color: #f59e0b; font-weight: 600; } .cov.due.paid { color: #4ade80; } .cov.due.soon { color: #f59e0b; font-weight: 600; } .cov.due.late { color: #f87171; font-weight: 700; }
   button.confirm { margin-left: 4px; cursor: pointer; }
   #confirm_all { display: none; cursor: pointer; }
   td.c-counterparty { max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
@@ -209,6 +210,7 @@ HTML_TEMPLATE = """
 <script>
 const DATA = {{DATA}};
 const LOCKED = {{LOCKED}};
+const DUES = {{DUES}};  // per card: bank, due date, total, days left, paid
 const GAPS = {{GAPS}};  // [bank, first uncovered day, last uncovered day]
 const SUGGESTIONS = {{SUGGESTIONS}};  // counterparty -> {category, probability}, from `fipro suggest`
 
@@ -284,6 +286,7 @@ function renderCoverage() {
   const box = document.getElementById('coverage');
   box.replaceChildren();
   Object.entries(last).sort().forEach(([bank, d]) => box.append(el('span', 'cov', `${bank}: latest ${d} (${days(d)}d ago)`)));
+  DUES.forEach(c => box.append(el('span', 'cov due ' + (c.paid ? 'paid' : c.days < 0 ? 'late' : c.days <= 3 ? 'soon' : ''), `${c.bank}: ${c.paid ? 'paid ✓' : c.days < 0 ? `OVERDUE ${-c.days}d` : c.days === 0 ? 'DUE TODAY' : `due in ${c.days}d`} · ₹${inr(c.total)} · ${c.due}`)));
   GAPS.forEach(([bank, from, to]) => box.append(el('span', 'cov gap', `${bank}: no statement ${from} → ${to}`)));
 }
 
@@ -869,6 +872,7 @@ def build_server(csv_path: str, port: int, settings: Settings | None = None) -> 
                 html = (
                     HTML_TEMPLATE.replace("{{DATA}}", _script_json(current_rows()))
                     .replace("{{LOCKED}}", _script_json(locked))
+                    .replace("{{DUES}}", _script_json(card_dues(settings, current_rows()) if settings else []))
                     .replace("{{GAPS}}", _script_json(statement_gaps(settings.paths.input) if settings else []))
                     .replace("{{SUGGESTIONS}}", _script_json(suggestions))
                 )
