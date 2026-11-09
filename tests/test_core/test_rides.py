@@ -81,3 +81,10 @@ def test_uber_paid_direct_to_the_named_driver_allows_a_rounded_up_fare_but_an_ub
     uber_off = _txn(date(2026, 11, 5), "845", "UBER INDIA SYSTEMS")
     assert match_rides([far, uber_off, rounded], rides)[0] == 1 and rounded.category == "City/Cab"
     assert far.category is None and uber_off.category is None
+
+
+def test_a_matched_ride_does_not_set_the_payment_time_but_names_the_trip_start():
+    ride = parse_receipt("rapido", RAPIDO)
+    paid = _txn(date(2026, 11, 1), "66", "UPI-REVANNA V-x@ybl-1-UPI")
+    match_rides([paid], [ride])
+    assert paid.time == "" and "14:08" in (paid.notes or "")

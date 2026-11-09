@@ -143,7 +143,5 @@ def match_rides(transactions: list[Transaction], rides: list[dict[str, str]]) ->
         used.add(id(hit))
         hit.category = RIDE_CATEGORY
         hit.notes = f"{ride['provider'].title()} ride {ride['day']} {ride['time']}, driver {ride['driver'] or '?'}, fare ₹{ride['fare']}"
-        if not hit.time and ride["time"]:
-            hit.raw_data = {**(hit.raw_data or {}), "time": ride["time"]}
         matched += 1
     return matched, unmatched
