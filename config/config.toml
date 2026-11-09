@@ -23,6 +23,7 @@ annotations = "corpus/state/annotations.csv"
 category_rules = "corpus/state/category_rules.csv"
 # Category suggestions from a local decision model (`fipro suggest`); the dashboard offers them, nothing applies itself.
 suggestions = "corpus/state/suggestions.csv"
+tasks = "corpus/state/tasks.csv"              # task statuses and manual tasks
 rides = "corpus/state/rides.csv"              # Uber/Rapido trips read from receipt emails
 txn_times = "corpus/state/txn_times.csv"      # reference -> time, from UPI alert emails
 

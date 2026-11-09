@@ -18,6 +18,7 @@ from src.core.orchestrator import process_pipeline
 from src.core.parser_registry import is_locked_statement
 from src.core.statement_passwords import load_statement_passwords
 from src.core.suggestions import confident_suggestions
+from src.core.tasks import add_task, all_tasks, set_task
 from src.exporters.report import summarize_pipeline_run
 from src.ui.dashboard_data import load_csv_data as _load_csv_data
 
@@ -49,7 +50,13 @@ HTML_TEMPLATE = """
   tr { border-bottom: 1px solid #1e293b; transition: background 0.1s; }
   th[data-col=description], td.c-description { width: 100%; max-width: 0; overflow: hidden; text-overflow: ellipsis; }
   td.c-frequency.auto select { font-style: italic; color: #8a6d00; }
-  #screen-subs, #screen-work { padding: 20px 24px 40px; max-width: 1280px; } #screen-subs[hidden], #screen-work[hidden] { display: none; }
+  #screen-subs, #screen-work, #screen-tasks { padding: 20px 24px 40px; max-width: 1280px; } #screen-subs[hidden], #screen-work[hidden], #screen-tasks[hidden] { display: none; }
+  .task { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; padding: 10px 14px; border-top: 1px solid #0f1117; } .task > div:nth-child(2) { flex: 1 1 340px; min-width: 0; } .task > select { width: 110px; } .task > input { flex: 0 1 220px; width: 220px; } .task:first-child { border-top: 0; }
+  .task .bar1 { align-self: stretch; border-radius: 3px; background: #475569; } .task.p1 .bar1 { background: #f87171; } .task.p2 .bar1 { background: #f59e0b; }
+  .task .tt { font-size: 14px; font-weight: 600; } .task .td { font-size: 12px; color: #94a3b8; margin-top: 2px; } .task.fin .tt { text-decoration: line-through; color: #64748b; }
+  .task select, .task input, .addt input, .addt select { background: #334155; border: 1px solid #475569; color: #e2e8f0; border-radius: 6px; padding: 4px 8px; font-size: 12px; } .task input { width: 100%; }
+  .pill.you { background: #1e3a8a; color: #bfdbfe; } .pill.agent { background: #4c1d95; color: #ddd6fe; }
+  .addt { display: flex; gap: 8px; margin: 12px 0; } .addt input[name=title] { flex: 1; } .addt button, .task .cp { background: #38bdf8; color: #0f1117; border: 0; border-radius: 6px; padding: 5px 12px; font-weight: 600; cursor: pointer; font-size: 12px; } .task .cp { background: #7c3aed; color: #fff; margin-top: 6px; }
   .tbl { width: 100%; border-collapse: collapse; font-size: 13px; } .tbl th { text-align: left; color: #94a3b8; font-weight: 500; font-size: 12px; padding: 6px 10px; cursor: default; background: transparent; position: static; }
   .tbl td { padding: 7px 10px; border-top: 1px solid #0f1117; } .tbl tr.r:hover { background: #0f1117; } .tbl .num { text-align: right; font-variant-numeric: tabular-nums; }
   .tbl .nm { cursor: pointer; } .tbl .nm:hover { color: #38bdf8; } .tbl .sub2 td { color: #94a3b8; font-size: 12px; padding: 3px 10px 3px 30px; border: 0; background: #0f1117; }
@@ -168,7 +175,7 @@ HTML_TEMPLATE = """
   <h1>Fipro Dashboard</h1>
   <div class=subtitle id=summary>—</div>
   <div class=subtitle id=coverage></div>
-  <nav id=tabs><button data-tab=month>Monthly</button><button data-tab=tx>Transactions</button><button data-tab=review>Review<span class=n id=review_n></span></button><button data-tab=subs>Subscriptions</button><button data-tab=work>Work claims<span class=n id=work_n></span></button></nav>
+  <nav id=tabs><button data-tab=month>Monthly</button><button data-tab=tx>Transactions</button><button data-tab=review>Review<span class=n id=review_n></span></button><button data-tab=subs>Subscriptions</button><button data-tab=work>Work claims<span class=n id=work_n></span></button><button data-tab=tasks>Tasks<span class=n id=tasks_n></span></button></nav>
 </header>
 <section id=locked aria-label="Locked statements"></section>
 <div id=screen-month hidden></div>
@@ -180,6 +187,7 @@ HTML_TEMPLATE = """
 </section>
 <section id=screen-subs hidden></section>
 <section id=screen-work hidden></section>
+<section id=screen-tasks hidden></section>
 <div id=screen-tx>
 <div class=toolbar>
   <input type=text id=search placeholder=\"Search description...\" oninput=\"render()\">
@@ -806,11 +814,51 @@ function renderWork() {
   });
 }
 
+
+// ---- Tasks: insights to act on or hand to an agent ---------------------------------------------
+let TASKS = [];
+async function postTask(body) {
+  const res = await fetch('/task', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+  if (!res.ok) throw new Error((await res.json()).error || res.status);
+}
+async function loadTasks() {
+  const res = await fetch('/tasks'); TASKS = await res.json();
+  const open = TASKS.filter(t => t.status === 'open' || t.status === 'doing').length;
+  $('tasks_n').textContent = open || '';
+  if (!$('screen-tasks').hidden) renderTasks();
+}
+function renderTasks() {
+  const live = TASKS.filter(t => t.status === 'open' || t.status === 'doing'), fin = TASKS.filter(t => t.status === 'done' || t.status === 'dismissed');
+  const row = (t, i) => `<div class="task p${t.priority} ${t.status === 'done' || t.status === 'dismissed' ? 'fin' : ''}" data-i=${i}><span class=bar1></span>
+    <div><div class=tt>${esc(t.title)}</div><div class=td>${esc(t.detail)}</div>${t.prompt ? `<button class=cp>Copy agent prompt</button>` : ''}</div>
+    <span><span class="pill ${t.owner}">${t.owner === 'agent' ? 'agent can do' : 'you'}</span></span>
+    <select>${['open', 'doing', 'done', 'dismissed'].map(v => `<option value=${v} ${v === t.status ? 'selected' : ''}>${v}</option>`).join('')}</select>
+    <input value="${esc(t.note)}" placeholder="note…"></div>`;
+  $('screen-tasks').innerHTML = `<div class=m-head><h2 style="min-width:0">Tasks</h2></div>
+    <div class=note style="margin:0 0 8px">Built from your data: bills, late fees, unlabelled spend, stale statements, claims. Tasks marked "agent can do" carry a prompt you can hand to an agent; it only reads and prepares. Nothing runs by itself.</div>
+    <form class=addt id=t_form><input name=title placeholder="Add your own task…"><select name=owner><option value=you>you</option><option value=agent>agent can do</option></select><select name=priority><option value=1>high</option><option value=2 selected>normal</option><option value=3>low</option></select><button>Add</button></form>
+    <div class=card>${live.length ? live.map(t => row(t, TASKS.indexOf(t))).join('') : '<div class=note>Nothing to do. ✓</div>'}</div>
+    ${fin.length ? `<div class=card style="margin-top:12px"><h3>Done or dismissed (${fin.length})</h3>${fin.map(t => row(t, TASKS.indexOf(t))).join('')}</div>` : ''}`;
+  $('t_form').onsubmit = async e => {
+    e.preventDefault(); const f = new FormData(e.target);
+    if (!String(f.get('title')).trim()) return;
+    try { await postTask({title: f.get('title'), owner: f.get('owner'), priority: Number(f.get('priority'))}); await loadTasks(); } catch (err) { alert('Not saved: ' + err.message); }
+  };
+  $('screen-tasks').querySelectorAll('.task').forEach(el1 => {
+    const t = TASKS[+el1.dataset.i];
+    el1.querySelector('select').onchange = async e => { try { await postTask({id: t.id, status: e.target.value}); await loadTasks(); } catch (err) { e.target.title = 'Not saved: ' + err.message; } };
+    el1.querySelector('input').onchange = async e => { try { await postTask({id: t.id, note: e.target.value}); t.note = e.target.value.trim(); } catch (err) { e.target.title = 'Not saved: ' + err.message; } };
+    const cp = el1.querySelector('.cp');
+    if (cp) cp.onclick = async () => { await navigator.clipboard.writeText(t.prompt); cp.textContent = 'Copied ✓'; };
+  });
+}
+
 function showTab(tab) {
   localStorage.tab = tab;
-  for (const [t, id] of Object.entries({month: 'screen-month', tx: 'screen-tx', review: 'screen-review', subs: 'screen-subs', work: 'screen-work'})) $(id).hidden = tab !== t;
+  for (const [t, id] of Object.entries({month: 'screen-month', tx: 'screen-tx', review: 'screen-review', subs: 'screen-subs', work: 'screen-work', tasks: 'screen-tasks'})) $(id).hidden = tab !== t;
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
   if (tab === 'month') loadMonth(localStorage.analysisMonth);
+  else if (tab === 'tasks') loadTasks();
   else if (tab === 'subs') renderSubs();
   else if (tab === 'work') renderWork();
   else if (tab === 'review') { if (!$('p_month').options.length) fillReviewMonths(); fillReview(); }
@@ -819,7 +867,7 @@ function showTab(tab) {
 document.querySelectorAll('#tabs button').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
 
 init();
-fillReviewMonths(); fillReview(); setReviewView(reviewView); updateWorkBadge();
+fillReviewMonths(); fillReview(); setReviewView(reviewView); updateWorkBadge(); loadTasks();
 showTab(localStorage.tab || 'month');
 </script>
 </body>
@@ -877,6 +925,19 @@ def build_server(csv_path: str, port: int, settings: Settings | None = None) -> 
                     .replace("{{SUGGESTIONS}}", _script_json(suggestions))
                 )
                 self._send(200, "text/html; charset=utf-8", html.encode())
+            elif self.path == "/tasks" and settings:
+                rows = current_rows()
+                self._send_json(
+                    200,
+                    all_tasks(
+                        rows,
+                        card_dues(settings, rows),
+                        statement_gaps(settings.paths.input),
+                        date.today(),
+                        settings.paths.tasks,
+                        str(Path.cwd()),
+                    ),
+                )
             elif self.path.split("?")[0] == "/month":
                 rows = current_rows()
                 months = available_months(rows)
@@ -889,7 +950,7 @@ def build_server(csv_path: str, port: int, settings: Settings | None = None) -> 
                 self._send(404, "text/plain", b"")
 
         def do_POST(self):
-            if self.path not in ("/unlock", "/annotate", "/accept") or settings is None:
+            if self.path not in ("/unlock", "/annotate", "/accept", "/task") or settings is None:
                 self._send_json(404, {"error": "not found"})
                 return
             # JSON-only + same-origin: a page on another site cannot trigger processing through the browser.
@@ -909,6 +970,9 @@ def build_server(csv_path: str, port: int, settings: Settings | None = None) -> 
                 return
             if self.path == "/accept":
                 self._accept(settings)
+                return
+            if self.path == "/task":
+                self._task(settings)
                 return
             try:
                 body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
@@ -930,6 +994,25 @@ def build_server(csv_path: str, port: int, settings: Settings | None = None) -> 
                 body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
                 set_label(settings.paths.annotations, str(body["hash"]), str(body["field"]), str(body["value"]))
             except (KeyError, ValueError) as exc:  # bad request from the page, not a server fault
+                self._send_json(400, {"error": str(exc)})
+                return
+            self._send_json(200, {"ok": True})
+
+        def _task(self, settings: Settings) -> None:
+            try:
+                body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
+                if body.get("title"):
+                    task_id = add_task(
+                        settings.paths.tasks,
+                        str(body["title"]),
+                        str(body.get("detail", "")),
+                        str(body.get("owner", "you")),
+                        int(body.get("priority", 2)),
+                    )
+                    self._send_json(200, {"ok": True, "id": task_id})
+                    return
+                set_task(settings.paths.tasks, str(body["id"]), status=body.get("status"), note=body.get("note"))
+            except (KeyError, ValueError) as exc:
                 self._send_json(400, {"error": str(exc)})
                 return
             self._send_json(200, {"ok": True})
