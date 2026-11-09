@@ -11,6 +11,7 @@ from src.config import Settings
 from src.connectors.gmail import load_password_hints
 from src.core.annotations import overlay_labels, set_category_many, set_label, set_rule
 from src.core.application import statement_gaps
+from src.core.budgets import load_budgets, seed_budgets, set_budget
 from src.core.card_dues import card_dues
 from src.core.ingestion import discover_files
 from src.core.monthly import available_months, default_month, month_summary
@@ -171,6 +172,9 @@ HTML_TEMPLATE = """
   .confetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 60; }
   .party { position: fixed; top: 22%; left: 50%; transform: translateX(-50%); z-index: 61; background: #16a34a; color: #fff; font-weight: 700; font-size: 20px; padding: 14px 26px; border-radius: 12px; box-shadow: 0 10px 40px #0008; pointer-events: none; animation: pop 3.4s ease forwards; }
   @keyframes pop { 0% { transform: translateX(-50%) scale(.6); opacity: 0; } 10% { transform: translateX(-50%) scale(1.08); opacity: 1; } 18% { transform: translateX(-50%) scale(1); } 85% { opacity: 1; } 100% { opacity: 0; } }
+  .bar-row.bgt { grid-template-columns: minmax(120px, 230px) 1fr 170px; cursor: default; }
+  .bar i.over { background: #ef4444; } .tg { color: #38bdf8; cursor: pointer; } .tgin { width: 80px; background: #334155; border: 1px solid #475569; color: #e2e8f0; border-radius: 4px; padding: 1px 4px; }
+  .bform { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; } .bform input { background: #334155; border: 1px solid #475569; color: #e2e8f0; border-radius: 6px; padding: 5px 8px; font-size: 13px; } .bform button { background: #334155; color: #e2e8f0; border: 1px solid #475569; border-radius: 6px; padding: 5px 12px; cursor: pointer; }
 </style>
 </head>
 <body>
@@ -675,6 +679,34 @@ function change(cur, prev, label, goodUp) {
   return `<span class=${cls}>${up ? '▲' : '▼'} ${Math.abs(pct)}%</span> vs ${label} (${inr(prev)})`;
 }
 
+let budgets = {};
+async function postBudget(body) {
+  const res = await fetch('/budget', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+  if (!res.ok) { alert('Not saved: ' + ((await res.json()).error || res.status)); return null; }
+  const out = await res.json(); await loadMonth(currentMonth); return out;
+}
+function budgetCard(s) {
+  const spent = Object.fromEntries(s.by_category.map(c => [c.name, c.amount]));
+  const cats = Object.keys(budgets).sort((a, b) => (spent[b] || 0) / budgets[b] - (spent[a] || 0) / budgets[a]);
+  const total = cats.reduce((a, c) => a + budgets[c], 0), used = cats.reduce((a, c) => a + (spent[c] || 0), 0);
+  const rows = cats.map(c => { const v = spent[c] || 0, p = v / budgets[c];
+    return `<div class='bar-row bgt'><span class=name>${esc(c)}</span><span class=bar><i class='${p > 1 ? 'over' : p > .85 ? 'warn' : ''}' style='width:${Math.min(p, 1) * 100}%'></i></span><span class=amt>${inr(v)} / <a class=tg data-edit='${esc(c)}' title='Click to change; empty removes it'>${inr(budgets[c])}</a></span></div>`; }).join('');
+  const outside = s.by_category.filter(c => !(c.name in budgets)).reduce((a, c) => a + c.amount, 0);
+  return `<div class=card style='margin-bottom:12px'><h3>Budget targets${cats.length ? ` — ₹${inr(used)} of ₹${inr(total)} used` : ''}</h3>
+    ${rows || '<div class=note>No targets yet. Add one below, or start from your recent spending.</div>'}
+    ${cats.length ? `<div class=note>Spend in categories without a target: ₹${inr(outside)}. Targets apply to every month.</div>` : ''}
+    <div class=bform><input id=b_cat list=categories placeholder='Category, e.g. Food/Groceries'><input id=b_amt type=number min=0 placeholder='Monthly target ₹'><button id=b_add>Add target</button><button id=b_seed title='Average spend of the 3 months before this one, for categories without a target'>Set from last 3 months</button></div></div>`;
+}
+function wireBudget(box) {
+  box.querySelectorAll('[data-edit]').forEach(a => a.onclick = () => {
+    const cat = a.dataset.edit, inp = el('input', 'tgin'); inp.type = 'number'; inp.value = budgets[cat]; a.replaceWith(inp); inp.focus();
+    inp.onkeydown = e => { if (e.key === 'Enter') inp.blur(); if (e.key === 'Escape') { inp.dataset.skip = 1; inp.blur(); } };
+    inp.onblur = () => { if (inp.dataset.skip || inp.value === String(budgets[cat])) loadMonth(currentMonth); else postBudget({category: cat, amount: parseFloat(inp.value) || 0}); };
+  });
+  $('b_add').onclick = () => { const c = $('b_cat').value.trim(), v = parseFloat($('b_amt').value); if (c && v > 0) postBudget({category: c, amount: v}); };
+  $('b_seed').onclick = () => postBudget({seed: currentMonth});
+}
+
 function bars(items, {total, drill} = {}) {
   const max = Math.max(...items.map(i => Math.max(i.amount, i.previous)), 1);
   return items.map(i => `<div class=bar-row ${drill ? `data-drill='${esc(i.name)}'` : ''} title='Last month: ${inr(i.previous)}'>
@@ -701,7 +733,7 @@ function stackBar(parts, colours) {
 function renderMonth(data) {
   months = data.months; const s = data.summary, box = $('screen-month');
   if (!s) { box.innerHTML = '<p class=note>No transactions yet. Run fipro process first.</p>'; return; }
-  currentMonth = s.month;
+  currentMonth = s.month; budgets = data.budgets || {};
   const i = months.indexOf(s.month), rate = s.income ? Math.round(s.saved / s.income * 100) : 0;
   const nw = Object.entries(s.need_want).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
   box.innerHTML = `
@@ -713,6 +745,7 @@ function renderMonth(data) {
       <div class='card kpi'><h3>Saved</h3><div class='v ${s.saved < 0 ? 'up' : ''}'>${s.saved < 0 ? '−' : ''}₹${inr(Math.abs(s.saved))}</div><div class=d>income minus spend</div></div>
       <div class='card kpi'><h3>Savings rate</h3><div class='v ${rate < 0 ? 'up' : ''}'>${rate}%</div><div class=d>${s.transactions} transactions · ${s.transfers.count} transfers left out (₹${inr(s.transfers.amount)})</div></div>
     </div>
+    ${budgetCard(s)}
     <div class=grid2>
       <div class=card><h3>Spend by category — click one to see its transactions</h3>${bars(s.by_category, {total: s.net_spend, drill: true})}
         ${s.uncategorised.count ? `<div class=note>${s.uncategorised.count} spend rows (₹${inr(s.uncategorised.amount)}) still have no category.<button id=m_review>Review payees</button></div>` : ''}
@@ -729,6 +762,7 @@ function renderMonth(data) {
   $('m_pick').onchange = e => loadMonth(e.target.value);
   if ($('m_review')) $('m_review').onclick = () => openReviewTab(s.month);
   box.querySelectorAll('[data-drill]').forEach(r => r.onclick = () => drill(r.dataset.drill));
+  wireBudget(box);
 }
 
 async function loadMonth(m) {
@@ -967,14 +1001,21 @@ def build_server(csv_path: str, port: int, settings: Settings | None = None) -> 
                 months = available_months(rows)
                 asked = parse_qs(urlsplit(self.path).query).get("m", [""])[0]
                 month = asked if asked in months else default_month(months, date.today())
-                self._send_json(200, {"months": months, "summary": month_summary(rows, month) if month else None})
+                self._send_json(
+                    200,
+                    {
+                        "months": months,
+                        "summary": month_summary(rows, month) if month else None,
+                        "budgets": load_budgets(settings.paths.budgets) if settings else {},
+                    },
+                )
             elif self.path == "/data":
                 self._send_json(200, current_rows())
             else:
                 self._send(404, "text/plain", b"")
 
         def do_POST(self):
-            if self.path not in ("/unlock", "/annotate", "/accept", "/task") or settings is None:
+            if self.path not in ("/unlock", "/annotate", "/accept", "/task", "/budget") or settings is None:
                 self._send_json(404, {"error": "not found"})
                 return
             # JSON-only + same-origin: a page on another site cannot trigger processing through the browser.
@@ -998,6 +1039,9 @@ def build_server(csv_path: str, port: int, settings: Settings | None = None) -> 
             if self.path == "/task":
                 self._task(settings)
                 return
+            if self.path == "/budget":
+                self._budget(settings)
+                return
             try:
                 body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
                 passwords = {str(bank).upper(): str(pw) for bank, pw in body.get("passwords", {}).items() if pw}
@@ -1018,6 +1062,19 @@ def build_server(csv_path: str, port: int, settings: Settings | None = None) -> 
                 body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
                 set_label(settings.paths.annotations, str(body["hash"]), str(body["field"]), str(body["value"]))
             except (KeyError, ValueError) as exc:  # bad request from the page, not a server fault
+                self._send_json(400, {"error": str(exc)})
+                return
+            self._send_json(200, {"ok": True})
+
+        def _budget(self, settings: Settings) -> None:
+            try:
+                body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
+                if body.get("seed"):
+                    added = seed_budgets(settings.paths.budgets, current_rows(), str(body["seed"]))
+                    self._send_json(200, {"ok": True, "added": added})
+                    return
+                set_budget(settings.paths.budgets, str(body["category"]), float(body["amount"]))
+            except (KeyError, ValueError) as exc:
                 self._send_json(400, {"error": str(exc)})
                 return
             self._send_json(200, {"ok": True})

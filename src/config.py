@@ -30,6 +30,7 @@ class PathSettings:
     txn_times: str = "corpus/state/txn_times.csv"
     rides: str = "corpus/state/rides.csv"
     tasks: str = "corpus/state/tasks.csv"
+    budgets: str = "corpus/state/budgets.csv"
 
     @classmethod
     def from_config(cls, config: dict) -> PathSettings:
@@ -46,6 +47,7 @@ class PathSettings:
             txn_times=_str(config, "paths.txn_times", d.txn_times),
             rides=_str(config, "paths.rides", d.rides),
             tasks=_str(config, "paths.tasks", d.tasks),
+            budgets=_str(config, "paths.budgets", d.budgets),
         )
 
 

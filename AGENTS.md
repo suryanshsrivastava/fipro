@@ -200,6 +200,8 @@ Labels are hand-maintained, so they live in `corpus/state/`, not in the rebuilt 
   categories you have already used, one per counterparty, seeing the counterparty name only. An empty category
   means "none of these". The dashboard offers suggestions of 0.9 or more as a one-click button that writes a
   `category_rules.csv` row; nothing is applied automatically.
+- `budgets.csv` — `category, amount`: a monthly spending target per category, edited on the Monthly screen
+  (`src/core/budgets.py`). "Set from last 3 months" fills categories that have none; it never overwrites one.
 - `scripts/seed_annotations.py` carried the labels over from the old spreadsheets in `corpus/legacy/`.
 
 (`logs/fipro.log` is the one other write target.)
@@ -346,6 +348,7 @@ statement_passwords = "corpus/state/statement_passwords.json"
 annotations = "corpus/state/annotations.csv"
 category_rules = "corpus/state/category_rules.csv"
 suggestions = "corpus/state/suggestions.csv"
+budgets = "corpus/state/budgets.csv"
 
 [processing]
 supported_extensions = ["xls", "xlsx"]
