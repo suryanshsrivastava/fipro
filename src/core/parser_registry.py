@@ -11,6 +11,7 @@ from msoffcrypto.exceptions import DecryptionError, FileFormatError, InvalidKeyE
 from src.models.transactions import Transaction
 from src.parsers.axis import AXIS_LAYOUT
 from src.parsers.base import BankParser
+from src.parsers.card_pdf import PdfLockedError, card_for_bank, card_for_folder, extract_card_transactions
 from src.parsers.hdfc import HDFC_LAYOUT
 from src.parsers.sbi import SBI_LAYOUT, load_sbi_file
 from src.parsers.tabular import BankLayout, TabularStatementParser
@@ -136,6 +137,8 @@ class ParserRegistry:
         return [adapter.parser for adapter in self._adapters]
 
     def infer_bank_from_filename(self, filename: str) -> str:
+        if card := card_for_folder(filename):
+            return card.bank
         for adapter in self._adapters:
             if adapter.matches_filename(filename):
                 return adapter.parser.bank_name
@@ -185,10 +188,46 @@ class ParserRegistry:
         ``route_name`` overrides the filename used for parser routing (e.g. an input-relative
         path so a bank folder counts as a hint). Raises StatementLockedError when locked.
         """
+        if filepath.lower().endswith(".pdf"):
+            return self._extract_card_pdf(filepath, bank_hint, passwords or {})
         dataframe = self.load_dataframe(filepath, bank_hint=bank_hint, passwords=passwords)
         parser = self.route_parser(route_name or Path(filepath).name, dataframe)
         transactions = parser.extract_transactions(dataframe, filepath)
         return ExtractedStatement(parser=parser, dataframe=dataframe, transactions=transactions)
+
+    @staticmethod
+    def _extract_card_pdf(filepath: str, bank_hint: str | None, passwords: dict[str, str]) -> ExtractedStatement:
+        card = card_for_bank(bank_hint or "")
+        if card is None:
+            raise ValueError(f"{Path(filepath).name} is not in a known card folder (hdfc_regalia, uni_visa, ...)")
+        env_var = f"FIPRO_{card.bank}_STATEMENT_PASSWORD"
+        password = passwords.get(card.bank) or os.environ.get(env_var) or os.environ.get(_DEFAULT_PASSWORD_ENV_VAR, "")
+        try:
+            transactions = extract_card_transactions(card, filepath, password)
+        except PdfLockedError as exc:
+            raise StatementLockedError(
+                f"{Path(filepath).name} is password-protected; save a {card.bank} password or set {env_var}"
+            ) from exc
+        return ExtractedStatement(
+            parser=CardStatementParser(card.bank), dataframe=pd.DataFrame(), transactions=transactions
+        )
+
+
+class CardStatementParser(BankParser):
+    """Stands in for a bank parser in results: card PDFs are read through ``extract_card_transactions``."""
+
+    def __init__(self, bank: str) -> None:
+        self._bank = bank
+
+    @property
+    def bank_name(self) -> str:
+        return self._bank
+
+    def can_parse(self, _filename: str, _df: pd.DataFrame) -> bool:
+        return False
+
+    def extract_transactions(self, _df: pd.DataFrame, _source_file: str) -> list[Transaction]:
+        raise NotImplementedError("card statements are read from the PDF, not a dataframe")
 
 
 def get_default_parser_registry() -> ParserRegistry:

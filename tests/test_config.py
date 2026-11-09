@@ -30,7 +30,7 @@ def test_input_path_is_required():
 def test_empty_extension_list_means_unset():
     config = {"paths": {"input": "in"}, "processing": {"supported_extensions": []}}
 
-    assert Settings.from_config(config).processing.supported_extensions == ("xls", "xlsx")
+    assert Settings.from_config(config).processing.supported_extensions == ("xls", "xlsx", "pdf")
 
 
 def test_internal_transfer_flags_resolve_to_one_value():
@@ -80,7 +80,7 @@ def test_defaults_match_shipped_config_toml():
     assert shipped.processing == defaults.processing
     assert shipped.goodbudget == defaults.goodbudget
     assert shipped.log_level == defaults.log_level
-    assert replace(shipped.gmail, queries={}, statements={}) == GmailSettings()
+    assert replace(shipped.gmail, queries={}, statements={}, alerts="") == GmailSettings()
 
 
 def test_queries_are_a_read_only_copy_of_the_config_table():

@@ -16,6 +16,7 @@ DASHBOARD_FIELDNAMES = [
     "status",
     "notes",
     "balance",
+    "time",
     "payment_mode",
     "counterparty",
     "category",
@@ -24,6 +25,7 @@ DASHBOARD_FIELDNAMES = [
     "frequency",
     "frequency_detected",
     "splitwise",
+    "reimbursement",
 ]
 
 
@@ -55,6 +57,7 @@ def export_dashboard_data(transactions: list[Transaction], output_path: str) -> 
                     "status": txn.status.value,
                     "notes": build_goodbudget_notes(txn),
                     "balance": str(txn.balance) if txn.balance is not None else "",
+                    "time": txn.time,
                     "payment_mode": txn.payment_mode,
                     "counterparty": txn.counterparty,
                     "category": txn.category or "",
@@ -63,6 +66,7 @@ def export_dashboard_data(transactions: list[Transaction], output_path: str) -> 
                     "frequency": txn.frequency,
                     "frequency_detected": "yes" if txn.frequency_detected else "",
                     "splitwise": "yes" if txn.splitwise else "",
+                    "reimbursement": txn.reimbursement,
                 }
             )
 

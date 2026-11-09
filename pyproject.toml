@@ -13,6 +13,7 @@ dependencies = [
   "numpy>=2.5.4",
   "tomli>=2.0.1",
   "msoffcrypto-tool>=5.4",
+  "pypdf>=6.0",
   "google-auth-oauthlib>=1.2",
   "requests>=2.31",
   "google-api-python-client>=2.130",

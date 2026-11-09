@@ -12,7 +12,7 @@ from datetime import date
 from decimal import Decimal
 from enum import Enum
 
-from src.utils.narration import counterparty, payment_mode
+from src.utils.narration import CARD_BANKS, card_merchant, counterparty, payment_mode
 
 
 class TransactionType(Enum):
@@ -84,6 +84,7 @@ class Transaction:
     frequency: str = ""
     frequency_detected: bool = False  # frequency was inferred from the pattern, not labelled
     splitwise: bool = False
+    reimbursement: str = ""  # "", "filed" or "reimbursed"; only meaningful for Work/* spend
     raw_data: dict | None = None
 
     # Metadata
@@ -110,12 +111,18 @@ class Transaction:
         return "".join(self.description.split())
 
     @property
+    def time(self) -> str:
+        """Time of day (HH:MM): printed on HDFC card statements, or taken from a UPI alert email; else ""."""
+        return str((self.raw_data or {}).get("time", ""))
+
+    @property
     def payment_mode(self) -> str:
         return payment_mode(self.description)
 
     @property
     def counterparty(self) -> str:
-        return counterparty(self.description)
+        named = counterparty(self.description)
+        return named or (card_merchant(self.description) if self.source_bank in CARD_BANKS else "")
 
     @property
     def signed_amount(self) -> Decimal:

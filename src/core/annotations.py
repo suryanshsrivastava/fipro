@@ -16,7 +16,7 @@ from pathlib import Path
 from src.core.recurring import detect_monthly
 from src.models.transactions import Transaction, TransactionStatus
 
-ANNOTATION_FIELDS = ("review_status", "category", "need_want", "frequency", "splitwise", "notes")
+ANNOTATION_FIELDS = ("review_status", "category", "need_want", "frequency", "splitwise", "reimbursement", "notes")
 RULE_FIELDS = ("category", "need_want", "frequency")
 SETTLEMENT_PREFIX = "Settlements"
 _TRUE = {"1", "true", "yes", "y"}
@@ -26,6 +26,7 @@ LABEL_CHOICES = {
     "need_want": ("Need", "Want"),
     "frequency": ("Monthly", "Once"),
     "splitwise": ("yes",),
+    "reimbursement": ("filed", "reimbursed"),  # Work/* spend: blank means not yet filed
 }
 _HASH = re.compile(r"[0-9a-f]{16}")
 _MAX_TEXT = 500
@@ -127,5 +128,6 @@ def apply_annotations(transactions: list[Transaction], annotations_path: str, ru
         txn.frequency = labelled or ("Monthly" if txn.frequency_detected else "")
         txn.review_status = own.get("review_status", "")
         txn.splitwise = own.get("splitwise", "").strip().lower() in _TRUE
+        txn.reimbursement = own.get("reimbursement", "")
         if own.get("notes"):
             txn.notes = own["notes"]

@@ -71,6 +71,7 @@ def test_export_dashboard_data_uses_rich_columns(tmp_path):
         "status",
         "notes",
         "balance",
+        "time",
         "payment_mode",
         "counterparty",
         "category",
@@ -79,6 +80,7 @@ def test_export_dashboard_data_uses_rich_columns(tmp_path):
         "frequency",
         "frequency_detected",
         "splitwise",
+        "reimbursement",
     ]
     assert rows[0]["source_file"] == "sample.xls"
     assert rows[0]["notes"] == "External account payment: CREDIT_CARD"
