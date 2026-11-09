@@ -52,3 +52,27 @@ def test_status_and_notes_persist_per_task_id_and_manual_tasks_are_added(tmp_pat
     except ValueError:
         return
     raise AssertionError("an unknown status must be refused")
+
+
+def test_a_subscription_that_stopped_charging_is_flagged_but_an_active_one_is_not():
+    rows = [_row(f"2026-0{m}-05", -199, category="Tech/Subscriptions", counterparty="NETFLIX") for m in (4, 5, 6)]
+    rows += [_row(f"2026-0{m}-07", -99, category="Tech/Subscriptions", counterparty="SPOTIFY") for m in (4, 5, 6, 9)]
+    rows.append(_row("2026-10-20", -10))  # the data runs to 20 Oct
+    titles = [t["title"] for t in insight_tasks(rows, [], [], TODAY) if t["id"].startswith("stopped:")]
+    assert titles == ["NETFLIX hasn't charged since 2026-06-05 (₹199)"]
+
+
+def test_a_big_payment_to_a_new_payee_is_a_one_off_but_regulars_and_settlements_are_not():
+    rows = [
+        _row("2026-09-02", -20000, counterparty="LANDLORD"),
+        _row("2026-10-02", -20000, counterparty="LANDLORD"),  # paid before: regular
+        _row("2026-10-09", -8000, counterparty="NEW SHOP", hash="abc"),
+        _row("2026-10-10", -9000, counterparty="A FRIEND", category="Settlements/Friends"),
+        _row("2026-10-11", -300, counterparty="TEA"),
+    ]
+    found = [t for t in insight_tasks(rows, [], [], TODAY) if t["id"].startswith("oneoff:")]
+    assert (
+        [t["id"] for t in found] == ["oneoff:abc"]
+        and found[0]["owner"] == "agent"
+        and "Do not change" in found[0]["prompt"]
+    )

@@ -162,6 +162,10 @@ def insight_tasks(rows: list[dict], dues: list[dict], gaps: list[tuple], today: 
             )
         )
 
+    tasks += _stopped_recurring(rows)
+    if month:
+        tasks += _big_one_offs(rows, month, repo)
+
     detected = [r for r in rows if r.get("frequency_detected") == "yes"]
     if detected:
         payees = len({r.get("counterparty") for r in detected})
@@ -175,6 +179,71 @@ def insight_tasks(rows: list[dict], dues: list[dict], gaps: list[tuple], today: 
             )
         )
     return sorted(tasks, key=lambda t: t["priority"])
+
+
+def _payee(row: dict) -> str:
+    return row.get("counterparty") or " ".join(row.get("description", "").split())[:28]
+
+
+def _stopped_recurring(rows: list[dict]) -> list[dict]:
+    """Subscriptions and monthly payments (3+ so far) with no charge for 45+ days, but charged within the last 180."""
+    newest = max((r["transaction_date"] for r in rows), default="")
+    if not newest:
+        return []
+    latest = date.fromisoformat(newest)
+    paid: dict[str, list[dict]] = defaultdict(list)
+    for r in rows:
+        recurring = "subscri" in str(r.get("category", "")).lower() or r.get("frequency") == "Monthly"
+        if recurring and _amount(r) < 0 and r.get("status") != _TRANSFER:
+            paid[_payee(r)].append(r)
+    out = []
+    for payee, items in paid.items():
+        last = max(items, key=lambda r: r["transaction_date"])
+        gap = (latest - date.fromisoformat(last["transaction_date"])).days
+        if len(items) >= 3 and 45 <= gap <= 180:
+            out.append(
+                _task(
+                    f"stopped:{payee}:{last['transaction_date']}",
+                    f"{payee} hasn't charged since {last['transaction_date']} ({_inr(-_amount(last))})",
+                    f"{len(items)} payments before that, then nothing for {gap} days. If you cancelled it, mark this done. If not, check why the charge stopped (a failed card, a changed plan).",
+                    "you",
+                    3,
+                )
+            )
+    return sorted(out, key=lambda t: t["id"])
+
+
+def _big_one_offs(rows: list[dict], month: str, repo: str) -> list[dict]:
+    """Large payments in ``month`` to a payee never paid before, so they stand out from the regular pattern."""
+    net = sum(
+        -_amount(r)
+        for r in rows
+        if r["transaction_date"].startswith(month) and _amount(r) < 0 and r.get("status") != _TRANSFER
+    )
+    floor = max(5000.0, net * 0.05)
+    seen_before = {_payee(r) for r in rows if r["transaction_date"] < f"{month}-01" and _amount(r) < 0}
+    out = []
+    for r in rows:
+        if (
+            not r["transaction_date"].startswith(month)
+            or _amount(r) >= 0
+            or r.get("status") == _TRANSFER
+            or _payee(r) in seen_before
+        ):
+            continue
+        if -_amount(r) >= floor and not str(r.get("category", "")).startswith(("Settlements", "Cash")):
+            who = _payee(r)
+            out.append(
+                _task(
+                    f"oneoff:{r.get('hash') or r['transaction_date'] + who}",
+                    f"Big one-off: {_inr(-_amount(r))} to {who} on {r['transaction_date']}",
+                    f"First payment to this payee, over {_inr(floor)} (5% of the month's spend). Category: {r.get('category') or 'none yet'}. Worth a receipt, a label and a thought about whether it recurs.",
+                    "agent",
+                    2 if not r.get("category") else 3,
+                    f"In the Fipro repo at {repo}, find the evidence for one payment: {_inr(-_amount(r))} to {who} on {r['transaction_date']} ({r.get('source_bank', '')}, time {r.get('time') or 'unknown'}). Check corpus/state/rides.csv, corpus/state/txn_times.csv and any receipt or order email for that day you can reach through the existing Gmail connector (read only). Report what it was, how sure you are and why, and a suggested category. Do not change corpus/state.",
+                )
+            )
+    return out
 
 
 def load_state(path: str) -> dict[str, dict[str, str]]:
