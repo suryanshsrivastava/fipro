@@ -488,12 +488,12 @@ function fillReview() {
     return grp;
   }) : [el('div', 'done', 'Nothing left to review for this month ✓')]));
 }
-// Months with uncategorised payees, newest first; opens on the latest month with at least 20 such rows.
+// Every month with payee rows, newest first (done months stay, marked ✓); opens on the latest month with at least 20 such rows.
 function fillReviewMonths(preferred) {
   const counts = {};
-  DATA.filter(r => r.hash && r.counterparty && !r.category && r.status !== 'internal_transfer').forEach(r => { const m = r.transaction_date.slice(0, 7); counts[m] = (counts[m] || 0) + 1; });
+  DATA.filter(r => r.hash && r.counterparty && r.status !== 'internal_transfer').forEach(r => { const m = r.transaction_date.slice(0, 7); counts[m] = (counts[m] || 0) + (r.category ? 0 : 1); });
   const months = Object.keys(counts).sort().reverse(), keep = preferred ?? $('p_month').value;
-  $('p_month').innerHTML = '<option value="">All months</option>' + months.map(m => `<option value="${m}">${m} (${counts[m]})</option>`).join('');
+  $('p_month').innerHTML = '<option value="">All months</option>' + months.map(m => `<option value="${m}">${m} ${counts[m] ? `(${counts[m]})` : '✓'}</option>`).join('');
   $('p_month').value = months.includes(keep) || keep === '' ? keep : (months.find(m => counts[m] >= 20) || '');
 }
 function openReviewTab(month) { fillReviewMonths(month); showTab('review'); }
